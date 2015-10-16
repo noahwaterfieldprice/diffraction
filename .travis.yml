@@ -4,6 +4,7 @@ python:
 install:
   - pip install pytest
   - pip install pytest-cov
+  - pip install pytest-mock
   - pip install -e .
 script:
   py.test tests

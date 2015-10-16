@@ -48,6 +48,20 @@ class TestParsingFile:
         mocker.patch("builtins.open",
                      mock.mock_open(read_data='\n'.join(contents)))
 
-        filepath = "/tmp/some_file.cif"
-        p = CIFParser(filepath)
+        p = CIFParser("/tmp/some_file.cif")
         assert p.raw_data == "Here is the only normal line"
+
+    def test_inline_declared_variables_are_assigned(self, mocker):
+        data = {
+            "field": "value",
+            "three_word_field": "four_word_name_value",
+            "field-with_hyphens-in-it": "some_value",
+            "field_four": "'value inside single quotes'",
+            "field_five": '"value inside double quotes"'
+        }
+        contents = ['_{} {}'.format(key, value) for key, value in data.items()]
+        mocker.patch("builtins.open",
+                     mock.mock_open(read_data='\n'.join(contents)))
+
+        p = CIFParser("/tmp/some_file.cif")
+        assert p.data == data
