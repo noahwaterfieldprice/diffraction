@@ -41,14 +41,15 @@ class TestParsingFile:
             "# Here is a comment on the first line",
             "# Here is another comment. The next line is blank",
             "\t\t\t\t\t",
-            "Here is the only normal line",
+            "Here is one normal line",
+            "  Here's another normal line starting with whitespace",
             '# Final comment ## with # extra hashes ### in ##'
         ]
         mocker.patch(OPEN, mock.mock_open(read_data='\n'.join(contents)))
-
+        expected_remaining_lines = contents[3:5]
         p = CIFParser("/some_directory/some_file.cif")
         p.strip_comments_and_blank_lines()
-        assert p.raw_data == "Here is the only normal line"
+        assert p.raw_data == "\n".join(expected_remaining_lines)
 
     def test_file_split_by_data_blocks(self, mocker):
         block_1 = [

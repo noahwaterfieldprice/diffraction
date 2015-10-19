@@ -11,10 +11,10 @@ def load_cif(filepath):
         pass
 
 
-COMMENT_OR_BLANK = re.compile("#.*|\s+|^$")
+COMMENT_OR_BLANK = re.compile(r"#.*|\s+$|^$")
 DATA_BLOCK_HEADING = re.compile(r"(?:\n|^)(data_\S*)\s*\n", re.IGNORECASE)
 INLINE_NAME_VALUE = re.compile("_(\S+)\s+([\S|\' \']+)")
-LOOP = re.compile("loop_\s", re.IGNORECASE)
+LOOP = re.compile(r"(?:\n|^)loop_\s*\n", re.IGNORECASE)
 DATA_NAME = re.compile("_(\S+)")
 DATA_VALUE = re.compile("(\'[^\']+\'|\"[^\"]+\"|[^\s\'\"]+)")
 
