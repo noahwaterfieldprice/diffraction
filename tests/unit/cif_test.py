@@ -2,7 +2,7 @@ from unittest import mock
 
 import pytest
 
-from diffraction.cif import load_cif, CIFParser
+from diffraction.cif import load_cif, CIFParser, DataBlock
 
 OPEN = "builtins.open"
 
@@ -16,7 +16,7 @@ class TestLoadingFile:
 
     def test_raises_warning_if_file_extension_is_not_cif(self, mocker):
         mocker.patch(OPEN)
-        non_cif_filepath = "/some_directory/some_file.notcif"
+        non_cif_filepath = "/some_directory/some_file.not_cif"
         with pytest.warns(UserWarning):
             load_cif(non_cif_filepath)
 
@@ -50,7 +50,54 @@ class TestParsingFile:
         p.strip_comments_and_blank_lines()
         assert p.raw_data == "Here is the only normal line"
 
-    def test_inline_declared_variables_are_assigned(self, mocker):
+    def test_file_split_by_data_blocks(self, mocker):
+        block_1 = [
+            "data_block_heading",
+            "_data_name_A data_value_A",
+            "_data_name_B data_value_B"
+        ]
+        block_2 = [
+            "DATA_block_2",
+            "loop_",
+            "_loop_data_name_A",
+            "loop_data_value_A1",
+            "loop_data_value_A2"
+        ]
+        block_3 = [
+            "dATa_block_the_third",
+            "_data_name_C data_value_C"
+        ]
+        contents = block_1 + block_2 + block_3
+        mocker.patch(OPEN, mock.mock_open(read_data=str("\n".join(contents))))
+
+        # generate expected output - each datablock stored in a DataBlock object
+        expected = []
+        for block in [block_1, block_2, block_3]:
+            heading, *raw_data = block
+            expected.append(DataBlock(heading, "\n".join(raw_data), {}))
+
+        p = CIFParser("/some_directory/some_file.cif")
+        p.extract_data_blocks()
+        assert p.data_blocks == expected
+
+    def test_inline_declared_variables_are_stripped_out(self):
+        contents = [
+            "_data_name_1 value",
+            "_DatA_name-two another_value",
+            "loop_",
+            "_loop_data_name_A",
+            "_loop_data_name_B",
+            "value_A1 'value A2'",
+            "value-B1 value_B2"
+            "_one_more_data_item_ one_more_data_value"
+        ]
+        data_block = DataBlock('data_block_heading', "\n".join(contents), {})
+
+        expected_remaining_data = "\n".join(contents[2:7])
+        CIFParser.extract_inline_data_items(data_block)
+        assert data_block.raw_data == expected_remaining_data
+
+    def test_inline_declared_variables_are_assigned(self):
         data_items = {
             "data_name": "value",
             "four_word_data_name": "four_word_data_value",
@@ -60,13 +107,12 @@ class TestParsingFile:
         }
         contents = ['_{} {}'.format(data_name, data_value)
                     for data_name, data_value in data_items.items()]
-        mocker.patch(OPEN, mock.mock_open(read_data='\n'.join(contents)))
+        data_block = DataBlock('data_block_heading', "\n".join(contents), {})
 
-        p = CIFParser("/some_directory/some_file.cif")
-        p.extract_inline_data_items()
-        assert p.data_items == data_items
+        CIFParser.extract_inline_data_items(data_block)
+        assert data_block.data_items == data_items
 
-    def test_variables_declared_in_loop_are_assigned(self, mocker):
+    def test_variables_declared_in_loop_are_assigned(self):
         data_items = {
             "number": ["1", "2222", "3456789"],
             "symbol": [".", "-", "_"],
@@ -81,9 +127,21 @@ class TestParsingFile:
         contents.extend('_' + data_name for data_name in data_names)
         contents.extend('{} {} {} {} {} {}'.format(
             *[data_items[data_name][i] for data_name in data_names])
-            for i in range(3))
-        mocker.patch(OPEN, mock.mock_open(read_data='\n'.join(contents)))
+                        for i in range(3))
+        data_block = DataBlock('data_block_heading', "\n".join(contents), {})
 
-        p = CIFParser("/some_directory/some_file.cif")
-        p.extract_loop_data_items()
-        assert p.data_items == data_items
+        CIFParser.extract_loop_data_items(data_block)
+        assert data_block.data_items == data_items
+
+    def test_parse_method_calls_in_correct_order(self):
+        p = mock.Mock(spec=CIFParser)
+        p.parse = CIFParser.parse
+        p.data_blocks = ["data_block_1", "data_block_2"]
+        p.parse(p)
+        expected_calls = [mock.call.strip_comments_and_blank_lines(),
+                          mock.call.extract_data_blocks(),
+                          mock.call.extract_inline_data_items("data_block_1"),
+                          mock.call.extract_loop_data_items("data_block_1"),
+                          mock.call.extract_inline_data_items("data_block_2"),
+                          mock.call.extract_loop_data_items("data_block_2")]
+        assert p.method_calls == expected_calls
