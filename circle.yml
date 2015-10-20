@@ -8,4 +8,4 @@ dependencies:
 
 test:
     override:
-      - py.test tests
+      - py.test tests --cov=diffraction --cov-report=term --verbose
