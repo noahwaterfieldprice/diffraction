@@ -9,3 +9,5 @@ dependencies:
 test:
     override:
       - py.test tests --cov=diffraction --cov-report=term --verbose
+    post:
+      - coveralls
