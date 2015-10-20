@@ -2,5 +2,5 @@ pytest
 pytest-cov
 pytest-mock
 recordclass
-coverage
+coverage==3.7.1
 python-coveralls
