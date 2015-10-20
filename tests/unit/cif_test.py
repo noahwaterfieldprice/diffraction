@@ -71,7 +71,7 @@ class TestParsingFile:
         contents = block_1 + block_2 + block_3
         mocker.patch(OPEN, mock.mock_open(read_data=str("\n".join(contents))))
 
-        # generate expected output - each datablock stored in a DataBlock object
+        # generate expected output - each data block stored in DataBlock object
         expected = []
         for block in [block_1, block_2, block_3]:
             heading, *raw_data = block
@@ -80,6 +80,64 @@ class TestParsingFile:
         p = CIFParser("/some_directory/some_file.cif")
         p.extract_data_blocks()
         assert p.data_blocks == expected
+
+    def test_semicolon_data_fields_are_assigned(self, mocker):
+        contents = [
+            "_data_name_1",
+            ";",
+            "very long semicolon text field with lots of info",
+            ";",
+            "_data_name_2 data_value_2",
+            "_data_name_3",
+            ";",
+            "semicolon text field with",
+            "two lines of text",
+            ";"
+            "_data_name_4 data_value_4"
+        ]
+        data_block = DataBlock('data_block_heading', "\n".join(contents), {})
+        semicolon_data_items = {
+            "data_name_1": "'very long semicolon text field with lots of info'",
+            "data_name_3": "'semicolon text field with two lines of text'"
+        }
+
+        CIFParser.extract_semicolon_data_items(data_block)
+        assert data_block.data_items == semicolon_data_items
+
+    def test_semicolon_data_fields_are_stripped_out(self):
+        contents = [
+            "_data_name_1 data_value_1",
+            "_data_name_2",
+            ";",
+            "semicolon text field ",
+            ";",
+            "_data_name_3 data_value_3",
+            "_data_name_4",
+            ";",
+            "semicolon text field with",
+            "two lines of text",
+            ";"
+        ]
+        data_block = DataBlock('data_block_heading', "\n".join(contents), {})
+        expected_remaining_data = "\n".join([contents[0], contents[5]])
+
+        CIFParser.extract_semicolon_data_items(data_block)
+        assert data_block.raw_data == expected_remaining_data
+
+    def test_inline_declared_variables_are_assigned(self):
+        data_items = {
+            "data_name": "value",
+            "four_word_data_name": "four_word_data_value",
+            "data_name-with_hyphens-in-it": "some_data_value",
+            "data_name_4": "'data value inside single quotes'",
+            "data_name_5": '"data value inside double quotes"'
+        }
+        contents = ['_{} {}'.format(data_name, data_value)
+                    for data_name, data_value in data_items.items()]
+        data_block = DataBlock('data_block_heading', "\n".join(contents), {})
+
+        CIFParser.extract_inline_data_items(data_block)
+        assert data_block.data_items == data_items
 
     def test_inline_declared_variables_are_stripped_out(self):
         contents = [
@@ -97,21 +155,6 @@ class TestParsingFile:
         expected_remaining_data = "\n".join(contents[2:7])
         CIFParser.extract_inline_data_items(data_block)
         assert data_block.raw_data == expected_remaining_data
-
-    def test_inline_declared_variables_are_assigned(self):
-        data_items = {
-            "data_name": "value",
-            "four_word_data_name": "four_word_data_value",
-            "data_name-with_hyphens-in-it": "some_data_value",
-            "data_name_4": "'data value inside single quotes'",
-            "data_name_5": '"data value inside double quotes"'
-        }
-        contents = ['_{} {}'.format(data_name, data_value)
-                    for data_name, data_value in data_items.items()]
-        data_block = DataBlock('data_block_heading', "\n".join(contents), {})
-
-        CIFParser.extract_inline_data_items(data_block)
-        assert data_block.data_items == data_items
 
     def test_variables_declared_in_loop_are_assigned(self):
         data_items = {
@@ -139,10 +182,14 @@ class TestParsingFile:
         p.parse = CIFParser.parse
         p.data_blocks = ["data_block_1", "data_block_2"]
         p.parse(p)
-        expected_calls = [mock.call.strip_comments_and_blank_lines(),
-                          mock.call.extract_data_blocks(),
-                          mock.call.extract_inline_data_items("data_block_1"),
-                          mock.call.extract_loop_data_items("data_block_1"),
-                          mock.call.extract_inline_data_items("data_block_2"),
-                          mock.call.extract_loop_data_items("data_block_2")]
+        expected_calls = [
+            mock.call.strip_comments_and_blank_lines(),
+            mock.call.extract_data_blocks(),
+            mock.call.extract_semicolon_data_items("data_block_1"),
+            mock.call.extract_inline_data_items("data_block_1"),
+            mock.call.extract_loop_data_items("data_block_1"),
+            mock.call.extract_semicolon_data_items("data_block_2"),
+            mock.call.extract_inline_data_items("data_block_2"),
+            mock.call.extract_loop_data_items("data_block_2")
+        ]
         assert p.method_calls == expected_calls

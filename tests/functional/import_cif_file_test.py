@@ -49,6 +49,35 @@ class TestCIFReading:
         assert data_items["chemical_name_mineral"] == "Calcite"
         assert data_items["cell_formula_units_Z"] == "6"
 
+    def test_can_load_crystal_data_from_multi_data_block_cif_file(self):
+        p = cif.CIFParser(
+            "tests/functional/static/valid_cifs/multi_data_block.cif")
+        p.parse()
+        # basic checks that correct number of data items were caught
+        assert len(p.data_blocks) == 20
+        assert p.data_blocks[0].heading == "data_CSD_CIF_ACAGUG"
+        assert p.data_blocks[11].heading == "data_CSD_CIF_AHUKOD"
+        data_items_1 = p.data_blocks[0].data_items
+        data_items_2 = p.data_blocks[11].data_items
+        assert len(data_items_1) == 39
+        assert len(data_items_2) == 41
+        # check loops operated correctly
+        assert len(data_items_1["atom_site_label"]) == 119
+        assert len(data_items_2["atom_site_label"]) == 69
+        assert data_items_1["symmetry_equiv_pos_site_id"] == ["1", "2"]
+        assert data_items_2["symmetry_equiv_pos_site_id"] == ["1", "2"]
+        # check semicolon text fields assigned correctly
+        assert data_items_1["refine_special_details"] == \
+               "'One of the water molecules is disordered over two sites.'"
+        assert data_items_2["chemical_name_systematic"] == \
+               ("'tris(bis(Ethylenedithio)tetrathiafulvalene) \n"
+                "2,5-difluoro-1,4-bis(iodoethynyl)benzene bromide'")
+        # check a few inline data items
+        assert data_items_1["journal_year"] == "2001"
+        assert data_items_1["exptl_crystal_colour"] == "'dark brown'"
+        assert data_items_2["journal_name_full"] == "'J.Mater.Chem. '"
+        assert data_items_2["cell_angle_gamma"] == "76.35(2)"
+
     @pytest.mark.parametrize("filepath", glob.glob(
         'tests/functional/static/invalid_cifs/*'))
     def test_loading_invalid_cif_file_raises_exception(self, filepath):

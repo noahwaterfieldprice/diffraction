@@ -1,7 +1,7 @@
 import re
 import warnings
-import recordclass
-
+from recordclass import recordclass
+from collections import OrderedDict
 
 def load_cif(filepath):
     if not filepath.lower().endswith('.cif'):
@@ -12,6 +12,7 @@ def load_cif(filepath):
 
 
 COMMENT_OR_BLANK = re.compile(r"#.*|\s+$|^$")
+SEMICOLON_FIELD = re.compile(r"(?:\n|^)_(\S+)\n;\n([^;]+)\n;")
 DATA_BLOCK_HEADING = re.compile(r"(?:\n|^)(data_\S*)\s*\n", re.IGNORECASE)
 INLINE_NAME_VALUE = re.compile("_(\S+)\s+([\S|\' \']+)")
 LOOP = re.compile(r"(?:\n|^)loop_\s*\n", re.IGNORECASE)
@@ -19,7 +20,7 @@ DATA_NAME = re.compile("_(\S+)")
 DATA_VALUE = re.compile("(\'[^\']+\'|\"[^\"]+\"|[^\s\'\"]+)")
 
 # mutable data structure for saving components of data blocks
-DataBlock = recordclass.recordclass("DataBlock", "heading raw_data data_items")
+DataBlock = recordclass("DataBlock", "heading raw_data data_items")
 
 
 class CIFParser:
@@ -37,7 +38,14 @@ class CIFParser:
         data_blocks = DATA_BLOCK_HEADING.split(self.raw_data)[1:]
         headings, blocks = data_blocks[::2], data_blocks[1::2]
         for heading, data in zip(headings, blocks):
-            self.data_blocks.append(DataBlock(heading, data, {}))
+            self.data_blocks.append(DataBlock(heading, data, OrderedDict()))
+
+    @staticmethod
+    def extract_semicolon_data_items(data_block):
+        data_items = SEMICOLON_FIELD.findall(data_block.raw_data)
+        for data_name, data_value in data_items:
+            data_block.data_items[data_name] = "'{}'".format(data_value)
+        data_block.raw_data = SEMICOLON_FIELD.sub("", data_block.raw_data)
 
     @staticmethod
     def extract_inline_data_items(data_block):
@@ -69,5 +77,6 @@ class CIFParser:
         self.strip_comments_and_blank_lines()
         self.extract_data_blocks()
         for data_block in self.data_blocks:
+            self.extract_semicolon_data_items(data_block)
             self.extract_inline_data_items(data_block)
             self.extract_loop_data_items(data_block)
