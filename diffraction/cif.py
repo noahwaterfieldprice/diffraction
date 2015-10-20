@@ -1,3 +1,4 @@
+import json
 import re
 import warnings
 from recordclass import recordclass
@@ -14,7 +15,7 @@ def load_cif(filepath):
 COMMENT_OR_BLANK = re.compile(r"#.*|\s+$|^$")
 SEMICOLON_FIELD = re.compile(r"(?:\n|^)_(\S+)\n;\n([^;]+)\n;")
 DATA_BLOCK_HEADING = re.compile(r"(?:\n|^)(data_\S*)\s*\n", re.IGNORECASE)
-INLINE_NAME_VALUE = re.compile("_(\S+)\s+([\S|\' \']+)")
+INLINE_NAME_VALUE = re.compile("_(\S+)\s+([\S|\' ]+)")
 LOOP = re.compile(r"(?:\n|^)loop_\s*\n", re.IGNORECASE)
 DATA_NAME = re.compile("_(\S+)")
 DATA_VALUE = re.compile("(\'[^\']+\'|\"[^\"]+\"|[^\s\'\"]+)")
@@ -38,7 +39,7 @@ class CIFParser:
         data_blocks = DATA_BLOCK_HEADING.split(self.raw_data)[1:]
         headings, blocks = data_blocks[::2], data_blocks[1::2]
         for heading, data in zip(headings, blocks):
-            self.data_blocks.append(DataBlock(heading, data, OrderedDict()))
+            self.data_blocks.append(DataBlock(heading, data, {}))
 
     @staticmethod
     def extract_semicolon_data_items(data_block):
@@ -63,15 +64,15 @@ class CIFParser:
     @staticmethod
     def extract_loop_data_items(data_block):
         loops = LOOP.split(data_block.raw_data)[1:]
-        for loop in loops:
+        for i, loop in enumerate(loops):
             data_names = DATA_NAME.findall(loop)
-            data_block.data_items.update(
-                {data_name: [] for data_name in data_names})
+            loop_data_items = {data_name: [] for data_name in data_names}
             data_value_lines = loop.split("\n")[len(data_names):]
             for line in data_value_lines:
                 data_values = DATA_VALUE.findall(line)
                 for data_name, data_value in zip(data_names, data_values):
-                    data_block.data_items[data_name].append(data_value)
+                    loop_data_items[data_name].append(data_value)
+            data_block.data_items["loop_{}".format(i + 1)] = loop_data_items
 
     def parse(self):
         self.strip_comments_and_blank_lines()
@@ -80,3 +81,12 @@ class CIFParser:
             self.extract_semicolon_data_items(data_block)
             self.extract_inline_data_items(data_block)
             self.extract_loop_data_items(data_block)
+
+    def save(self, filepath):
+        with open(filepath, 'w') as f:
+            json_data = OrderedDict()
+            json_data.keys()
+            for data_block in self.data_blocks:
+                json_data[data_block.heading] = OrderedDict(
+                    sorted(data_block.data_items.items()))
+            f.write(json.dumps(json_data, indent=4))

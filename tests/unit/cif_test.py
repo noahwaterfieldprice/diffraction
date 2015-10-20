@@ -1,3 +1,6 @@
+import os
+import json
+from collections import OrderedDict
 from unittest import mock
 
 import pytest
@@ -47,6 +50,7 @@ class TestParsingFile:
         ]
         mocker.patch(OPEN, mock.mock_open(read_data='\n'.join(contents)))
         expected_remaining_lines = contents[3:5]
+
         p = CIFParser("/some_directory/some_file.cif")
         p.strip_comments_and_blank_lines()
         assert p.raw_data == "\n".join(expected_remaining_lines)
@@ -70,7 +74,6 @@ class TestParsingFile:
         ]
         contents = block_1 + block_2 + block_3
         mocker.patch(OPEN, mock.mock_open(read_data=str("\n".join(contents))))
-
         # generate expected output - each data block stored in DataBlock object
         expected = []
         for block in [block_1, block_2, block_3]:
@@ -81,7 +84,7 @@ class TestParsingFile:
         p.extract_data_blocks()
         assert p.data_blocks == expected
 
-    def test_semicolon_data_fields_are_assigned(self, mocker):
+    def test_semicolon_data_fields_are_assigned(self):
         contents = [
             "_data_name_1",
             ";",
@@ -98,7 +101,7 @@ class TestParsingFile:
         data_block = DataBlock('data_block_heading', "\n".join(contents), {})
         semicolon_data_items = {
             "data_name_1": "'very long semicolon text field with lots of info'",
-            "data_name_3": "'semicolon text field with two lines of text'"
+            "data_name_3": "'semicolon text field with\ntwo lines of text'"
         }
 
         CIFParser.extract_semicolon_data_items(data_block)
@@ -173,9 +176,9 @@ class TestParsingFile:
             *[data_items[data_name][i] for data_name in data_names])
                         for i in range(3))
         data_block = DataBlock('data_block_heading', "\n".join(contents), {})
-
         CIFParser.extract_loop_data_items(data_block)
-        assert data_block.data_items == data_items
+
+        assert data_block.data_items['loop_1'] == data_items
 
     def test_parse_method_calls_in_correct_order(self):
         p = mock.Mock(spec=CIFParser)
@@ -192,4 +195,53 @@ class TestParsingFile:
             mock.call.extract_inline_data_items("data_block_2"),
             mock.call.extract_loop_data_items("data_block_2")
         ]
+
         assert p.method_calls == expected_calls
+
+
+class TestSavingFile:
+    data_items_1 = {"data_name_1": "data_value_1",
+                    "data_name_2": "data_value_2",
+                    "loop_1": {"loop_data_name_A": ["A1", "A2", "A3"],
+                               "loop_data_name_B": ["B1", "B2", "B3"]
+                               },
+                    "loop_2": {"loop_data_name_A": ["A1", "A2", "A3"],
+                               "loop_data_name_C": ["C1", "C2", "C3"]
+                               },
+                    }
+    data_items_2 = {"data_name_1": "data_value_1",
+                    "data_name_3": "data_value_3",
+                    }
+
+    example_data_blocks = [DataBlock("data_block_1", "", data_items_1),
+                           DataBlock("data_block_2", "", data_items_2)]
+
+    def test_data_written_as_valid_json(self, mocker):
+        m = mocker.patch(OPEN, mock.mock_open())
+        filepath = "some_directory/some_file.json"
+        p = mock.Mock(spec=CIFParser)
+        p.save = CIFParser.save
+        p.data_blocks = self.example_data_blocks
+
+        p.save(p, filepath)
+        # test correct file is written to exactly once
+        open.assert_called_with(filepath, "w")
+        assert m().write.call_count == 1
+        # test content is valid json
+        write_call_json = m().write.call_args[0][0]
+        assert json.loads(write_call_json)
+
+    def test_contents_are_sorted_and_stored_correctly(self, tmpdir):
+        filepath = str(tmpdir.join("temp.json"))
+        p = mock.Mock(spec=CIFParser)
+        p.save = CIFParser.save
+        p.data_blocks = self.example_data_blocks
+        p.save(p, filepath)
+
+        with open(filepath, 'r') as json_file:
+            data = json.load(json_file, object_pairs_hook=OrderedDict)
+        assert list(data.keys()) == ["data_block_1", "data_block_2"]
+        assert data["data_block_1"] == OrderedDict(
+            sorted(self.data_items_1.items()))
+        assert data["data_block_2"] == OrderedDict(
+            sorted(self.data_items_2.items()))
