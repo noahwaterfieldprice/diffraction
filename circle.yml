@@ -8,6 +8,6 @@ dependencies:
 
 test:
     override:
-      - py.test --cov=diffraction --cov-report=term-missing --verbose tests
+      - py.test tests
     post:
       - coveralls
