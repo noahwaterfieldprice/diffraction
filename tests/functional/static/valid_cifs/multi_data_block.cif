@@ -1,7 +1,8 @@
 ###########################################################################
 #
 #                 Cambridge Crystallographic Data Centre
-#                                CCDC #
+#                                CCDC
+#
 ###########################################################################
 #
 #  This CIF contains data generated directly from one or more entries in
