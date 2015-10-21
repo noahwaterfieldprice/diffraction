@@ -4,7 +4,6 @@ import warnings
 from recordclass import recordclass
 from collections import OrderedDict
 
-
 def load_cif(filepath):
     if not filepath.lower().endswith('.cif'):
         warnings.warn(("No .cif file extension detected. Assuming the filetype"
@@ -12,13 +11,11 @@ def load_cif(filepath):
     with open(filepath, "r") as f:
         pass
 
-
 # Regular expressions used for parsing.
-
 LINE = re.compile("([^\n]+)")
 COMMENT_OR_BLANK = re.compile("#.*|\s+$|^$")
 DATA_BLOCK_HEADING = re.compile(r"(?:^|\n)(data_\S*)\s*", re.IGNORECASE)
-LOOP = re.compile(r"(?:^|\n)loop_\s*\n", re.IGNORECASE)
+LOOP = re.compile(r"(?:^|\n)loop_\s*", re.IGNORECASE)
 DATA_NAME = re.compile(r"_(\S+)")
 DATA_VALUE = re.compile(r"(\'[^\']+\'|\"[^\"]+\"|[^\s_][^\s\'\"]*)")
 SEMICOLON_DATA_ITEM = re.compile(
@@ -43,15 +40,45 @@ class CIFParser:
     def error(self, message=None):
         raise CIFParseError(message)
 
-    def validate(self):
+    def validate(self):  # TODO refactor this bigtime
         lines = (line.group() for line in re.finditer(LINE, self.raw_data))
-        while True:
-            line = next(lines)
-            if (COMMENT_OR_BLANK.match(line) or INLINE_DATA_ITEM.match(line) or
-                    DATA_BLOCK_HEADING.match(line)):
-                continue
-            if DATA_VALUE.match(line.lstrip()):
-                self.error()
+        try:
+            while True:
+                line = next(lines)
+                if (COMMENT_OR_BLANK.match(line) or
+                        INLINE_DATA_ITEM.match(line) or
+                        DATA_BLOCK_HEADING.match(line)):
+                    continue
+                elif LOOP.match(line):
+                    loop_data_names = 0
+                    while True:
+                        loop_line = next(lines)
+                        while DATA_NAME.match(loop_line):
+                            loop_data_names += 1
+                            loop_line = next(lines)
+                        loop_data_values_row = re.compile(
+                            "\s+".join([DATA_VALUE.pattern] * loop_data_names))
+                        while loop_data_values_row.match(loop_line):
+                            loop_line = next(lines)
+                        break
+                    line = loop_line
+                    continue
+                elif DATA_VALUE.match(line.lstrip()):
+                    self.error("Error: line = {}".format(line))
+                elif DATA_NAME.match(line):
+                    next_line = next(lines)
+                    if next_line.startswith(";"):
+                        text_field_line = next(lines)
+                        while not re.match("[^;]+", text_field_line):
+                            text_field_line = next(lines)
+                        # skip semicolon
+                        next(lines)
+                        line = next(lines)
+                    else:
+                        self.error("Error: line = {}".format(line))
+
+        except StopIteration:
+            print("FILE READ")
 
     def strip_comments_and_blank_lines(self):
         lines = self.raw_data.split("\n")

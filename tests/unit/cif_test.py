@@ -258,6 +258,30 @@ class TestReadingExceptions:
             p.error(p, message)
         assert str(exception_info.value) == message
 
+    def test_validation_returns_true_when_no_exception_raised(self, mocker):
+        contents = [
+            "# some comment",
+            "# another comment - next line blank"
+            "                      ",
+            "data_block_heading_1",
+            "_data_name_1 value",
+            "_DatA_name-two another_value",
+            "loop_",
+            "_loop_data_name_A",
+            "_loop_data_name_B",
+            "value_A1 'value A2'",
+            "value-B1 value_B2",
+            "_one_more_data_item_ one_more_data_value",
+            "_data_name_4",
+            ";",
+            "semicolon text field with",
+            "two lines of text",
+            ";"
+        ]
+        mocker.patch(OPEN, mock.mock_open(read_data='\n'.join(contents)))
+        p = CIFParser("some_directory/valid_cif_file.cif")
+        p.validate()
+
     @pytest.mark.parametrize("invalid_line", ["value_with_missing_data_name",
                                               "  starting_with_whitespace",
                                               "'in single quotes'",
@@ -271,6 +295,19 @@ class TestReadingExceptions:
             "_data_name_2 value_2",
         ]
         contents.insert(3, invalid_line)
+        mocker.patch(OPEN, mock.mock_open(read_data='\n'.join(contents)))
+        p = CIFParser("some_directory/missing_inline_data_name.cif")
+        with pytest.raises(CIFParseError):
+            p.validate()
+
+    def test_error_if_missing_inline_data_value(self, mocker):
+        contents = [
+            "# some comment",
+            "# another comment - next line blank"
+            "                      ",
+            "_data_name_1 ",
+            "_data_name_2 value_2"
+        ]
         mocker.patch(OPEN, mock.mock_open(read_data='\n'.join(contents)))
         p = CIFParser("some_directory/missing_inline_data_name.cif")
         with pytest.raises(CIFParseError):
