@@ -13,18 +13,20 @@ def load_cif(filepath):
         pass
 
 
+# Regular expressions used for parsing.
+
 LINE = re.compile("([^\n]+)")
 COMMENT_OR_BLANK = re.compile("#.*|\s+$|^$")
-DATA_BLOCK_HEADING = re.compile("(?:\n|^)(data_\S*)\s*\n", re.IGNORECASE)
-LOOP = re.compile("(?:\n|^)loop_\s*\n", re.IGNORECASE)
-DATA_NAME = re.compile("_(\S+)")
-DATA_VALUE = re.compile("(\'[^\']+\'|\"[^\"]+\"|[^\s\'\"]+)")
-SEMICOLON_DATA_ITEM = re.compile(r"(?:\n|^)_(\S+)\n;\n([^;]+)\n;")
-INLINE_DATA_ITEM = re.compile("(?:\n|^)" + DATA_NAME.pattern +
-                              r"[^\S\n]+" + DATA_VALUE.pattern)
+DATA_BLOCK_HEADING = re.compile(r"(?:^|\n)(data_\S*)\s*", re.IGNORECASE)
+LOOP = re.compile(r"(?:^|\n)loop_\s*\n", re.IGNORECASE)
+DATA_NAME = re.compile(r"_(\S+)")
+DATA_VALUE = re.compile(r"(\'[^\']+\'|\"[^\"]+\"|[^\s_][^\s\'\"]*)")
+SEMICOLON_DATA_ITEM = re.compile(
+    "(?:^|\n)" + DATA_NAME.pattern + "\n;\n([^;]+)\n;")
+INLINE_DATA_ITEM = re.compile(
+    "(?:^|\n)" + DATA_NAME.pattern + r"[^\S\n]+" + DATA_VALUE.pattern)
 
-
-# mutable data structure for saving components of data blocks
+# Mutable data structure for saving components of data blocks.
 DataBlock = recordclass("DataBlock", "heading raw_data data_items")
 
 
@@ -38,11 +40,18 @@ class CIFParser:
             self.raw_data = cif_file.read()
         self.data_blocks = []
 
-    def error(self, message):
+    def error(self, message=None):
         raise CIFParseError(message)
 
     def validate(self):
-        pass
+        lines = (line.group() for line in re.finditer(LINE, self.raw_data))
+        while True:
+            line = next(lines)
+            if (COMMENT_OR_BLANK.match(line) or INLINE_DATA_ITEM.match(line) or
+                    DATA_BLOCK_HEADING.match(line)):
+                continue
+            if DATA_VALUE.match(line.lstrip()):
+                self.error()
 
     def strip_comments_and_blank_lines(self):
         lines = self.raw_data.split("\n")

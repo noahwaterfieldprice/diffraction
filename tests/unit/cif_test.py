@@ -43,14 +43,15 @@ class TestParsingFile:
     def test_comments_and_blank_lines_are_stripped_out(self, mocker):
         contents = [
             "# Here is a comment on the first line",
-            "# Here is another comment. The next line is blank",
+            "# Here is another comment. The next line is just whitespace",
             "\t\t\t\t\t",
-            "Here is one normal line",
+            "",
+            "Here is one normal line. Previous line was blank",
             "  Here's another normal line starting with whitespace",
             '# Final comment ## with # extra hashes ### in ##'
         ]
         mocker.patch(OPEN, mock.mock_open(read_data='\n'.join(contents)))
-        expected_remaining_lines = contents[3:5]
+        expected_remaining_lines = contents[4:6]
 
         p = CIFParser("/some_directory/some_file.cif")
         p.strip_comments_and_blank_lines()
@@ -157,14 +158,13 @@ class TestParsingFile:
         data_block = DataBlock('data_block_heading', "\n".join(contents), {})
 
         expected_remaining_data = "\n" + "\n".join(contents[2:7])
-        print(expected_remaining_data)
         CIFParser.extract_data_items(data_block, INLINE_DATA_ITEM)
         assert data_block.raw_data == expected_remaining_data
 
     def test_variables_declared_in_loop_are_assigned(self):
         data_items = {
             "number": ["1", "2222", "3456789"],
-            "symbol": [".", "-", "_"],
+            "symbol": [".", "-", "?"],
             "number_and_symbol": ["-1.0", "2.0(3)", "3.0e10"],
             "letter": ["a", "bbb", "cdefghi"],
             "single_quotes": ["'x y z'", "'s = 3.2(3)'", "'x -y+2/3 z-0.876'"],
@@ -252,26 +252,25 @@ class TestSavingFile:
 class TestReadingExceptions:
     def test_error_throws_correct_exception_with_message(self):
         message = "Oh no! An exception has been raised...."
-        with pytest.raises(CIFParseError) as excinfo:
+        with pytest.raises(CIFParseError) as exception_info:
             p = mock.Mock(spec=CIFParser)
             p.error = CIFParser.error
             p.error(p, message)
-        assert str(excinfo.value) == message
+        assert str(exception_info.value) == message
 
-    def test_error_if_missing_inline_data_name(self, mocker):
+    @pytest.mark.parametrize("invalid_line", ["value_with_missing_data_name",
+                                              "  starting_with_whitespace",
+                                              "'in single quotes'",
+                                              '"in double quotes"'])
+    def test_error_if_missing_inline_data_name(self, mocker, invalid_line):
         contents = [
             "# some comment",
             "# another comment - next line blank"
             "                      ",
-            "_data_name_1 value",
-            "value_with_missing_data_name",
-            "loop_",
-            "_loop_data_name_A",
-            "_loop_data_name_B",
-            "value_A1 'value A2'",
-            "value-B1 value_B2",
-            "  data_value_with_missing_name_starting_with_whitespace"
+            "_data_name_1 value_1",
+            "_data_name_2 value_2",
         ]
+        contents.insert(3, invalid_line)
         mocker.patch(OPEN, mock.mock_open(read_data='\n'.join(contents)))
         p = CIFParser("some_directory/missing_inline_data_name.cif")
         with pytest.raises(CIFParseError):
