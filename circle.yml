@@ -13,6 +13,6 @@ dependencies:
 
 test:
     override:
-      - py.test --cov-config .coveragerc --cov-report html --cov diffraction
+      - py.test tests
     post:
       - coveralls
