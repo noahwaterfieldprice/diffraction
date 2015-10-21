@@ -10,4 +10,5 @@ test:
     override:
       - py.test tests
     post:
+      - coverage run -m py.test tests
       - coveralls
