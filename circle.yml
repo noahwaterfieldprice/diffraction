@@ -5,6 +5,7 @@ machine:
 general:
   artifacts:
     - "htmlcov/*"
+    - "pytest_report.html"
 
 dependencies:
   pre:

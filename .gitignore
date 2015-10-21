@@ -16,6 +16,7 @@ __pycache__/
 
 # py.test / coverage files
 .cache
+pytest_report.html
 .coverage
 .coverage.*
 htmlcov/
