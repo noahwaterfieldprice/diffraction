@@ -85,8 +85,8 @@ class TestCIFReading:
     @pytest.mark.parametrize("filepath", glob.glob(
         'tests/functional/static/invalid_cifs/*'))
     def test_loading_invalid_cif_file_raises_exception(self, filepath):
-        with pytest.raises(CIFParseError):
-            load_cif(filepath)
+        with pytest.raises(cif.CIFParseError):
+            cif.load_cif(filepath)
 
 
 class TestCreatingCrystal:
