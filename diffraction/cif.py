@@ -4,6 +4,7 @@ import warnings
 from recordclass import recordclass
 from collections import OrderedDict
 
+
 def load_cif(filepath):
     if not filepath.lower().endswith('.cif'):
         warnings.warn(("No .cif file extension detected. Assuming the filetype"
@@ -12,16 +13,23 @@ def load_cif(filepath):
         pass
 
 
-COMMENT_OR_BLANK = re.compile(r"#.*|\s+$|^$")
-SEMICOLON_FIELD = re.compile(r"(?:\n|^)_(\S+)\n;\n([^;]+)\n;")
-DATA_BLOCK_HEADING = re.compile(r"(?:\n|^)(data_\S*)\s*\n", re.IGNORECASE)
-INLINE_NAME_VALUE = re.compile("_(\S+)\s+([\S|\' ]+)")
-LOOP = re.compile(r"(?:\n|^)loop_\s*\n", re.IGNORECASE)
+LINE = re.compile("([^\n]+)")
+COMMENT_OR_BLANK = re.compile("#.*|\s+$|^$")
+DATA_BLOCK_HEADING = re.compile("(?:\n|^)(data_\S*)\s*\n", re.IGNORECASE)
+LOOP = re.compile("(?:\n|^)loop_\s*\n", re.IGNORECASE)
 DATA_NAME = re.compile("_(\S+)")
 DATA_VALUE = re.compile("(\'[^\']+\'|\"[^\"]+\"|[^\s\'\"]+)")
+SEMICOLON_DATA_ITEM = re.compile(r"(?:\n|^)_(\S+)\n;\n([^;]+)\n;")
+INLINE_DATA_ITEM = re.compile("(?:\n|^)" + DATA_NAME.pattern +
+                              r"[^\S\n]+" + DATA_VALUE.pattern)
+
 
 # mutable data structure for saving components of data blocks
 DataBlock = recordclass("DataBlock", "heading raw_data data_items")
+
+
+class CIFParseError(Exception):
+    pass
 
 
 class CIFParser:
@@ -29,6 +37,19 @@ class CIFParser:
         with open(filepath, "r") as cif_file:
             self.raw_data = cif_file.read()
         self.data_blocks = []
+
+    def error(self, message):
+        raise CIFParseError(message)
+
+    def validate(self):
+        lines = (line.group(0) for line in LINE.finditer(self.raw_data))
+        while True:
+            line = next(lines)
+            print(line)
+            if COMMENT_OR_BLANK.match(line):
+                continue
+            if LOOP.match(line):
+                print("LOOOOOOOOP")
 
     def strip_comments_and_blank_lines(self):
         lines = self.raw_data.split("\n")
@@ -42,24 +63,13 @@ class CIFParser:
             self.data_blocks.append(DataBlock(heading, data, {}))
 
     @staticmethod
-    def extract_semicolon_data_items(data_block):
-        data_items = SEMICOLON_FIELD.findall(data_block.raw_data)
+    def extract_data_items(data_block, pattern):
+        data_items = pattern.findall(data_block.raw_data)
         for data_name, data_value in data_items:
-            data_block.data_items[data_name] = "'{}'".format(data_value)
-        data_block.raw_data = SEMICOLON_FIELD.sub("", data_block.raw_data)
-
-    @staticmethod
-    def extract_inline_data_items(data_block):
-        lines = data_block.raw_data.split("\n")
-        keep = []
-        for line in lines:
-            matches = INLINE_NAME_VALUE.match(line)
-            if matches:
-                data_name, data_value = matches.groups()
-                data_block.data_items[data_name] = data_value
-            else:
-                keep.append(line)
-        data_block.raw_data = "\n".join(keep)
+            if pattern is SEMICOLON_DATA_ITEM:
+                data_value = "'{}'".format(data_value)
+            data_block.data_items[data_name] = data_value
+        data_block.raw_data = pattern.sub("", data_block.raw_data)
 
     @staticmethod
     def extract_loop_data_items(data_block):
@@ -78,8 +88,8 @@ class CIFParser:
         self.strip_comments_and_blank_lines()
         self.extract_data_blocks()
         for data_block in self.data_blocks:
-            self.extract_semicolon_data_items(data_block)
-            self.extract_inline_data_items(data_block)
+            self.extract_data_items(data_block, SEMICOLON_DATA_ITEM)
+            self.extract_data_items(data_block, INLINE_DATA_ITEM)
             self.extract_loop_data_items(data_block)
 
     def save(self, filepath):
