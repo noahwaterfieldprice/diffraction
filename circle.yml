@@ -16,6 +16,6 @@ dependencies:
 
 test:
     override:
-      - py.test tests
+      - py.test tests --junitxml=$CIRCLE_TEST_REPORTS/report.xml
     post:
       - coveralls
