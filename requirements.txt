@@ -1,7 +1,1 @@
-pytest
-pytest-cov
-pytest-mock
-pytest-pep8
-recordclass
-coverage==3.7.1
-python-coveralls
+recordclass==0.4
