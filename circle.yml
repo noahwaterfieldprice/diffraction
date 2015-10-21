@@ -2,13 +2,17 @@ machine:
   python:
     version: 3.5.0
 
+general:
+  artifacts:
+    - "htmlcov/*"
+
+
 dependencies:
   pre:
     - pip install -e .
 
 test:
     override:
-      - py.test tests
+      - py.test --cov-config .coveragerc --cov-report html --cov diffraction
     post:
-      - coverage run -m py.test tests
       - coveralls

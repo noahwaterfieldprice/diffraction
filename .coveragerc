@@ -1,0 +1,8 @@
+[run]
+omit =
+    setup.py
+    tests/*
+    example_libraries/*
+
+[html]
+directory = htmlcov

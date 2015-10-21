@@ -89,7 +89,7 @@ class TestParsingFile:
         contents = [
             "_data_name_1",
             ";",
-            "very long semicolon text field with lots of info",
+            "very long semicolon text field with many words",
             ";",
             "_data_name_2 data_value_2",
             "_data_name_3",
@@ -101,7 +101,7 @@ class TestParsingFile:
         ]
         data_block = DataBlock('data_block_heading', "\n".join(contents), {})
         semicolon_data_items = {
-            "data_name_1": "'very long semicolon text field with lots of info'",
+            "data_name_1": "'very long semicolon text field with many words'",
             "data_name_3": "'semicolon text field with\ntwo lines of text'"
         }
 
@@ -167,7 +167,7 @@ class TestParsingFile:
             "symbol": [".", "-", "_"],
             "number_and_symbol": ["-1.0", "2.0(3)", "3.0e10"],
             "letter": ["a", "bbb", "cdefghi"],
-            "single_quotes": ["'x y z'", "'s = 3.2(3)'", "'x -y+2/3 z-0.8796'"],
+            "single_quotes": ["'x y z'", "'s = 3.2(3)'", "'x -y+2/3 z-0.876'"],
             "double_quotes": ['"a b c"', '"s = 4.6(1)"', '"x-1/3 y+0.34 -z"']
         }
         # convert the data items into corresponding CIF input

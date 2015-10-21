@@ -42,14 +42,7 @@ class CIFParser:
         raise CIFParseError(message)
 
     def validate(self):
-        lines = (line.group(0) for line in LINE.finditer(self.raw_data))
-        while True:
-            line = next(lines)
-            print(line)
-            if COMMENT_OR_BLANK.match(line):
-                continue
-            if LOOP.match(line):
-                print("LOOOOOOOOP")
+        pass
 
     def strip_comments_and_blank_lines(self):
         lines = self.raw_data.split("\n")
