@@ -5,8 +5,8 @@ from unittest import mock
 
 import pytest
 
-from diffraction.cif import load_cif, CIFParseError, CIFParser, DataBlock, \
-    SEMICOLON_DATA_ITEM, INLINE_DATA_ITEM
+from diffraction.cif import load_cif, CIFParseError, CIFParser, CIFValidator, \
+    DataBlock, SEMICOLON_DATA_ITEM, INLINE_DATA_ITEM
 
 OPEN = "builtins.open"
 
@@ -86,7 +86,7 @@ class TestParsingFile:
         p.extract_data_blocks()
         assert p.data_blocks == expected
 
-    def test_semicolon_data_fields_are_assigned(self):
+    def test_semicolon_data_items_are_assigned(self):
         contents = [
             "_data_name_1",
             ";",
@@ -109,7 +109,7 @@ class TestParsingFile:
         CIFParser.extract_data_items(data_block, SEMICOLON_DATA_ITEM)
         assert data_block.data_items == semicolon_data_items
 
-    def test_semicolon_data_fields_are_stripped_out(self):
+    def test_semicolon_data_items_are_stripped_out(self):
         contents = [
             "_data_name_1 data_value_1",
             "_data_name_2",
@@ -176,7 +176,7 @@ class TestParsingFile:
         contents.extend('_' + data_name for data_name in data_names)
         contents.extend('{} {} {} {} {} {}'.format(
             *[data_items[data_name][i] for data_name in data_names])
-                        for i in range(3))
+            for i in range(3))
         data_block = DataBlock('data_block_heading', "\n".join(contents), {})
         CIFParser.extract_loop_data_items(data_block)
 
@@ -253,10 +253,11 @@ class TestReadingExceptions:
     def test_error_throws_correct_exception_with_message(self):
         message = "Oh no! An exception has been raised...."
         with pytest.raises(CIFParseError) as exception_info:
-            p = mock.Mock(spec=CIFParser)
-            p.error = CIFParser.error
-            p.error(p, message)
-        assert str(exception_info.value) == message
+            v = mock.Mock(spec=CIFValidator)
+            v.error = CIFValidator.error
+            v.error(v, message, 1, "Erroneous line")
+        assert str(exception_info.value) == \
+               '{} on line 1: "Erroneous line"'.format(message)
 
     def test_validation_returns_true_when_no_exception_raised(self, mocker):
         contents = [
@@ -297,8 +298,10 @@ class TestReadingExceptions:
         contents.insert(3, invalid_line)
         mocker.patch(OPEN, mock.mock_open(read_data='\n'.join(contents)))
         p = CIFParser("some_directory/missing_inline_data_name.cif")
-        with pytest.raises(CIFParseError):
+        with pytest.raises(CIFParseError) as exception_info:
             p.validate()
+        assert str(exception_info.value) == \
+            'Missing inline data name on line 4: "{}"'.format(invalid_line)
 
     def test_error_if_missing_inline_data_value(self, mocker):
         contents = [
@@ -310,5 +313,7 @@ class TestReadingExceptions:
         ]
         mocker.patch(OPEN, mock.mock_open(read_data='\n'.join(contents)))
         p = CIFParser("some_directory/missing_inline_data_name.cif")
-        with pytest.raises(CIFParseError):
+        with pytest.raises(CIFParseError) as exception_info:
             p.validate()
+        assert str(exception_info.value) == \
+            'Missing inline data value on line 3: "_data_name_1 "'
