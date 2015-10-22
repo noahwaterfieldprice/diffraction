@@ -176,7 +176,7 @@ class TestParsingFile:
         contents.extend('_' + data_name for data_name in data_names)
         contents.extend('{} {} {} {} {} {}'.format(
             *[data_items[data_name][i] for data_name in data_names])
-            for i in range(3))
+                for i in range(3))
         data_block = DataBlock('data_block_heading', "\n".join(contents), {})
         CIFParser.extract_loop_data_items(data_block)
 
