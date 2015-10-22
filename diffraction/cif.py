@@ -1,8 +1,9 @@
 import json
 import re
 import warnings
-from recordclass import recordclass
 from collections import OrderedDict
+from recordclass import recordclass
+
 
 def load_cif(filepath):
     if not filepath.lower().endswith('.cif'):
@@ -18,6 +19,7 @@ DATA_BLOCK_HEADING = re.compile(r"(?:^|\n)(data_\S*)\s*", re.IGNORECASE)
 LOOP = re.compile(r"(?:^|\n)loop_\s*", re.IGNORECASE)
 DATA_NAME = re.compile(r"_(\S+)")
 DATA_VALUE = re.compile(r"(\'[^\']+\'|\"[^\"]+\"|[^\s_][^\s\'\"]*)")
+TEXT_FIELD = re.compile(r"[^;]+")
 SEMICOLON_DATA_ITEM = re.compile(
     "(?:^|\n)" + DATA_NAME.pattern + "\n;\n([^;]+)\n;")
 INLINE_DATA_ITEM = re.compile(
@@ -27,58 +29,18 @@ INLINE_DATA_ITEM = re.compile(
 DataBlock = recordclass("DataBlock", "heading raw_data data_items")
 
 
-class CIFParseError(Exception):
-    pass
-
-
 class CIFParser:
     def __init__(self, filepath):
         with open(filepath, "r") as cif_file:
             self.raw_data = cif_file.read()
         self.data_blocks = []
 
-    def error(self, message=None):
-        raise CIFParseError(message)
-
-    def validate(self):  # TODO refactor this bigtime
-        lines = (line.group() for line in re.finditer(LINE, self.raw_data))
+    def validate(self):
+        validator = CIFValidator(self.raw_data)
         try:
-            while True:
-                line = next(lines)
-                if (COMMENT_OR_BLANK.match(line) or
-                        INLINE_DATA_ITEM.match(line) or
-                        DATA_BLOCK_HEADING.match(line)):
-                    continue
-                elif LOOP.match(line):
-                    loop_data_names = 0
-                    while True:
-                        loop_line = next(lines)
-                        while DATA_NAME.match(loop_line):
-                            loop_data_names += 1
-                            loop_line = next(lines)
-                        loop_data_values_row = re.compile(
-                            "\s+".join([DATA_VALUE.pattern] * loop_data_names))
-                        while loop_data_values_row.match(loop_line):
-                            loop_line = next(lines)
-                        break
-                    line = loop_line
-                    continue
-                elif DATA_VALUE.match(line.lstrip()):
-                    self.error("Error: line = {}".format(line))
-                elif DATA_NAME.match(line):
-                    next_line = next(lines)
-                    if next_line.startswith(";"):
-                        text_field_line = next(lines)
-                        while not re.match("[^;]+", text_field_line):
-                            text_field_line = next(lines)
-                        # skip semicolon
-                        next(lines)
-                        line = next(lines)
-                    else:
-                        self.error("Error: line = {}".format(line))
-
+            validator.validate()
         except StopIteration:
-            print("FILE READ")
+            pass
 
     def strip_comments_and_blank_lines(self):
         lines = self.raw_data.split("\n")
@@ -129,3 +91,63 @@ class CIFParser:
                 json_data[data_block.heading] = OrderedDict(
                     sorted(data_block.data_items.items()))
             f.write(json.dumps(json_data, indent=4))
+
+
+class CIFParseError(Exception):
+    """Exception raised for all parse errors."""
+
+
+class CIFValidator:
+    def __init__(self, raw_data):
+        self.raw_data = raw_data
+        self.lines = (line.group(0) for line in LINE.finditer(self.raw_data))
+        self.line_number = 0
+        self.current_line = ""
+
+    def error(self, message=None, line_number=None, line=None):
+        if line_number is None:
+            line_number, line = self.line_number, self.current_line
+        raise CIFParseError('{} on line {}: "{}"'.format(
+            message, line_number, line))
+
+    def next_line(self):
+        self.current_line = next(self.lines)
+        self.line_number += 1
+
+    def validate(self):
+        while True:
+            self.next_line()
+            if (COMMENT_OR_BLANK.match(self.current_line) or
+                    INLINE_DATA_ITEM.match(self.current_line) or
+                    DATA_BLOCK_HEADING.match(self.current_line)):
+                continue
+            elif LOOP.match(self.current_line):
+                self.validate_loop()
+                continue
+            elif DATA_VALUE.match(self.current_line.lstrip()):
+                self.error("Missing inline data name")
+            elif DATA_NAME.match(self.current_line):
+                err_line_number, err_line = self.line_number, self.current_line
+                self.next_line()
+                if self.current_line.startswith(";"):
+                    self.validate_semicolon_data_item()
+                else:
+                    self.error("Missing inline data value", err_line_number, err_line)
+
+    def validate_loop(self):
+        loop_data_names = 0
+        self.next_line()
+        while DATA_NAME.match(self.current_line):
+            loop_data_names += 1
+            self.next_line()
+        loop_data_values_row = re.compile(
+            "\s+".join([DATA_VALUE.pattern] * loop_data_names))
+        while loop_data_values_row.match(self.current_line):
+            self.next_line()
+
+    def validate_semicolon_data_item(self):
+        self.next_line()
+        while TEXT_FIELD.match(self.current_line):
+            self.next_line()
+            # skip semicolon
+            self.next_line()
