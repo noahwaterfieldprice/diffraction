@@ -86,12 +86,5 @@ class TestCIFReading:
         'tests/functional/static/invalid_cifs/*'))
     def test_loading_invalid_cif_file_raises_exception(self, filepath):
         with pytest.raises(cif.CIFParseError):
-            cif.load_cif(filepath)
-
-
-class TestCreatingCrystal:
-    @pytest.mark.parametrize("filepath", glob.glob(
-        'tests/functional/static/valid_cifs/*'))
-    def test_can_load_crystal_structure_from_cif_file(self, filepath):
-        crystal = cif.load_cif(filepath)
-        assert isinstance(crystal, Crystal)
+            p = cif.CIFParser(filepath)
+            p.validate()
