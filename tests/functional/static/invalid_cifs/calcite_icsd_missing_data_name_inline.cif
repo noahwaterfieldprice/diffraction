@@ -26,7 +26,7 @@ _publ_author_name
 'Hamilton, W.C.'
 'Post, B.'
 _cell_length_a 4.9900(2)
-_cell_length_b 4.9900(2)
+ 4.9900(2)
 _cell_length_c 17.002(1)
 _cell_angle_alpha 90.
 _cell_angle_beta 90.
@@ -100,7 +100,7 @@ _atom_site_aniso_label
 _atom_site_aniso_type_symbol
 _atom_site_aniso_U_11
 _atom_site_aniso_U_22
-
+_atom_site_aniso_U_33
 _atom_site_aniso_U_12
 _atom_site_aniso_U_13
 _atom_site_aniso_U_23

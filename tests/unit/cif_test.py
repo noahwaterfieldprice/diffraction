@@ -253,6 +253,7 @@ class TestSavingFile:
 class TestReadingExceptions:
     def test_error_throws_correct_exception_with_message(self):
         message = "Oh no! An exception has been raised...."
+
         with pytest.raises(CIFParseError) as exception_info:
             v = mock.Mock(spec=CIFValidator)
             v.error = CIFValidator.error
@@ -283,6 +284,7 @@ class TestReadingExceptions:
             ";"
         ]
         mocker.patch(OPEN, mock.mock_open(read_data='\n'.join(contents)))
+
         p = CIFParser("some_directory/valid_cif_file.cif")
         p.validate()
 
@@ -297,6 +299,7 @@ class TestReadingExceptions:
         ]
         contents.insert(1, invalid_line)
         mocker.patch(OPEN, mock.mock_open(read_data='\n'.join(contents)))
+
         p = CIFParser("some_directory/missing_inline_data_name.cif")
         with pytest.raises(CIFParseError) as exception_info:
             p.validate()
@@ -309,6 +312,7 @@ class TestReadingExceptions:
             "_data_name_2 "
         ]
         mocker.patch(OPEN, mock.mock_open(read_data='\n'.join(contents)))
+
         p = CIFParser("some_directory/invalid_inline_data_value.cif")
         with pytest.raises(CIFParseError) as exception_info:
             p.validate()
@@ -326,9 +330,35 @@ class TestReadingExceptions:
         ]
         contents.insert(4, invalid_line)
         mocker.patch(OPEN, mock.mock_open(read_data='\n'.join(contents)))
-        p = CIFParser("some_directory/missing_inline_data_name.cif")
+
+        p = CIFParser("some_directory/unmatched_loop_data_items.cif")
         with pytest.raises(CIFParseError) as exception_info:
             p.validate()
         assert str(exception_info.value) == \
-               ('Unmatched data_values to data names in loop '
+               ('Unmatched data values to data names in loop '
                 'on line 5: "{}"'.format(invalid_line))
+
+    def test_error_if_semicolon_data_item_not_closed(self, mocker):
+        contents = [
+            "_data_name_1",
+            ";",
+            "Unclosed text field",
+            "_data_item_2"
+        ]
+        # test when field is terminated by end of file
+        mocker.patch(OPEN, mock.mock_open(read_data='\n'.join(contents[:3])))
+        p = CIFParser("some_directory/unclosed_semicolon_field.cif")
+
+        with pytest.raises(CIFParseError) as exception_info:
+            p.validate()
+        assert str(exception_info.value) == \
+            'Unclosed semicolon text field on line 3: "Unclosed text field"'
+
+        # test when field is terminated by another data item
+        mocker.patch(OPEN, mock.mock_open(read_data='\n'.join(contents)))
+        p = CIFParser("some_directory/unclosed_semicolon_field.cif")
+
+        with pytest.raises(CIFParseError) as exception_info:
+            p.validate()
+        assert str(exception_info.value) == \
+            'Unclosed semicolon text field on line 3: "Unclosed text field"'

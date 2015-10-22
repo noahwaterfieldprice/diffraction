@@ -1,7 +1,7 @@
 import json
 import re
 import warnings
-from collections import OrderedDict
+from collections import OrderedDict, deque
 from recordclass import recordclass
 
 
@@ -20,7 +20,7 @@ LOOP = re.compile(r"(?:^|\n)loop_\s*", re.IGNORECASE)
 DATA_NAME = re.compile(r"\s*_(\S+)")
 SL_DATA_NAME = re.compile(r"(?:^|\n)\s*_(\S+)")
 DATA_VALUE = re.compile(r"\s*(\'[^\']+\'|\"[^\"]+\"|[^\s_#][^\s\'\"]*)")
-TEXT_FIELD = re.compile(r"[^;]+")
+TEXT_FIELD = re.compile(r"[^_][^;]+")
 SEMICOLON_DATA_ITEM = re.compile(
     "(?:^|\n)" + DATA_NAME.pattern + "\n;\n([^;]+)\n;")
 INLINE_DATA_ITEM = re.compile(
@@ -68,7 +68,6 @@ class CIFParser:
         loops = LOOP.split(data_block.raw_data)[1:]
         for i, loop in enumerate(loops):
             data_names = SL_DATA_NAME.findall(loop)
-            print(data_names)
             loop_data_items = {data_name: [] for data_name in data_names}
             data_value_lines = loop.split("\n")[len(data_names):]
             for line in data_value_lines:
@@ -141,24 +140,45 @@ class CIFValidator:
                 else:
                     self.error("Invalid inline data value",
                                err_line_number, err_line)
+            else:
+                print(self.line_number, ':'*10, self.current_line)
 
     def validate_loop(self):
         loop_data_names = 0
         self.next_line()
-        while DATA_NAME.match(self.current_line):
-            loop_data_names += 1
-            self.next_line()
-        while (DATA_VALUE.match(self.current_line) and not
-                LOOP.match(self.current_line) and not
-                DATA_BLOCK_HEADING.match(self.current_line)):
-            data_values = DATA_VALUE.findall(self.current_line)
-            if len(data_values) != loop_data_names:
-                self.error("Unmatched data_values to data names in loop")
-            self.next_line()
+        while True:
+            if COMMENT_OR_BLANK.match(self.current_line):
+                self.next_line()
+            elif DATA_NAME.match(self.current_line):
+                loop_data_names += 1
+                self.next_line()
+            else:
+                break
+        while True:
+            if COMMENT_OR_BLANK.match(self.current_line):
+                self.next_line()
+            elif (DATA_VALUE.match(self.current_line) and not
+                    LOOP.match(self.current_line) and not
+                    DATA_BLOCK_HEADING.match(self.current_line)):
+                data_values = DATA_VALUE.findall(self.current_line)
+                if len(data_values) != loop_data_names:
+                    self.error("Unmatched data values to data names in loop")
+                self.next_line()
+            else:
+                break
 
     def validate_semicolon_data_item(self):
         self.next_line()
+        previous_lines = deque(maxlen=2)
         while TEXT_FIELD.match(self.current_line):
-            self.next_line()
-        # skip closing semicolon
+            previous_lines.append((self.line_number, self.current_line))
+            try:
+                self.next_line()
+            # check if final line of file
+            except StopIteration:
+                self.error("Unclosed semicolon text field")
+        if not self.current_line.startswith(";"):
+            print(previous_lines)
+            self.error("Unclosed semicolon text field",
+                       *previous_lines[0])
         self.next_line()
