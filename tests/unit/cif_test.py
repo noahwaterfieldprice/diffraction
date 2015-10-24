@@ -5,8 +5,9 @@ from unittest import mock
 
 import pytest
 
-from diffraction.cif import load_cif, CIFParseError, CIFParser, CIFValidator, \
-    DataBlock, SEMICOLON_DATA_ITEM, INLINE_DATA_ITEM
+from diffraction.cif import (load_cif, CIFParseError, CIFParser, CIFValidator,
+                             DataBlock, SEMICOLON_DATA_ITEM, INLINE_DATA_ITEM,
+                             LOOP_NAMES)
 
 OPEN = "builtins.open"
 
@@ -106,7 +107,7 @@ class TestParsingFile:
             "data_name_3": "'semicolon text field with\ntwo lines of text'"
         }
 
-        CIFParser.extract_data_items(data_block, SEMICOLON_DATA_ITEM)
+        data_block.extract_data_items(SEMICOLON_DATA_ITEM)
         assert data_block.data_items == semicolon_data_items
 
     def test_semicolon_data_items_are_stripped_out(self):
@@ -126,7 +127,7 @@ class TestParsingFile:
         data_block = DataBlock('data_block_heading', "\n".join(contents), {})
         expected_remaining_data = "\n".join([contents[0], contents[5]])
 
-        CIFParser.extract_data_items(data_block, SEMICOLON_DATA_ITEM)
+        data_block.extract_data_items(SEMICOLON_DATA_ITEM)
         assert data_block.raw_data == expected_remaining_data
 
     def test_inline_declared_variables_are_assigned(self):
@@ -141,7 +142,7 @@ class TestParsingFile:
                     for data_name, data_value in data_items.items()]
         data_block = DataBlock('data_block_heading', "\n".join(contents), {})
 
-        CIFParser.extract_data_items(data_block, INLINE_DATA_ITEM)
+        data_block.extract_data_items(INLINE_DATA_ITEM)
         assert data_block.data_items == data_items
 
     def test_inline_declared_variables_are_stripped_out(self):
@@ -158,7 +159,7 @@ class TestParsingFile:
         data_block = DataBlock('data_block_heading', "\n".join(contents), {})
         expected_remaining_data = "\n" + "\n".join(contents[2:7])
 
-        CIFParser.extract_data_items(data_block, INLINE_DATA_ITEM)
+        data_block.extract_data_items(INLINE_DATA_ITEM)
         assert data_block.raw_data == expected_remaining_data
 
     def test_variables_declared_in_loop_are_assigned(self):
@@ -180,26 +181,36 @@ class TestParsingFile:
             for i in range(3))
         data_block = DataBlock('data_block_heading', "\n".join(contents), {})
 
-        CIFParser.extract_loop_data_items(data_block)
+        data_block.extract_loop_data_items()
         assert data_block.data_items['loop_1'] == data_items
 
     def test_parse_method_calls_in_correct_order(self):
         p = mock.Mock(spec=CIFParser)
-        p.parse = CIFParser.parse
-        p.data_blocks = ["data_block_1", "data_block_2"]
-        p.parse(p)
+        data_block = mock.Mock(spec=DataBlock)
+        p.data_blocks = [data_block]
+        CIFParser.parse(p)
         expected_calls = [
             mock.call.strip_comments_and_blank_lines(),
             mock.call.extract_data_blocks(),
-            mock.call.extract_data_items("data_block_1", SEMICOLON_DATA_ITEM),
-            mock.call.extract_data_items("data_block_1", INLINE_DATA_ITEM),
-            mock.call.extract_loop_data_items("data_block_1"),
-            mock.call.extract_data_items("data_block_2", SEMICOLON_DATA_ITEM),
-            mock.call.extract_data_items("data_block_2", INLINE_DATA_ITEM),
-            mock.call.extract_loop_data_items("data_block_2")
+            mock.call.extract_data_items(SEMICOLON_DATA_ITEM),
+            mock.call.extract_data_items(INLINE_DATA_ITEM),
+            mock.call.extract_loop_data_items()
         ]
+        assert p.method_calls + data_block.method_calls == expected_calls
 
-        assert p.method_calls == expected_calls
+
+class TestBasicDataInterpretation:
+    @pytest.mark.parametrize("key_data_name, loop_name", LOOP_NAMES)
+    def test_key_loops_are_renamed(self, key_data_name, loop_name):
+        contents = [
+            "loop_",
+            "data_name_1"
+        ]
+        contents.insert(1, "_{}".format(key_data_name))
+        data_block = DataBlock("data_block_heading", "\n".join(contents), {})
+
+        data_block.extract_loop_data_items()
+        assert list(data_block.data_items.keys())[0] == loop_name
 
 
 class TestSavingFile:
@@ -223,10 +234,9 @@ class TestSavingFile:
         m = mocker.patch(OPEN, mock.mock_open())
         filepath = "some_directory/some_file.json"
         p = mock.Mock(spec=CIFParser)
-        p.save = CIFParser.save
         p.data_blocks = self.example_data_blocks
+        CIFParser.save(p, filepath)
 
-        p.save(p, filepath)
         # test correct file is written to exactly once
         open.assert_called_with(filepath, "w")
         assert m().write.call_count == 1
@@ -237,9 +247,8 @@ class TestSavingFile:
     def test_contents_are_sorted_and_stored_correctly(self, tmpdir):
         filepath = str(tmpdir.join("temp.json"))
         p = mock.Mock(spec=CIFParser)
-        p.save = CIFParser.save
         p.data_blocks = self.example_data_blocks
-        p.save(p, filepath)
+        CIFParser.save(p, filepath)
 
         with open(filepath, 'r') as json_file:
             data = json.load(json_file, object_pairs_hook=OrderedDict)
@@ -262,7 +271,7 @@ class TestReadingExceptions:
                '{} on line 1: "Erroneous line"'.format(message)
 
     def test_validation_returns_true_when_no_exception_raised(self, mocker):
-        contents = [
+        contents = (
             "# some comment",
             "# another comment - next line blank"
             "                      ",
@@ -282,7 +291,7 @@ class TestReadingExceptions:
             "semicolon text field with",
             "two lines of text",
             ";"
-        ]
+        )
         mocker.patch(OPEN, mock.mock_open(read_data='\n'.join(contents)))
 
         p = CIFParser("some_directory/valid_cif_file.cif")
@@ -304,7 +313,7 @@ class TestReadingExceptions:
         with pytest.raises(CIFParseError) as exception_info:
             p.validate()
         assert str(exception_info.value) == \
-            'Missing inline data name on line 2: "{}"'.format(invalid_line)
+               'Missing inline data name on line 2: "{}"'.format(invalid_line)
 
     def test_error_if_invalid_inline_data_value(self, mocker):
         contents = [
@@ -317,7 +326,7 @@ class TestReadingExceptions:
         with pytest.raises(CIFParseError) as exception_info:
             p.validate()
         assert str(exception_info.value) == \
-            'Invalid inline data value on line 2: "_data_name_2 "'
+               'Invalid inline data value on line 2: "_data_name_2 "'
 
     @pytest.mark.parametrize("invalid_line", ["value_A1",
                                               "value_A1 value_B1 value_C1"])
@@ -352,7 +361,7 @@ class TestReadingExceptions:
         with pytest.raises(CIFParseError) as exception_info:
             p.validate()
         assert str(exception_info.value) == \
-            'Unclosed semicolon text field on line 3: "Unclosed text field"'
+               'Unclosed semicolon text field on line 3: "Unclosed text field"'
 
         # test when field is terminated by another data item
         mocker.patch(OPEN, mock.mock_open(read_data='\n'.join(contents)))
@@ -361,4 +370,4 @@ class TestReadingExceptions:
         with pytest.raises(CIFParseError) as exception_info:
             p.validate()
         assert str(exception_info.value) == \
-            'Unclosed semicolon text field on line 3: "Unclosed text field"'
+               'Unclosed semicolon text field on line 3: "Unclosed text field"'
