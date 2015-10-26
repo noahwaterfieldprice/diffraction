@@ -6,8 +6,7 @@ from unittest import mock
 import pytest
 
 from diffraction.cif import (load_cif, CIFParseError, CIFParser, CIFValidator,
-                             DataBlock, SEMICOLON_DATA_ITEM, INLINE_DATA_ITEM,
-                             LOOP_NAMES)
+                             DataBlock, SEMICOLON_DATA_ITEM, INLINE_DATA_ITEM)
 
 OPEN = "builtins.open"
 
@@ -200,17 +199,32 @@ class TestParsingFile:
 
 
 class TestBasicDataInterpretation:
-    @pytest.mark.parametrize("key_data_name, loop_name", LOOP_NAMES)
+    @pytest.mark.parametrize("key_data_name, loop_name", DataBlock.LOOP_NAMES)
     def test_key_loops_are_renamed(self, key_data_name, loop_name):
         contents = [
             "loop_",
-            "data_name_1"
+            "data_value_1"
         ]
         contents.insert(1, "_{}".format(key_data_name))
         data_block = DataBlock("data_block_heading", "\n".join(contents), {})
 
         data_block.extract_loop_data_items()
         assert list(data_block.data_items.keys())[0] == loop_name
+
+    def test_error_if_duplicate_site_positions(self, mocker):
+        contents = [
+            "loop_",
+            "_symmetry_equiv_pos_as_xyz",
+            "'x+1/3 y-2/3 -z'",
+            "'x+1/3 y-2/3 -z'"
+        ]
+        mocker.patch(OPEN, mock.mock_open(read_data='\n'.join(contents)))
+
+        p = CIFParser("some_directory/missing_inline_data_name.cif")
+        with pytest.raises(CIFParseError) as exception_info:
+            p.validate()
+        assert str(exception_info.value) == \
+               "Duplicate symmetry equivalent site on line 4: 'x+1/3 y-2/3 -z'"
 
 
 class TestSavingFile:
@@ -259,7 +273,7 @@ class TestSavingFile:
             sorted(self.data_items_2.items()))
 
 
-class TestReadingExceptions:
+class TestCIFSyntaxExceptions:
     def test_error_throws_correct_exception_with_message(self):
         message = "Oh no! An exception has been raised...."
 
