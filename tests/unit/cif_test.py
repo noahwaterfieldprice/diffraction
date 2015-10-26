@@ -370,13 +370,13 @@ class TestCIFSyntaxExceptions:
             "_data_item_2"
         ]
         # test when field is terminated by end of file
-        mocker.patch(OPEN, mock.mock_open(read_data='\n'.join(contents[:3])))
+        mocker.patch(OPEN, mock.mock_open(read_data='\n'.join(contents[:4])))
         p = CIFParser("some_directory/unclosed_semicolon_field.cif")
 
         with pytest.raises(CIFParseError) as exception_info:
             p.validate()
         assert str(exception_info.value) == \
-               'Unclosed semicolon text field on line 3: "Unclosed text field"'
+               'Unclosed semicolon text field on line 4: "Unclosed text field"'
 
         # test when field is terminated by another data item
         mocker.patch(OPEN, mock.mock_open(read_data='\n'.join(contents)))
@@ -385,4 +385,4 @@ class TestCIFSyntaxExceptions:
         with pytest.raises(CIFParseError) as exception_info:
             p.validate()
         assert str(exception_info.value) == \
-               'Unclosed semicolon text field on line 3: "Unclosed text field"'
+               'Unclosed semicolon text field on line 4: "Unclosed text field"'

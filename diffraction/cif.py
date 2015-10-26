@@ -193,9 +193,8 @@ class CIFValidator:
         self.next_line()
         previous_lines = deque(maxlen=2)
         while True:
-            if COMMENT_OR_BLANK.match(self.current_line):
-                self.next_line()
-            elif TEXT_FIELD.match(self.current_line):
+            if (COMMENT_OR_BLANK.match(self.current_line) or
+                    TEXT_FIELD.match(self.current_line)):
                 previous_lines.append((self.line_number, self.current_line))
                 try:
                     self.next_line()
@@ -206,7 +205,7 @@ class CIFValidator:
                 break
         if not self.current_line.startswith(";"):
             self.error("Unclosed semicolon text field",
-                       *previous_lines[0])
+                       *previous_lines[1])
         self.next_line()
 
     def is_valid_inline_data_item(self):
