@@ -365,6 +365,7 @@ class TestCIFSyntaxExceptions:
         contents = [
             "_data_name_1",
             ";",
+            "# some comment inside the text field",
             "Unclosed text field",
             "_data_item_2"
         ]
