@@ -5,8 +5,9 @@ from unittest import mock
 
 import pytest
 
-from diffraction.cif import (load_cif, CIFParseError, CIFParser, CIFValidator,
-                             DataBlock, SEMICOLON_DATA_ITEM, INLINE_DATA_ITEM)
+from diffraction.cif import (load_cif, CIFParseError, CIFParser,
+                             CIFInterpreter, CIFSyntaxValidator, DataBlock,
+                             SEMICOLON_DATA_ITEM, INLINE_DATA_ITEM)
 
 OPEN = "builtins.open"
 
@@ -54,7 +55,7 @@ class TestParsingFile:
         expected_remaining_lines = contents[4:6]
 
         p = CIFParser("/some_directory/some_file.cif")
-        p.strip_comments_and_blank_lines()
+        p._strip_comments_and_blank_lines()
         assert p.raw_data == "\n".join(expected_remaining_lines)
 
     def test_file_split_by_data_blocks(self, mocker):
@@ -83,7 +84,7 @@ class TestParsingFile:
             expected.append(DataBlock(heading, "\n".join(raw_data), {}))
 
         p = CIFParser("/some_directory/some_file.cif")
-        p.extract_data_blocks()
+        p._extract_data_blocks()
         assert p.data_blocks == expected
 
     def test_semicolon_data_items_are_assigned(self):
@@ -189,42 +190,13 @@ class TestParsingFile:
         p.data_blocks = [data_block]
         CIFParser.parse(p)
         expected_calls = [
-            mock.call.strip_comments_and_blank_lines(),
-            mock.call.extract_data_blocks(),
+            mock.call._strip_comments_and_blank_lines(),
+            mock.call._extract_data_blocks(),
             mock.call.extract_data_items(SEMICOLON_DATA_ITEM),
             mock.call.extract_data_items(INLINE_DATA_ITEM),
             mock.call.extract_loop_data_items()
         ]
         assert p.method_calls + data_block.method_calls == expected_calls
-
-
-class TestBasicDataInterpretation:
-    @pytest.mark.parametrize("key_data_name, loop_name", DataBlock.LOOP_NAMES)
-    def test_key_loops_are_renamed(self, key_data_name, loop_name):
-        contents = [
-            "loop_",
-            "data_value_1"
-        ]
-        contents.insert(1, "_{}".format(key_data_name))
-        data_block = DataBlock("data_block_heading", "\n".join(contents), {})
-
-        data_block.extract_loop_data_items()
-        assert list(data_block.data_items.keys())[0] == loop_name
-
-    def test_error_if_duplicate_site_positions(self, mocker):
-        contents = [
-            "loop_",
-            "_symmetry_equiv_pos_as_xyz",
-            "'x+1/3 y-2/3 -z'",
-            "'x+1/3 y-2/3 -z'"
-        ]
-        mocker.patch(OPEN, mock.mock_open(read_data='\n'.join(contents)))
-
-        p = CIFParser("some_directory/missing_inline_data_name.cif")
-        with pytest.raises(CIFParseError) as exception_info:
-            p.validate()
-        assert str(exception_info.value) == \
-               "Duplicate symmetry equivalent site on line 4: 'x+1/3 y-2/3 -z'"
 
 
 class TestSavingFile:
@@ -278,8 +250,10 @@ class TestCIFSyntaxExceptions:
         message = "Oh no! An exception has been raised...."
 
         with pytest.raises(CIFParseError) as exception_info:
-            v = mock.Mock(spec=CIFValidator)
-            v.error = CIFValidator.error
+            v = mock.Mock(spec=CIFSyntaxValidator)
+            v = mock.Mock(spec=CIFSyntaxValidator)
+            v.error = CIFSyntaxValidator.error
+            v.error = CIFSyntaxValidator.error
             v.error(v, message, 1, "Erroneous line")
         assert str(exception_info.value) == \
                '{} on line 1: "Erroneous line"'.format(message)
@@ -309,7 +283,7 @@ class TestCIFSyntaxExceptions:
         mocker.patch(OPEN, mock.mock_open(read_data='\n'.join(contents)))
 
         p = CIFParser("some_directory/valid_cif_file.cif")
-        p.validate()
+        p._validate_syntax()
 
     @pytest.mark.parametrize("invalid_line", ["value_with_missing_data_name",
                                               "  starting_with_whitespace",
@@ -325,7 +299,7 @@ class TestCIFSyntaxExceptions:
 
         p = CIFParser("some_directory/missing_inline_data_name.cif")
         with pytest.raises(CIFParseError) as exception_info:
-            p.validate()
+            p._validate_syntax()
         assert str(exception_info.value) == \
                'Missing inline data name on line 2: "{}"'.format(invalid_line)
 
@@ -338,7 +312,7 @@ class TestCIFSyntaxExceptions:
 
         p = CIFParser("some_directory/invalid_inline_data_value.cif")
         with pytest.raises(CIFParseError) as exception_info:
-            p.validate()
+            p._validate_syntax()
         assert str(exception_info.value) == \
                'Invalid inline data value on line 2: "_data_name_2 "'
 
@@ -356,7 +330,7 @@ class TestCIFSyntaxExceptions:
 
         p = CIFParser("some_directory/unmatched_loop_data_items.cif")
         with pytest.raises(CIFParseError) as exception_info:
-            p.validate()
+            p._validate_syntax()
         assert str(exception_info.value) == \
                ('Unmatched data values to data names in loop '
                 'on line 5: "{}"'.format(invalid_line))
@@ -374,7 +348,7 @@ class TestCIFSyntaxExceptions:
         p = CIFParser("some_directory/unclosed_semicolon_field.cif")
 
         with pytest.raises(CIFParseError) as exception_info:
-            p.validate()
+            p._validate_syntax()
         assert str(exception_info.value) == \
                'Unclosed semicolon text field on line 4: "Unclosed text field"'
 
@@ -383,6 +357,35 @@ class TestCIFSyntaxExceptions:
         p = CIFParser("some_directory/unclosed_semicolon_field.cif")
 
         with pytest.raises(CIFParseError) as exception_info:
-            p.validate()
+            p._validate_syntax()
         assert str(exception_info.value) == \
                'Unclosed semicolon text field on line 4: "Unclosed text field"'
+
+
+class TestBasicDataInterpretation:
+    @pytest.mark.parametrize("key_data_name, loop_name",
+                             CIFInterpreter.LOOP_NAMES)
+    def test_key_loops_are_renamed(self, key_data_name, loop_name):
+        data_items = {
+            "loop_1": {key_data_name: ["data_value_1", "data_value_2"]}
+        }
+        data_block = DataBlock("data_block_heading", "", data_items)
+        ci = CIFInterpreter([data_block])
+        ci.rename_loops()
+
+        assert list(data_items.keys())[0] == loop_name
+
+    def test_error_if_duplicate_site_positions(self, mocker):
+        contents = [
+            "loop_",
+            "_symmetry_equiv_pos_as_xyz",
+            "'x+1/3 y-2/3 -z'",
+            "'x+1/3 y-2/3 -z'"
+        ]
+        mocker.patch(OPEN, mock.mock_open(read_data='\n'.join(contents)))
+
+        p = CIFParser("some_directory/missing_inline_data_name.cif")
+        with pytest.raises(CIFParseError) as exception_info:
+            p._validate_syntax()
+        assert str(exception_info.value) == \
+               "Duplicate symmetry equivalent site on line 4: 'x+1/3 y-2/3 -z'"
