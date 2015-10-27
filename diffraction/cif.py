@@ -30,10 +30,9 @@ SL_DATA_NAME = re.compile(r"(?:^|\n)\s*_(\S+)")
 DATA_VALUE = re.compile(r"\s*(\'[^\']+\'|\"[^\"]+\"|[^\s_#][^\s\'\"]*)")
 TEXT_FIELD = re.compile(r"[^_][^;]+")
 SEMICOLON_DATA_ITEM = re.compile(
-    "(?:^|\n){data_name}\n;\n([^;]+)\n;".format(DATA_NAME.pattern))
+    r"(?:^|\n)" + DATA_NAME.pattern + r"\n;\n([^;]+)\n;")
 INLINE_DATA_ITEM = re.compile(
-    "(?:^|\n){data_name}[^\\S\\n]+{data_value}".format(DATA_NAME.pattern,
-                                                       DATA_VALUE.pattern))
+    r"(?:^|\n)" + DATA_NAME.pattern + "[^\\S\\n]+" + DATA_VALUE.pattern)
 
 # Mutable data structure for saving components of data blocks.
 DataBlockRecord = recordclass("DataBlock", "heading raw_data data_items")
