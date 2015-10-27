@@ -5,22 +5,22 @@ from unittest import mock
 
 import pytest
 
-from diffraction.cif import (load_cif, CIFParseError, CIFParser,
-                             CIFInterpreter, CIFSyntaxValidator, DataBlock,
-                             SEMICOLON_DATA_ITEM, INLINE_DATA_ITEM)
-
+from diffraction.cif import (load_cif, CIFParseError, CIFParser, CIFValidator,
+                             DataBlock, SEMICOLON_DATA_ITEM, INLINE_DATA_ITEM)
 OPEN = "builtins.open"
 
 
 class TestLoadingFile:
     def test_load_cif_opens_correct_file(self, mocker):
         mocker.patch(OPEN)
+        mocker.patch("diffraction.cif.CIFParser")
         filepath = "/some_directory/some_file.cif"
         load_cif(filepath)
         open.assert_called_with(filepath, "r")
 
     def test_raises_warning_if_file_extension_is_not_cif(self, mocker):
         mocker.patch(OPEN)
+        mocker.patch("diffraction.cif.CIFParser")
         non_cif_filepath = "/some_directory/some_file.not_cif"
         with pytest.warns(UserWarning):
             load_cif(non_cif_filepath)
@@ -29,9 +29,9 @@ class TestLoadingFile:
 class TestParsingFile:
     def test_file_contents_are_stored_as_raw_string_attribute(self, mocker):
         contents = [
-            "Here is the first line",
-            "Here is the second",
-            "And here is the third line",
+            "_data_name_1 data_value_1",
+            "_data_name_2 data_value_2",
+            "_etc etc",
         ]
         mocker.patch(OPEN, mock.mock_open(read_data='\n'.join(contents)))
 
@@ -47,8 +47,8 @@ class TestParsingFile:
             "# Here is another comment. The next line is just whitespace",
             "\t\t\t\t\t",
             "",
-            "Here is one normal line. Previous line was blank",
-            "  Here's another normal line starting with whitespace",
+            "_some_normal_line previous_line_was_blank",
+            "  _another_normal_line starting_with_whitespace",
             '# Final comment ## with # extra hashes ### in ##'
         ]
         mocker.patch(OPEN, mock.mock_open(read_data='\n'.join(contents)))
@@ -250,16 +250,15 @@ class TestCIFSyntaxExceptions:
         message = "Oh no! An exception has been raised...."
 
         with pytest.raises(CIFParseError) as exception_info:
-            v = mock.Mock(spec=CIFSyntaxValidator)
-            v = mock.Mock(spec=CIFSyntaxValidator)
-            v.error = CIFSyntaxValidator.error
-            v.error = CIFSyntaxValidator.error
+            v = mock.Mock(spec=CIFValidator)
+            v.error = CIFValidator.error
+            v.error = CIFValidator.error
             v.error(v, message, 1, "Erroneous line")
         assert str(exception_info.value) == \
                '{} on line 1: "Erroneous line"'.format(message)
 
     def test_validation_returns_true_when_no_exception_raised(self, mocker):
-        contents = (
+        contents = [
             "# some comment",
             "# another comment - next line blank"
             "                      ",
@@ -279,11 +278,10 @@ class TestCIFSyntaxExceptions:
             "semicolon text field with",
             "two lines of text",
             ";"
-        )
-        mocker.patch(OPEN, mock.mock_open(read_data='\n'.join(contents)))
+        ]
 
-        p = CIFParser("some_directory/valid_cif_file.cif")
-        p._validate_syntax()
+        v = CIFValidator("\n".join(contents))
+        v.validate()
 
     @pytest.mark.parametrize("invalid_line", ["value_with_missing_data_name",
                                               "  starting_with_whitespace",
@@ -295,11 +293,10 @@ class TestCIFSyntaxExceptions:
             "_data_name_2 value_2",
         ]
         contents.insert(1, invalid_line)
-        mocker.patch(OPEN, mock.mock_open(read_data='\n'.join(contents)))
+        v = CIFValidator("\n".join(contents))
 
-        p = CIFParser("some_directory/missing_inline_data_name.cif")
         with pytest.raises(CIFParseError) as exception_info:
-            p._validate_syntax()
+            v.validate()
         assert str(exception_info.value) == \
                'Missing inline data name on line 2: "{}"'.format(invalid_line)
 
@@ -308,11 +305,10 @@ class TestCIFSyntaxExceptions:
             "_data_name_1 value_1",
             "_data_name_2 "
         ]
-        mocker.patch(OPEN, mock.mock_open(read_data='\n'.join(contents)))
+        v = CIFValidator("\n".join(contents))
 
-        p = CIFParser("some_directory/invalid_inline_data_value.cif")
         with pytest.raises(CIFParseError) as exception_info:
-            p._validate_syntax()
+            v.validate()
         assert str(exception_info.value) == \
                'Invalid inline data value on line 2: "_data_name_2 "'
 
@@ -326,11 +322,10 @@ class TestCIFSyntaxExceptions:
             "value_A1 value_B1"
         ]
         contents.insert(4, invalid_line)
-        mocker.patch(OPEN, mock.mock_open(read_data='\n'.join(contents)))
+        v = CIFValidator("\n".join(contents))
 
-        p = CIFParser("some_directory/unmatched_loop_data_items.cif")
         with pytest.raises(CIFParseError) as exception_info:
-            p._validate_syntax()
+            v.validate()
         assert str(exception_info.value) == \
                ('Unmatched data values to data names in loop '
                 'on line 5: "{}"'.format(invalid_line))
@@ -344,48 +339,17 @@ class TestCIFSyntaxExceptions:
             "_data_item_2"
         ]
         # test when field is terminated by end of file
-        mocker.patch(OPEN, mock.mock_open(read_data='\n'.join(contents[:4])))
-        p = CIFParser("some_directory/unclosed_semicolon_field.cif")
+        v = CIFValidator("\n".join(contents))
 
         with pytest.raises(CIFParseError) as exception_info:
-            p._validate_syntax()
+            v.validate()
         assert str(exception_info.value) == \
                'Unclosed semicolon text field on line 4: "Unclosed text field"'
 
         # test when field is terminated by another data item
-        mocker.patch(OPEN, mock.mock_open(read_data='\n'.join(contents)))
-        p = CIFParser("some_directory/unclosed_semicolon_field.cif")
+        v = CIFValidator("\n".join(contents))
 
         with pytest.raises(CIFParseError) as exception_info:
-            p._validate_syntax()
+            v.validate()
         assert str(exception_info.value) == \
                'Unclosed semicolon text field on line 4: "Unclosed text field"'
-
-
-class TestBasicDataInterpretation:
-    @pytest.mark.parametrize("key_data_name, loop_name",
-                             CIFInterpreter.LOOP_NAMES)
-    def test_key_loops_are_renamed(self, key_data_name, loop_name):
-        data_items = {
-            "loop_1": {key_data_name: ["data_value_1", "data_value_2"]}
-        }
-        data_block = DataBlock("data_block_heading", "", data_items)
-        ci = CIFInterpreter([data_block])
-        ci.rename_loops()
-
-        assert list(data_items.keys())[0] == loop_name
-
-    def test_error_if_duplicate_site_positions(self, mocker):
-        contents = [
-            "loop_",
-            "_symmetry_equiv_pos_as_xyz",
-            "'x+1/3 y-2/3 -z'",
-            "'x+1/3 y-2/3 -z'"
-        ]
-        mocker.patch(OPEN, mock.mock_open(read_data='\n'.join(contents)))
-
-        p = CIFParser("some_directory/missing_inline_data_name.cif")
-        with pytest.raises(CIFParseError) as exception_info:
-            p._validate_syntax()
-        assert str(exception_info.value) == \
-               "Duplicate symmetry equivalent site on line 4: 'x+1/3 y-2/3 -z'"

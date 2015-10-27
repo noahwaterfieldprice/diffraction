@@ -9,9 +9,6 @@ class TestCIFReading:
         "calcite_icsd_missing_data_value_in_loop.cif",
         "calcite_icsd_missing_data_name_inline.cif",
         "calcite_icsd_missing_data_value_inline.cif",
-        "calcite_icsd_duplicate_site_id.cif",
-        "calcite_icsd_missing_site.cif",
-        "calcite_icsd_duplicate_site_position.cif"
     ]
 
     error_messages = [
@@ -19,9 +16,6 @@ class TestCIFReading:
         'Unmatched data values to data names in loop on line 77: "36"',
         'Missing inline data name on line 29: " 4.9900(2)"',
         'Invalid inline data value on line 28: "_cell_length_a"',
-        '',
-        '',
-        ''
     ]
 
     def test_loading_cif_from_invalid_filepath_raises_exception(self):

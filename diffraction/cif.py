@@ -1,8 +1,12 @@
+"""
+Docstring for the module
+"""
+
+
 import json
 import re
 import warnings
 from collections import OrderedDict, deque
-from itertools import count
 from recordclass import recordclass
 
 
@@ -11,11 +15,14 @@ def load_cif(filepath):
         warnings.warn(("No .cif file extension detected. Assuming the filetype"
                        "is CIF and continuing."), UserWarning)
     with open(filepath, "r") as f:
-        pass
-
+        p = CIFParser(filepath)
+        p.parse()
+    if len(p) == 1:
+        return p.data_blocks[0].data_items
+    return p.data_blocks
 
 # Regular expressions used for parsing.
-COMMENT_OR_BLANK = re.compile("#.*|\s+$|^$")
+COMMENT_OR_BLANK = re.compile("\w*#.*|\s+$|^$")
 DATA_BLOCK_HEADING = re.compile(r"(?:^|\n)(data_\S*)\s*", re.IGNORECASE)
 LOOP = re.compile(r"(?:^|\n)loop_\s*", re.IGNORECASE)
 DATA_NAME = re.compile(r"\s*_(\S+)")
@@ -23,9 +30,10 @@ SL_DATA_NAME = re.compile(r"(?:^|\n)\s*_(\S+)")
 DATA_VALUE = re.compile(r"\s*(\'[^\']+\'|\"[^\"]+\"|[^\s_#][^\s\'\"]*)")
 TEXT_FIELD = re.compile(r"[^_][^;]+")
 SEMICOLON_DATA_ITEM = re.compile(
-    "(?:^|\n)" + DATA_NAME.pattern + "\n;\n([^;]+)\n;")
+    "(?:^|\n){data_name}\n;\n([^;]+)\n;".format(DATA_NAME.pattern))
 INLINE_DATA_ITEM = re.compile(
-    "(?:^|\n)" + DATA_NAME.pattern + r"[^\S\n]+" + DATA_VALUE.pattern)
+    "(?:^|\n){data_name}[^\\S\\n]+{data_value}".format(DATA_NAME.pattern,
+                                                       DATA_VALUE.pattern))
 
 # Mutable data structure for saving components of data blocks.
 DataBlockRecord = recordclass("DataBlock", "heading raw_data data_items")
@@ -57,24 +65,61 @@ class DataBlock(DataBlockRecord):
 
 
 class CIFParser:
+    """ Class for parsing CIF files and exporting data in JSON style format
+
+    The CIF file is parsed and data items are extracted for each data block.
+    Data is stored in a list of :class:`DataBlock` objects. This can then be
+    saved to a .json file.
+
+    Before parsing the CIF file is checked for syntax errors and if one is
+    found then a :class:`CIFParseError` is raised
+
+
+    Attributes
+    ----------
+    raw_data: str
+        A string of the raw data from the file of which the comments and
+        blank lines are stripped out
+    data_blocks: list[DataBlock]
+        A list of data blocks
+
+
+
+
+    Examples
+    --------
+    >>> p = CIFParser("path/to/cif_file.cif")
+    >>> p.parse()
+    >>> p.save("path/to/json_file.cif")
+    """
+
     def __init__(self, filepath):
+        """
+        Parameters
+        ----------
+        filepath: str
+
+        """
+
         with open(filepath, "r") as cif_file:
             self.raw_data = cif_file.read()
+        validator = CIFValidator(self.raw_data)
+        validator.validate()
         self.data_blocks = []
 
-    def _validate_syntax(self):
-        validator = CIFSyntaxValidator(self.raw_data)
-        try:
-            validator.validate()
-        except StopIteration:
-            print('valid file')
-
     def _strip_comments_and_blank_lines(self):
+        """
+        Remove all comments and blank lines from stored raw file string.
+        """
         lines = self.raw_data.split("\n")
         keep = [line for line in lines if not COMMENT_OR_BLANK.match(line)]
         self.raw_data = "\n".join(keep)
 
     def _extract_data_blocks(self):
+        """
+        Split raw file string into data blocks and
+        save as a list of DataBlock objects.
+        """
         self.data_blocks = []
         data_blocks = DATA_BLOCK_HEADING.split(self.raw_data)[1:]
         headings, blocks = data_blocks[::2], data_blocks[1::2]
@@ -82,6 +127,10 @@ class CIFParser:
             self.data_blocks.append(DataBlock(heading, data, {}))
 
     def parse(self):
+        """
+
+
+        """
         self._strip_comments_and_blank_lines()
         self._extract_data_blocks()
         for data_block in self.data_blocks:
@@ -90,6 +139,13 @@ class CIFParser:
             data_block.extract_loop_data_items()
 
     def save(self, filepath):
+        """
+        Save data in JSON format with data items sorted alphabetically by name.
+
+        Args:
+            filepath (str): target filepath for json file
+        """
+
         with open(filepath, 'w') as f:
             json_data = OrderedDict()
             json_data.keys()
@@ -103,13 +159,43 @@ class CIFParseError(Exception):
     """Exception raised for all parse errors due to incorrect syntax."""
 
 
-class CIFSyntaxValidator:
+class CIFValidator:
+    """
+
+    Attributes
+    ----------
+    lines: generator
+        ``generator`` consisting of lines of the input CIF file
+    current_line: str
+        The current line being validated
+    line_number: int
+        The line number of the `current_line`
+
+    Raises
+    ------
+    CIFParserError
+        When a syntax error is found in the input raw CIF data
+    """
     def __init__(self, raw_data):
-        self.raw_data = raw_data
+        """
+        Init the :class:`CIFValidator` instance.
+
+        The raw data of the CIF file is split by the ``\n`` newline character
+        and stored in a generator. The :class:`CIFValidator` instance is
+        initialised on the first line, raising a :class:`CIFParseError` if the
+        file is empty.
+
+        Parameters
+        ----------
+        raw_data: str
+
+        """
         self.lines = (line for line in raw_data.split("\n"))
-        # initialise on first line
-        self.line_number = 1
-        self.current_line = next(self.lines)
+        try:
+            self.current_line = next(self.lines)
+            self.line_number = 1
+        except StopIteration:
+            raise CIFParseError("Empty file")
 
     def error(self, message=None, line_number=None, line=None):
         if line_number is None:
@@ -118,21 +204,33 @@ class CIFSyntaxValidator:
             message, line_number, line))
 
     def validate(self):
-        while True:
-            if self._is_valid_inline_data_item():
-                self._next_line()
-            elif LOOP.match(self.current_line):
-                self._validate_loop()
-            elif DATA_VALUE.match(self.current_line.lstrip()):
-                self.error("Missing inline data name")
-            elif DATA_NAME.match(self.current_line):
-                self._validate_lone_data_name()
+        """
+        docstring for validate
+        """
+        try:
+            while True:
+                if self._is_valid_single_line():
+                    self._next_line()
+                elif LOOP.match(self.current_line):
+                    self._validate_loop()
+                elif DATA_VALUE.match(self.current_line.lstrip()):
+                    self.error("Missing inline data name")
+                elif DATA_NAME.match(self.current_line):
+                    self._validate_lone_data_name()
+        except StopIteration:
+            pass
 
     def _next_line(self):
         self.current_line = next(self.lines)
         self.line_number += 1
 
     def _validate_loop(self):
+        """Validate :term:`loop` syntax.
+
+        Raise a :class:`CIFParseError` if, for any row in the :term:`loop`,
+        the number of :term:`data value`s does not match the number of
+        declared :term:`data name`s.
+        """
         loop_data_names = self._get_loop_data_names()
         while True:
             if COMMENT_OR_BLANK.match(self.current_line):
@@ -146,6 +244,13 @@ class CIFSyntaxValidator:
                 break
 
     def _get_loop_data_names(self):
+        """ Extract :term:`data name`s from a :term:`loop`
+
+        Returns
+        -------
+        loop_data_names
+            ``list`` of :term:`data names` in :term:`loop`.
+        """
         loop_data_names = []
         self._next_line()
         while True:
@@ -159,6 +264,13 @@ class CIFSyntaxValidator:
         return loop_data_names
 
     def _validate_lone_data_name(self):
+        """Validate isolated :term:`data name`.
+
+        An isolated :term:`data name` is could indicated a missing an inline
+        :term:`data value`, in which case raise a :class:`CIFParseError`.
+        Otherwise it denotes the beginning of a :term:`semicolon data item`,
+        in which case that validate that separately.
+        """
         err_line_number, err_line = self.line_number, self.current_line
         try:
             self._next_line()
@@ -174,7 +286,14 @@ class CIFSyntaxValidator:
                        err_line_number, err_line)
 
     def _validate_semicolon_data_item(self):
+        """Validates :term:`semicolon data item.`
+
+        Check for closing semicolon and raise a :class:`CIFParseError` if a
+        semicolon :term:`text field` is left unclosed.
+        """
         self._next_line()
+        # two line queue must be kept as if no closing semicolon is found,
+        # then error occurred on previous line.
         previous_lines = deque(maxlen=2)
         while True:
             if (COMMENT_OR_BLANK.match(self.current_line) or
@@ -192,43 +311,15 @@ class CIFSyntaxValidator:
                        *previous_lines[1])
         self._next_line()
 
-    def _is_valid_inline_data_item(self):
+    def _is_valid_single_line(self):
+        """Alias for check if line is valid and necessitates no further
+        validation of current or following lines."""
         return (COMMENT_OR_BLANK.match(self.current_line) or
                 INLINE_DATA_ITEM.match(self.current_line) or
                 DATA_BLOCK_HEADING.match(self.current_line))
 
     def _is_loop_data_values(self):
+        """Alias for check if valid :term:`loop` :term:`data value`."""
         return (DATA_VALUE.match(self.current_line) and not
-        LOOP.match(self.current_line) and not
+                LOOP.match(self.current_line) and not
                 DATA_BLOCK_HEADING.match(self.current_line))
-
-
-class CIFInterpreter:
-    LOOP_NAMES = (
-        ("symmetry_equiv_pos", "symmetry_equiv_pos"),
-        ("atom_site_fract", "atom_sites"),
-        ("atom_site_aniso", "atom_site_aniso"),
-        ("atom_type_oxidation", "atom_oxidations"),
-        ("publ_author_name", "publ_author_names"),
-        ("citation", "citation"),
-        ("atom_type_radius_bond", "atom_bonds")
-    )
-
-    def __init__(self, data_blocks):
-        self.data_blocks = data_blocks
-
-    def rename_loops(self):
-        for data_block in self.data_blocks:
-            for old_name in ("loop_{}".format(i + 1) for i in count(0)):
-                try:
-                    self.rename_loop(old_name, data_block)
-                except KeyError:
-                    break
-
-    def rename_loop(self, old_name, data_block):
-        loop = data_block.data_items[old_name]
-        for key_data_name, loop_name in self.LOOP_NAMES:
-            if any(re.match(key_data_name, data_name)
-                   for data_name in loop.keys()):
-                data_block.data_items[loop_name] = loop
-                data_block.data_items.pop(old_name)
