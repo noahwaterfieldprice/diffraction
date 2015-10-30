@@ -30,6 +30,16 @@ class TestLoadingFile:
 
 
 class TestParsingFile:
+    def test_datablock_class_abbreviates_raw_data_when_printed(self):
+        # test when raw_data is shorter than 18 characters
+        data_block = DataBlock("header", "a" * 10, {})
+        assert repr(data_block) == \
+               "DataBlock('header', '%s', {})" % ("a" * 10)
+        # test when raw_data is longer than 18 characters
+        data_block = DataBlock("header", "a" * 100, {})
+        assert repr(data_block) == \
+               "DataBlock('header', '%s...', {})" % ("a" * 15)
+
     def test_file_contents_are_stored_as_raw_string_attribute(self, mocker):
         contents = [
             "_data_name_1 data_value_1",
@@ -63,7 +73,7 @@ class TestParsingFile:
 
     def test_file_split_by_data_blocks(self, mocker):
         block_1 = [
-            "data_block_heading",
+            "data_block_header",
             "_data_name_A data_value_A",
             "_data_name_B data_value_B"
         ]
@@ -83,8 +93,8 @@ class TestParsingFile:
         # generate expected output - each data block stored in DataBlock object
         expected = []
         for block in [block_1, block_2, block_3]:
-            heading, *raw_data = block
-            expected.append(DataBlock(heading, "\n".join(raw_data), {}))
+            header, *raw_data = block
+            expected.append(DataBlock(header, "\n".join(raw_data), {}))
 
         p = CIFParser("/some_directory/some_file.cif")
         p._extract_data_blocks()
@@ -108,7 +118,7 @@ class TestParsingFile:
             "semicolon text ; field containing ;;; semicolons",
             ";"
         ]
-        data_block = DataBlock('data_block_heading', "\n".join(contents), {})
+        data_block = DataBlock('data_block_header', "\n".join(contents), {})
         semicolon_data_items = {
             "data_name_1": "'very long semicolon text field with many words'",
             "data_name_3": "'semicolon text field with\ntwo lines of text'",
@@ -132,7 +142,7 @@ class TestParsingFile:
             "two lines of text",
             ";"
         ]
-        data_block = DataBlock('data_block_heading', "\n".join(contents), {})
+        data_block = DataBlock('data_block_header', "\n".join(contents), {})
         expected_remaining_data = "\n".join([contents[0], contents[5]])
 
         data_block.extract_data_items(SEMICOLON_DATA_ITEM)
@@ -148,7 +158,7 @@ class TestParsingFile:
         }
         contents = ['_{} {}'.format(data_name, data_value)
                     for data_name, data_value in data_items.items()]
-        data_block = DataBlock('data_block_heading', "\n".join(contents), {})
+        data_block = DataBlock('data_block_header', "\n".join(contents), {})
 
         data_block.extract_data_items(INLINE_DATA_ITEM)
         assert data_block.data_items == data_items
@@ -164,7 +174,7 @@ class TestParsingFile:
             "value-B1 value_B2",
             "_one_more_data_item_ one_more_data_value"
         ]
-        data_block = DataBlock('data_block_heading', "\n".join(contents), {})
+        data_block = DataBlock('data_block_header', "\n".join(contents), {})
         expected_remaining_data = "\n" + "\n".join(contents[2:7])
 
         data_block.extract_data_items(INLINE_DATA_ITEM)
@@ -187,7 +197,7 @@ class TestParsingFile:
         contents.extend('{} {} {} {} {} {} {}'.format(
             *[data_items[data_name][i] for data_name in data_names])
             for i in range(3))
-        data_block = DataBlock('data_block_heading', "\n".join(contents), {})
+        data_block = DataBlock('data_block_header', "\n".join(contents), {})
 
         data_block.extract_loop_data_items()
         assert data_block.data_items['loop_1'] == data_items
@@ -260,7 +270,6 @@ class TestCIFSyntaxExceptions:
         with pytest.raises(CIFParseError) as exception_info:
             v = mock.Mock(spec=CIFValidator)
             v.error = CIFValidator.error
-            v.error = CIFValidator.error
             v.error(v, message, 1, "Erroneous line")
         assert str(exception_info.value) == \
                '{} on line 1: "Erroneous line"'.format(message)
@@ -270,12 +279,15 @@ class TestCIFSyntaxExceptions:
             "# some comment",
             "# another comment - next line blank"
             "                      ",
-            "data_block_heading_1",
+            "data_block_header_1",
             "_data_name_1 value",
             "_DatA_name-two another_value",
             "loop_",
+            "# comment inside a loop before data names- next line blank",
+            "                      ",
             "_loop_data_name_A",
             "_loop_data_name_B",
+            "# comment inside loop after data names",
             "value_A1 'value A2'",
             "loop_",
             "_loop_data_name_C",
@@ -289,13 +301,22 @@ class TestCIFSyntaxExceptions:
         ]
 
         v = CIFValidator("\n".join(contents))
-        v.validate()
+        assert v.validate() == True
+
+    def test_warning_if_file_is_empty(self):
+        # test when file is empty
+        with pytest.warns(UserWarning):
+            CIFValidator("")
+
+        # test when is only whitespace
+        with pytest.warns(UserWarning):
+            CIFValidator("     \n    \n  \t \t \n   ")
 
     @pytest.mark.parametrize("invalid_line", ["value_with_missing_data_name",
                                               "  starting_with_whitespace",
                                               "'in single quotes'",
                                               '"in double quotes"'])
-    def test_error_if_missing_inline_data_name(self, mocker, invalid_line):
+    def test_error_if_missing_inline_data_name(self, invalid_line):
         contents = [
             "_data_name_1 value_1",
             "_data_name_2 value_2",
@@ -308,11 +329,22 @@ class TestCIFSyntaxExceptions:
         assert str(exception_info.value) == \
                'Missing inline data name on line 2: "{}"'.format(invalid_line)
 
-    def test_error_if_invalid_inline_data_value(self, mocker):
+    def test_error_if_invalid_inline_data_value(self):
         contents = [
             "_data_name_1 value_1",
-            "_data_name_2 "
+            "_data_name_2 ",
+            "_data_name_3 value_3"
         ]
+
+        # test when final line of file
+        v = CIFValidator("\n".join(contents[:2]))
+
+        with pytest.raises(CIFParseError) as exception_info:
+            v.validate()
+        assert str(exception_info.value) == \
+               'Invalid inline data value on line 2: "_data_name_2 "'
+
+        # test when followed by another line
         v = CIFValidator("\n".join(contents))
 
         with pytest.raises(CIFParseError) as exception_info:
@@ -322,7 +354,7 @@ class TestCIFSyntaxExceptions:
 
     @pytest.mark.parametrize("invalid_line", ["value_A1",
                                               "value_A1 value_B1 value_C1"])
-    def test_error_if_unmatched_data_items_in_loop(self, mocker, invalid_line):
+    def test_error_if_unmatched_data_items_in_loop(self, invalid_line):
         contents = [
             "loop_",
             "_data_name_A",
@@ -338,7 +370,7 @@ class TestCIFSyntaxExceptions:
                ('Unmatched data values to data names in loop '
                 'on line 5: "{}"'.format(invalid_line))
 
-    def test_error_if_semicolon_data_item_not_closed(self, mocker):
+    def test_error_if_semicolon_data_item_not_closed(self):
         contents = [
             "_data_name_1",
             ";",
@@ -347,7 +379,7 @@ class TestCIFSyntaxExceptions:
             "_data_item_2"
         ]
         # test when field is terminated by end of file
-        v = CIFValidator("\n".join(contents))
+        v = CIFValidator("\n".join(contents[:4]))
 
         with pytest.raises(CIFParseError) as exception_info:
             v.validate()

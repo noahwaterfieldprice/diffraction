@@ -6,7 +6,6 @@ import json
 import re
 import warnings
 from collections import OrderedDict, deque
-from recordclass import recordclass
 
 __all__ = ["load_cif", "CIFParser", "CIFValidator",
            "CIFParseError", "DataBlock"]
@@ -52,19 +51,19 @@ def load_cif(filepath):
 
 # Regular expressions used for parsing.
 COMMENT_OR_BLANK = re.compile("\w*#.*|\s+$|^$")
-DATA_BLOCK_HEADING = re.compile(r"(?:^|\n)(data_\S*)\s*", re.IGNORECASE)
-LOOP = re.compile(r"(?:^|\n)loop_\s*", re.IGNORECASE)
-DATA_NAME = re.compile(r"\s*_(\S+)")
-SL_DATA_NAME = re.compile(r"(?:^|\n)\s*_(\S+)")
-DATA_VALUE = re.compile(r"\s*(\'[^\']+\'|\"[^\"]+\"|[^\s_#][^\s\'\"]*)")
-TEXT_FIELD = re.compile(r"[^_][^;]+")
+DATA_BLOCK_HEADING = re.compile("(?:^|\n)(data_\S*)\s*", re.IGNORECASE)
+LOOP = re.compile("(?:^|\n)loop_\s*", re.IGNORECASE)
+DATA_NAME = re.compile("\s*_(\S+)")
+SL_DATA_NAME = re.compile("(?:^|\n)\s*_(\S+)")
+DATA_VALUE = re.compile("\s*(\'[^\']+\'|\"[^\"]+\"|[^\s_#][^\s\'\"]*)")
+TEXT_FIELD = re.compile("[^_][^;]+")
 SEMICOLON_DATA_ITEM = re.compile(
-    r"(?:^|\n)" + DATA_NAME.pattern + r"\n;\n((?:.(?<!\n;))*)\n;", re.DOTALL)
+    "(?:^|\n){0.pattern}\n;\n((?:.(?<!\n;))*)\n;".format(DATA_NAME), re.DOTALL)
 INLINE_DATA_ITEM = re.compile(
-    r"(?:^|\n)" + DATA_NAME.pattern + "[^\\S\\n]+" + DATA_VALUE.pattern)
+    "(?:^|\n){0.pattern}[^\S\n]+{1.pattern}".format(DATA_NAME, DATA_VALUE))
 
 
-class DataBlock():
+class DataBlock:
     """
     Data object for storing and extracting data for given :term:`data block`
 
@@ -158,8 +157,13 @@ class DataBlock():
             self.data_items["loop_{}".format(i + 1)] = loop_data_items
 
     def __repr__(self):
+        """Representation of DataBlock, abbreviating raw data if is too long"""
+        if len(self.raw_data) > 18:
+            raw_data = "{:.15s}...".format(self.raw_data)
+        else:
+            raw_data = self.raw_data
         return "DataBlock({!r}, {!r}, {!r})".format(
-            self.header, self.raw_data, self.data_items)
+            self.header, raw_data, self.data_items)
 
     def __eq__(self, other):
         return (self.header == other.header and
@@ -299,15 +303,13 @@ class CIFValidator:
 
         The raw data of the CIF file is split by the newline character
         and stored in a generator. The :class:`CIFValidator` instance is
-        initialised on the first line, raising a :class:`CIFParseError` if the
-        file is empty.
+        initialised on the first line, warning the user a if the file is empty.
         """
+        if not raw_data or raw_data.isspace():
+            warnings.warn("File is empty.")
         self.lines = (line for line in raw_data.split("\n"))
-        try:
-            self.current_line = next(self.lines)
-            self.line_number = 1
-        except StopIteration:
-            raise CIFParseError("Empty file")
+        self.current_line = next(self.lines)
+        self.line_number = 1
 
     def error(self, message=None, line_number=None, line=None):
         if line_number is None:
