@@ -264,6 +264,34 @@ class TestSavingFile:
 
 
 class TestCIFSyntaxExceptions:
+    valid_comments = [
+        "# some comment",
+        "# another comment - next line blank"
+        "                      ",
+        "# final comment ## with hashes ## in"
+    ]
+    valid_inline_items = [
+        "data_block_header_1",
+        "_data_name_1 value",
+        "_DatA_name-two another_value"
+    ]
+    valid_loop = [
+        "loop_",
+        "# comment inside a loop before data names- next line blank",
+        "                      ",
+        "_loop_data_name_A",
+        "_loop_data_name_B",
+        "# comment inside loop after data names",
+        "value_A1 'value A2'",
+    ]
+    valid_semicolon_field = [
+        "_data_name_4",
+        ";",
+        "semicolon text field with",
+        "two lines of text",
+        ";"
+    ]
+
     def test_error_throws_correct_exception_with_message(self):
         message = "Oh no! An exception has been raised...."
 
@@ -274,33 +302,12 @@ class TestCIFSyntaxExceptions:
         assert str(exception_info.value) == \
                '{} on line 1: "Erroneous line"'.format(message)
 
-    def test_validation_returns_true_when_no_exception_raised(self, mocker):
-        contents = [
-            "# some comment",
-            "# another comment - next line blank"
-            "                      ",
-            "data_block_header_1",
-            "_data_name_1 value",
-            "_DatA_name-two another_value",
-            "loop_",
-            "# comment inside a loop before data names- next line blank",
-            "                      ",
-            "_loop_data_name_A",
-            "_loop_data_name_B",
-            "# comment inside loop after data names",
-            "value_A1 'value A2'",
-            "loop_",
-            "_loop_data_name_C",
-            "value_C1",
-            "_one_more_data_item_ one_more_data_value",
-            "_data_name_4",
-            ";",
-            "semicolon text field with",
-            "two lines of text",
-            ";"
-        ]
-
-        v = CIFValidator("\n".join(contents))
+    @pytest.mark.parametrize("valid_contents", [valid_comments,
+                                                valid_inline_items,
+                                                valid_loop,
+                                                valid_semicolon_field])
+    def test_valid_syntax_raises_no_exception(self, valid_contents):
+        v = CIFValidator("\n".join(valid_contents))
         assert v.validate() == True
 
     def test_warning_if_file_is_empty(self):
