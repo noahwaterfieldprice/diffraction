@@ -5,8 +5,11 @@ from unittest import mock
 
 import pytest
 
-from diffraction.cif import (load_cif, CIFParseError, CIFParser, CIFValidator,
-                             DataBlock, SEMICOLON_DATA_ITEM, INLINE_DATA_ITEM)
+from diffraction import (load_cif, CIFParser, CIFValidator, CIFParseError,
+                         DataBlock)
+
+from diffraction.cif import SEMICOLON_DATA_ITEM, INLINE_DATA_ITEM
+
 OPEN = "builtins.open"
 
 
@@ -99,12 +102,17 @@ class TestParsingFile:
             "semicolon text field with",
             "two lines of text",
             ";"
-            "_data_name_4 data_value_4"
+            "_data_name_4 data_value_4",
+            "_data_name_5",
+            ";",
+            "semicolon text ; field containing ;;; semicolons",
+            ";"
         ]
         data_block = DataBlock('data_block_heading', "\n".join(contents), {})
         semicolon_data_items = {
             "data_name_1": "'very long semicolon text field with many words'",
-            "data_name_3": "'semicolon text field with\ntwo lines of text'"
+            "data_name_3": "'semicolon text field with\ntwo lines of text'",
+            "data_name_5": "'semicolon text ; field containing ;;; semicolons'"
         }
 
         data_block.extract_data_items(SEMICOLON_DATA_ITEM)

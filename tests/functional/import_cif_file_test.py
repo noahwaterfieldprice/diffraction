@@ -27,7 +27,7 @@ class TestCIFReading:
             "tests/functional/static/valid_cifs/calcite_vesta.cif")
         p.parse()
         # basic checks that correct number of data items were caught
-        assert p.data_blocks[0].heading == 'data_VESTA_phase_1'
+        assert p.data_blocks[0].header == 'data_VESTA_phase_1'
         assert len(p.data_blocks) == 1
         data_items = p.data_blocks[0].data_items
         assert len(data_items) == 12
@@ -48,7 +48,7 @@ class TestCIFReading:
             "tests/functional/static/valid_cifs/calcite_icsd.cif")
         p.parse()
         # basic checks that correct number of data items were caught
-        assert p.data_blocks[0].heading == "data_18166-ICSD"
+        assert p.data_blocks[0].header == "data_18166-ICSD"
         assert len(p.data_blocks) == 1
         data_items = p.data_blocks[0].data_items
         assert len(data_items) == 27
@@ -72,8 +72,8 @@ class TestCIFReading:
         p.parse()
         # basic checks that correct number of data items were caught
         assert len(p.data_blocks) == 20
-        assert p.data_blocks[0].heading == "data_CSD_CIF_ACAGUG"
-        assert p.data_blocks[11].heading == "data_CSD_CIF_AHUKOD"
+        assert p.data_blocks[0].header == "data_CSD_CIF_ACAGUG"
+        assert p.data_blocks[11].header == "data_CSD_CIF_AHUKOD"
         data_items_1 = p.data_blocks[0].data_items
         data_items_2 = p.data_blocks[11].data_items
         assert len(data_items_1) == 33
