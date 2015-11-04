@@ -7,19 +7,28 @@ import re
 import warnings
 from collections import OrderedDict, deque
 
-__all__ = ["load_cif", "CIFParser", "CIFValidator",
-           "CIFParseError", "DataBlock"]
-
 
 def load_cif(filepath):
-    """
-    Load :term:`CIF` file and extract :term:`data items`.
+    """Extract and return :term:`data items` from :term:`CIF` file.
 
-    Input :term:`CIF` file is read and split by :term:`data block`. The
-    :term:`data block header` and :term:`data items` are extracted for each
-    :term:`data block` and returned in dictionary.
+    Input CIF file is read and split by :term:`data block`. The
+    :term:`data block header` and data items are extracted for each
+    data block and returned in dictionary. Each one is represented by
+    a `key: value` pair where the key is the data block header and
+    the value is dictionary of the corresponding data items.
 
+    Within each **data block**:
 
+        Each non-:term:`loop` data item is stored in a key: value pair
+        where the key and value are the :term:`data name` and
+        :term:`data value` respectively.
+
+        Loop data is stored in a child dictionary under the key
+        `"loop_i"` where i is the number of the loop in the order they
+        appear in the CIF. Within the loop dictionary, the data items
+        are stored in key: value pairs as above but where the value is
+        now a list of one or more data values assigned to that data
+        name in the loop.
 
     Parameters
     ----------
@@ -29,16 +38,13 @@ def load_cif(filepath):
     Returns
     -------
     dict[dict]
-        A dictionary of the extracted data organised by :term:`data block`.
-        Each one is represented by a `key: value` pair where the key is the
-        :term:`data block header` and the value is dictionary of the
-        corresponding :term:`data items`.
+        A dictionary of the extracted data organised by :term:`data
+        block`.
 
     Raises
     ------
     CIFParseError:
         If a syntax error is found in the input raw :term:`CIF` data.
-
     """
     if not filepath.lower().endswith('.cif'):
         warnings.warn(("No .cif file extension detected. Assuming the filetype"
@@ -64,11 +70,8 @@ INLINE_DATA_ITEM = re.compile(
 
 
 class DataBlock:
-    """
-    Data object for storing and extracting data for given :term:`data block`
-
-
-
+    """Object for storing and extracting data for given
+    :term:`data block`
 
     Parameters
     ----------
@@ -76,8 +79,8 @@ class DataBlock:
             The :term:`data block header` of the data block
         raw_data: str
             The raw data from the :term:`data block` not including the
-            :term:`data block header`, with the comments and blank lines
-            stripped out.
+            :term:`data block header`, with the comments and blank
+            lines stripped out.
         data_items: dict
             An empty dictionary
 
@@ -87,13 +90,11 @@ class DataBlock:
             The :term:`data block header` of the data block
         raw_data: str
             The raw data from the :term:`data block` from which the
-            :term:`data items` are extracted. Data items are stripped out after
-            extraction.
+            :term:`data items` are extracted. Data items are stripped
+            out after extraction.
         data_items: dict
             A dictionary in which the :term:`data items` are stored as
             :term:`data name`: :term:`data value` pairs.
-
-
     """
     def __init__(self, header, raw_data, data_items):
         self.header = header
@@ -101,24 +102,24 @@ class DataBlock:
         self.data_items = data_items
 
     def extract_data_items(self, data_item_pattern):
-        """
-        Extract matching (non-:term:`loop`) :term:`data items`
+        """Extract matching (non-:term:`loop`) :term:`data items`
 
-        :term:`data items` matching input `pattern` are extracted from
-        `raw_data` and saved in the `data_item` dictionary. The matching
-        :term:`data items` are then removed from the `raw_data` string.
+        data items matching input `pattern` are extracted from
+        `raw_data` and saved in the `data_item` dictionary. The
+        matching data items are then removed from the `raw_data`
+        string.
 
         Parameters
         ----------
         data_item_pattern:
-            The compiled regex pattern which matches the :term:`data items`
-            to be extracted. `pattern` must capture the :term:`data name` and
-            :term:`data value`.
+            The compiled regex pattern which matches the
+            :term:`data items` to be extracted. `pattern` must capture
+            the :term:`data name` and :term:`data value`.
 
         Notes
         -----
-        Only used for inline and semicolon :term:`data items`. However, any
-        valid `data_item_pattern` should work.
+        Only used for inline and semicolon :term:`data items`. However,
+        any valid `data_item_pattern` should work.
 
         """
         data_items = data_item_pattern.findall(self.raw_data)
@@ -129,21 +130,20 @@ class DataBlock:
         self.raw_data = data_item_pattern.sub("", self.raw_data)
 
     def extract_loop_data_items(self):
-        """
-        Extract all :term:`loop` :term:`data items` from `raw_data`.
+        """Extract all :term:`loop` :term:`data items` from raw data.
 
-        The :term:`data items` are extracted and stored in a dictionary where
-        the keys are the :term:`data names` and the values are lists of the
-        corresponding :term:'data values' i.e.
+        The data items are extracted and stored in a dictionary where
+        the keys are the :term:`data names` and the values are lists
+        of the corresponding :term:'data values' i.e.
 
           .. code-block:: python
 
-            {"data_name_A": ["data_value_A1", "data_value_A2", ....],
-             "data_name_B": ["data_value_B1", "data_value_B2", ....]}
+            {"data_name_A": ["data_value_A1", "data_value_A2", ...],
+             "data_name_B": ["data_value_B1", "data_value_B2", ...]}
 
-        The loop is then added to the `DataBlock` `data_items` dictionary with
-        the key `"loop_i"` where i is the number of the loop in the order they
-        appear in the :term:`CIF`.
+        The loop is then added to the `DataBlock` `data_items`
+        dictionary with the key `"loop_i"` where i is the number of
+        the loop in the order they appear in the :term:`CIF`.
         """
         loops = LOOP.split(self.raw_data)[1:]
         for i, loop in enumerate(loops):
@@ -157,7 +157,7 @@ class DataBlock:
             self.data_items["loop_{}".format(i + 1)] = loop_data_items
 
     def __repr__(self):
-        """Representation of DataBlock, abbreviating raw data if is too long"""
+        """Representation of DataBlock, abbreviating raw data"""
         if len(self.raw_data) > 18:
             raw_data = "{:.15s}...".format(self.raw_data)
         else:
@@ -171,15 +171,14 @@ class DataBlock:
 
 
 class CIFParser:
-    """
-    Class for parsing CIF files and exporting data in JSON style format
+    """Class for parsing CIF files and exporting data
 
-    The CIF file is parsed and :term:`data items` are extracted for each
-    :term:`data block`. Data is stored in a list of :class:`DataBlock` objects.
-    This can then be saved to a .json file.
+    The CIF file is parsed and :term:`data items` are extracted for
+    each :term:`data block`. Data is stored in a list of
+    :class:`DataBlock` objects. This can then be saved to a JSON file.
 
-    Before parsing the CIF file is checked and :class:`CIFParseError` is
-    raised if a syntax error is found.
+    Before parsing the CIF file is checked and :class:`CIFParseError`
+    is raised if a syntax error is found.
 
     Parameters
     ----------
@@ -189,8 +188,8 @@ class CIFParser:
     Attributes
     ----------
     raw_data: str
-        The raw data from the file of which the comments and blank lines
-        are stripped out.
+        The raw data from the file of which the comments and blank
+        lines are stripped out.
     data_blocks: list[DataBlock]
         A list of data blocks.
 
@@ -209,17 +208,14 @@ class CIFParser:
         self.data_blocks = []
 
     def _strip_comments_and_blank_lines(self):
-        """
-        Remove all comments and blank lines from stored raw file string.
-        """
+        """Remove all comments and blank lines raw file string."""
         lines = self.raw_data.split("\n")
         keep = [line for line in lines if not COMMENT_OR_BLANK.match(line)]
         self.raw_data = "\n".join(keep)
 
     def _extract_data_blocks(self):
-        """
-        Split raw file string into data blocks and
-        save as a list of DataBlock objects.
+        """Split raw file string into data blocks and save as a list
+        of :class:`DataBlock` objects.
         """
         self.data_blocks = []
         data_blocks = DATA_BLOCK_HEADING.split(self.raw_data)[1:]
@@ -240,11 +236,13 @@ class CIFParser:
             data_block.extract_loop_data_items()
 
     def save(self, filepath):
-        """
-        Save data in JSON format with data items sorted alphabetically by name.
+        """Save data in JSON format with data items sorted
+        alphabetically by name.
 
-        Args:
-            filepath (str): target filepath for json file
+        Parameters:
+        -----------
+        filepath (str):
+            Target filepath for output JSON file.
         """
 
         with open(filepath, 'w') as f:
@@ -257,15 +255,15 @@ class CIFParser:
 
 
 class CIFParseError(Exception):
-    """Exception raised for all parse errors due to incorrect syntax."""
+    """Exception for all parse errors due to incorrect syntax."""
 
 
 class CIFValidator:
-    """
-    Class interface for validating CIF file syntax
+    """Class interface for validating CIF file syntax
 
-    CIF file is scanned and checked for syntax errors. If one is found the
-    error is reported explicitly, along with line number where it occurs.
+    CIF file is scanned and checked for syntax errors. If one is found
+    the error is reported explicitly, along with line number where it
+    occurs.
 
     Parameters
     ----------
@@ -283,7 +281,8 @@ class CIFValidator:
 
     Notes
     -----
-    Current syntax errors supported are:
+    Current syntax errors supported are
+    :
         * Empty file
         * Missing inline :term:`data name`
         * Missing inline :term:`data value`
@@ -298,12 +297,12 @@ class CIFValidator:
     CIFParseError: Missing inline data name on line 3: "some_lone_data_value"
     """
     def __init__(self, raw_data):
-        """
-        Initialises the :class:`CIFValidator` instance.
+        """Initialises the :class:`CIFValidator` instance.
 
         The raw data of the CIF file is split by the newline character
-        and stored in a generator. The :class:`CIFValidator` instance is
-        initialised on the first line, warning the user a if the file is empty.
+        and stored in a generator. The :class:`CIFValidator` instance
+        is initialised on the first line, warning the user a if the
+        file is empty.
         """
         if not raw_data or raw_data.isspace():
             warnings.warn("File is empty.")
@@ -318,8 +317,7 @@ class CIFValidator:
             message, line_number, line))
 
     def validate(self):
-        """
-        Validate the CIF file line by line
+        """Validate the CIF file line by line
 
         Returns
         -------
@@ -352,10 +350,9 @@ class CIFValidator:
     def _validate_loop(self):
         """Validate :term:`loop` syntax.
 
-        Raise a :class:`CIFParseError` if, for any row in the :term:`loop`,
+        Raise a :class:`CIFParseError` if, for any row in the loop,
         the number of :term:`data values` does not match the number of
         declared :term:`data names`.
-
         """
         loop_data_names = self._get_loop_data_names()
         while True:
@@ -390,13 +387,13 @@ class CIFValidator:
         return loop_data_names
 
     def _validate_lone_data_name(self):
-        """
-        Validate isolated :term:`data name`.
+        """Validate isolated :term:`data name`.
 
-        An isolated :term:`data name` is could indicated a missing an inline
-        :term:`data value`, in which case raise a :class:`CIFParseError`.
-        Otherwise it denotes the beginning of a :term:`semicolon data item`,
-        in which case that validate that separately.
+        An isolated :term:`data name` could indicate a missing an
+        inline :term:`data value`, in which case raise a
+        :class:`CIFParseError`. Otherwise it denotes the beginning of
+        a :term:`semicolon data item`, in which case that validate
+        that separately.
         """
         err_line_number, err_line = self.line_number, self.current_line
         try:
@@ -413,11 +410,10 @@ class CIFValidator:
                        err_line_number, err_line)
 
     def _validate_semicolon_data_item(self):
-        """
-        Validates :term:`semicolon data item.`
+        """Validates :term:`semicolon data item.`
 
-        Check for closing semicolon and raise a :class:`CIFParseError` if a
-        :term:`semicolon text field` is left unclosed.
+        Check for closing semicolon and raise a :class:`CIFParseError`
+        if a :term:`semicolon text field` is left unclosed.
         """
         self._next_line()
         # two line queue must be kept as if no closing semicolon is found,
@@ -440,9 +436,8 @@ class CIFValidator:
         self._next_line()
 
     def _is_valid_single_line(self):
-        """
-        Check if line is valid and necessitates no further validation
-        of current or following lines.
+        """Check if line is valid and necessitates no further
+        validation of current or following lines.
         """
         return (COMMENT_OR_BLANK.match(self.current_line) or
                 INLINE_DATA_ITEM.match(self.current_line) or

@@ -5,10 +5,9 @@ from unittest import mock
 
 import pytest
 
-from diffraction import (load_cif, CIFParser, CIFValidator, CIFParseError,
-                         DataBlock)
+from diffraction import load_cif, CIFParser, CIFValidator, CIFParseError
 
-from diffraction.cif import SEMICOLON_DATA_ITEM, INLINE_DATA_ITEM
+from diffraction.cif import DataBlock, INLINE_DATA_ITEM, SEMICOLON_DATA_ITEM
 
 OPEN = "builtins.open"
 
