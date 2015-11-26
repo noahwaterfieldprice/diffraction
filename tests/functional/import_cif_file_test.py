@@ -1,9 +1,9 @@
+import glob
 import pytest
-
 from diffraction import cif
 
 
-class TestCIFReading:
+class TestCIFValidating:
     invalid_files = [
         "calcite_icsd_missing_data_name_in_loop.cif",
         "calcite_icsd_missing_data_value_in_loop.cif",
@@ -18,10 +18,31 @@ class TestCIFReading:
         'Invalid inline data value on line 28: "_cell_length_a"',
     ]
 
+    def test_raises_warning_if_file_extension_is_not_cif(self):
+        filepath = "tests/functional/static/valid_cifs/non_cif_extension.txt"
+        with pytest.warns(UserWarning):
+            cif.load_cif(filepath)
+
     def test_loading_cif_from_invalid_filepath_raises_exception(self):
         with pytest.raises(FileNotFoundError):
             cif.load_cif('/no/cif/file/here')
 
+    @pytest.mark.parametrize("filename, error_message",
+                             zip(invalid_files, error_messages))
+    def test_exception_with_invalid_cif_file(self, filename, error_message):
+        filepath = "tests/functional/static/invalid_cifs/" + filename
+        with pytest.raises(cif.CIFParseError) as exception_info:
+            p = cif.CIFParser(filepath)
+            p._validate_syntax()
+        assert str(exception_info.value) == error_message
+
+    @pytest.mark.parametrize("filepath",
+                             glob.glob('tests/functional/static/valid_cifs/*'))
+    def test_no_exception_and_return_true_with_valid_cif_files(self, filepath):
+        assert cif.validate_cif(filepath) == True
+
+
+class TestCIFReading:
     def test_can_load_crystal_data_from_vesta_cif_file(self):
         p = cif.CIFParser(
             "tests/functional/static/valid_cifs/calcite_vesta.cif")
@@ -96,12 +117,3 @@ class TestCIFReading:
         assert data_items_1["exptl_crystal_colour"] == "'dark brown'"
         assert data_items_2["journal_name_full"] == "'J.Mater.Chem. '"
         assert data_items_2["cell_angle_gamma"] == "76.35(2)"
-
-    @pytest.mark.parametrize("filename, error_message",
-                             zip(invalid_files, error_messages))
-    def test_exception_with_invalid_cif_file(self, filename, error_message):
-        filepath = "tests/functional/static/invalid_cifs/" + filename
-        with pytest.raises(cif.CIFParseError) as exception_info:
-            p = cif.CIFParser(filepath)
-            p._validate_syntax()
-        assert str(exception_info.value) == error_message

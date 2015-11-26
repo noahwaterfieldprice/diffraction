@@ -1,11 +1,33 @@
-"""
-Docstring for the module
-"""
+"""CIF file parsing and validation
+
+Module contains three main functions `load_cif`, `validate_cif` and `cif2json`.
+
+Functions
+---------
+load_cif:
+    Extract :term:`data items` from :term:`CIF` file and return a
+    dictionary of :term:`data blocks`.
+validate_cif:
+    Validate :term:`CIF` file, and return True if no syntax errors
+    are found, else raise a :class:`CIFParseError`.
+cif2json:
+    Extract :term:`data items` from :term:`CIF` file and save to a
+    JSON file with :term:`data items` sorted alphabetically by name.
+
+Attributes
+----------
+CIFParseError:
+    Exception for all parse errors due to incorrect :term:`CIF` syntax.
+
+
+"""  # TODO: finish this docstring
 
 import json
 import re
 import warnings
 from collections import OrderedDict, deque
+
+__all__ = ["load_cif", "validate_cif", "CIFParseError"]
 
 
 def load_cif(filepath):
@@ -45,22 +67,72 @@ def load_cif(filepath):
     ------
     CIFParseError:
         If a syntax error is found in the input raw :term:`CIF` data.
+
+    Examples
+    --------
+
+
     """
     if not filepath.lower().endswith('.cif'):
         warnings.warn(("No .cif file extension detected. Assuming the filetype"
                        "is CIF and continuing."), UserWarning)
-    with open(filepath, "r") as f:
-        p = CIFParser(filepath)
-        p.parse()
+    p = CIFParser(filepath)
+    p.parse()
     return dict((data_block.header, data_block.data_items)
                 for data_block in p.data_blocks)
+
+
+def validate_cif(filepath):
+    """  Validate :term:`CIF` file syntax
+
+    CIF file is scanned and checked for syntax errors. If one is found
+    the error is reported explicitly, along with line number where it
+    occurs. Returns ``True`` if no errors are found.
+
+
+    Parameters
+    ----------
+    filepath: str
+        Filepath to the input :term:`CIF` file.
+
+    Returns
+    -------
+    bool
+         Return ``True`` if file syntax is valid
+
+    Raises
+    ------
+    CIFParseError:
+        If a syntax error is found in the input raw :term:`CIF` data.
+
+    Notes
+    -----
+    Syntax errors supported are:
+        * Empty file
+        * Missing inline :term:`data name`
+        * Missing inline :term:`data value`
+        * Unmatched loop :term:`data names` and :term:`data values`
+        * Unclosed semicolon :term:`semicolon text field`
+
+    Examples
+    --------
+    >>> validate_cif("path/to/valid_cif_file.cif")
+    True
+    >>> validate_cif("path/to/invalid_cif_file.cif")
+    CIFParseError: Missing inline data name on line 3: "some_lone_data_value"
+    """
+
+    with open(filepath, "r") as cif_file:
+        raw_data = cif_file.read()
+    v = CIFValidator(raw_data)
+    return v.validate()
 
 # Regular expressions used for parsing.
 COMMENT_OR_BLANK = re.compile("\w*#.*|\s+$|^$")
 DATA_BLOCK_HEADING = re.compile("(?:^|\n)(data_\S*)\s*", re.IGNORECASE)
 LOOP = re.compile("(?:^|\n)loop_\s*", re.IGNORECASE)
 DATA_NAME = re.compile("\s*_(\S+)")
-SL_DATA_NAME = re.compile("(?:^|\n)\s*_(\S+)")
+DATA_NAME_START_LINE = re.compile("(?:^|\n)\s*_(\S+)")
 DATA_VALUE = re.compile("\s*(\'[^\']+\'|\"[^\"]+\"|[^\s_#][^\s\'\"]*)")
 TEXT_FIELD = re.compile("[^_][^;]+")
 SEMICOLON_DATA_ITEM = re.compile(
@@ -104,7 +176,7 @@ class DataBlock:
     def extract_data_items(self, data_item_pattern):
         """Extract matching (non-:term:`loop`) :term:`data items`
 
-        data items matching input `pattern` are extracted from
+        Data items matching input `pattern` are extracted from
         `raw_data` and saved in the `data_item` dictionary. The
         matching data items are then removed from the `raw_data`
         string.
@@ -147,7 +219,7 @@ class DataBlock:
         """
         loops = LOOP.split(self.raw_data)[1:]
         for i, loop in enumerate(loops):
-            data_names = SL_DATA_NAME.findall(loop)
+            data_names = DATA_NAME_START_LINE.findall(loop)
             loop_data_items = {data_name: [] for data_name in data_names}
             data_value_lines = loop.split("\n")[len(data_names):]
             for line in data_value_lines:
@@ -171,7 +243,7 @@ class DataBlock:
 
 
 class CIFParser:
-    """Class for parsing CIF files and exporting data
+    """Class interface for parsing :term:`CIF` files and exporting data
 
     The CIF file is parsed and :term:`data items` are extracted for
     each :term:`data block`. Data is stored in a list of
@@ -224,9 +296,23 @@ class CIFParser:
             self.data_blocks.append(DataBlock(header, data, {}))
 
     def parse(self):
-        """
+        """Parse the :term:`CIF` file by :term:`data block` and
+        extract the :term:`data items`.2
 
+        File is split into data blocks, each one saved in a
+        :class:`DataBlock` object. Then for each data block, extract
+        the semicolon, inline and loop data items.
 
+        Notes
+        -----
+        When a data item is extracted, the corresponding raw CIF data
+        is removed from the ``DataBlock.raw_data`` attribute and the
+        extraction methods use this fact. Therefore, the data items
+        must be extracted in the above order.
+
+        For example, the ``DataBlock.extract_loop_data_items`` method
+        assumes that only :term:`loop` data remains in the raw data
+        and hence this must be done last.
         """
         self._strip_comments_and_blank_lines()
         self._extract_data_blocks()
@@ -235,12 +321,12 @@ class CIFParser:
             data_block.extract_data_items(INLINE_DATA_ITEM)
             data_block.extract_loop_data_items()
 
-    def save(self, filepath):
+    def save(self, filepath):  # TODO: refactor to cif2json function
         """Save data in JSON format with data items sorted
         alphabetically by name.
 
-        Parameters:
-        -----------
+        Parameters
+        ----------
         filepath (str):
             Target filepath for output JSON file.
         """
@@ -281,20 +367,12 @@ class CIFValidator:
 
     Notes
     -----
-    Current syntax errors supported are
-    :
+    Current syntax errors supported are:
         * Empty file
         * Missing inline :term:`data name`
         * Missing inline :term:`data value`
         * Unmatched loop :term:`data names` and :term:`data values`
         * Unclosed semicolon :term:`semicolon text field`
-
-    Examples
-    --------
-    >>> v = CIFValidator("path/to/valid_cif_file.cif")
-    >>> v.validate()
-    >>> v = CIFValidator("path/to/invalid_cif_file.cif")
-    CIFParseError: Missing inline data name on line 3: "some_lone_data_value"
     """
     def __init__(self, raw_data):
         """Initialises the :class:`CIFValidator` instance.
@@ -311,18 +389,24 @@ class CIFValidator:
         self.line_number = 1
 
     def error(self, message=None, line_number=None, line=None):
+        """Raise error message reporting the line number and line contents."""
         if line_number is None:
             line_number, line = self.line_number, self.current_line
         raise CIFParseError('{} on line {}: "{}"'.format(
             message, line_number, line))
 
     def validate(self):
-        """Validate the CIF file line by line
+        """Validate the :term:`CIF` file line by line
+
+        Perform context sensitive, line by line, scan through CIF file
+        checking the syntax is valid. Current contexts treated are top
+        level, inside a :term:`loop` and inside a :term:`semicolon
+        text field`.
 
         Returns
         -------
         bool
-            Return ``True`` if file syntax is valid
+            Return ``True`` if file syntax is valid.
 
         Raises
         ------
@@ -344,6 +428,7 @@ class CIFValidator:
             return True
 
     def _next_line(self):
+        """Load next line of file and increment the current line number."""
         self.current_line = next(self.lines)
         self.line_number += 1
 
@@ -353,6 +438,13 @@ class CIFValidator:
         Raise a :class:`CIFParseError` if, for any row in the loop,
         the number of :term:`data values` does not match the number of
         declared :term:`data names`.
+
+        Raises
+        ------
+        CIFParserError
+            If number of :term:`data values` does not match the number
+            of declared :term:`data names`.
+
         """
         loop_data_names = self._get_loop_data_names()
         while True:
@@ -368,6 +460,12 @@ class CIFValidator:
 
     def _get_loop_data_names(self):
         """ Extract :term:`data names` from a :term:`loop`
+
+        Collect and return a the list of data names declared at the
+        beginning of a loop. The first line containing anything but a
+        valid data name, comment or blank line will signify the end of
+        the data names and is assumed to be the beginning of the loop
+        :term:`data values`.
 
         Returns
         -------
@@ -394,6 +492,12 @@ class CIFValidator:
         :class:`CIFParseError`. Otherwise it denotes the beginning of
         a :term:`semicolon data item`, in which case that validate
         that separately.
+
+        Raises
+        ------
+        CIFParseError:
+            If :term:`data name` is not matched with corresponding
+            :term:`data value`.
         """
         err_line_number, err_line = self.line_number, self.current_line
         try:
@@ -410,10 +514,15 @@ class CIFValidator:
                        err_line_number, err_line)
 
     def _validate_semicolon_data_item(self):
-        """Validates :term:`semicolon data item.`
+        """Validates :term:`semicolon data item`.
 
         Check for closing semicolon and raise a :class:`CIFParseError`
-        if a :term:`semicolon text field` is left unclosed.
+        if the :term:`semicolon text field` is left unclosed.
+
+        Raises
+        ------
+        CIFParseError:
+            If the :term:`semicolon text field` has no closing ``;``.
         """
         self._next_line()
         # two line queue must be kept as if no closing semicolon is found,
@@ -436,15 +545,18 @@ class CIFValidator:
         self._next_line()
 
     def _is_valid_single_line(self):
-        """Check if line is valid and necessitates no further
-        validation of current or following lines.
+        """Check if valid single line (in top level context)
+
+        Check the line is valid and necessitates no further validation
+        of current or following lines. (Top level context meaning not
+        inside a :term:`loop` or :term:`semicolon text field`.)
         """
         return (COMMENT_OR_BLANK.match(self.current_line) or
                 INLINE_DATA_ITEM.match(self.current_line) or
                 DATA_BLOCK_HEADING.match(self.current_line))
 
     def _is_loop_data_values(self):
-        """Check if valid :term:`loop` :term:`data value`."""
+        """Check if valid :term:`data value` in a :term:`loop` context."""
         return (DATA_VALUE.match(self.current_line) and not
                 LOOP.match(self.current_line) and not
                 DATA_BLOCK_HEADING.match(self.current_line))

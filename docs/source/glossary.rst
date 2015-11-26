@@ -39,6 +39,12 @@ Glossary
       beginning with the case-insensitive reserved characters `data_`. Bounded
       by whitespace, it precedes the :term:`data block` on a line of it's own.
 
+   loop
+      sadsdoajidjasoidj a
+
+   semicolon data item
+      asdasdasfasdfsdfs
+
    semicolon text field
       A semicolon text field is a :term:`data value` delimited by two
       semicolons located at the start of a line. The field may contain
