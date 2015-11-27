@@ -5,8 +5,9 @@ from unittest import mock
 
 import pytest
 
+from diffraction import cif
 from diffraction.cif import (DataBlock, INLINE_DATA_ITEM, SEMICOLON_DATA_ITEM,
-                             CIFParser, CIFValidator, CIFParseError)
+                             CIFParser, CIFValidator, CIFParseError, cif2json)
 
 OPEN = "builtins.open"
 
@@ -351,16 +352,14 @@ class TestSavingFile:
     data_items_2 = {"data_name_1": "data_value_1",
                     "data_name_3": "data_value_3",
                     }
-
-    example_data_blocks = [DataBlock("data_block_1", "", data_items_1),
-                           DataBlock("data_block_2", "", data_items_2)]
+    data = {"data_block_1": data_items_1, "data_block_2": data_items_2}
 
     def test_data_written_as_valid_json(self, mocker):
         m = mocker.patch(OPEN, mock.mock_open())
+        l = mocker.patch('diffraction.cif.load_cif')
+        l.return_value = self.data
         filepath = "some_directory/some_file.json"
-        p = mock.Mock(spec=CIFParser)
-        p.data_blocks = self.example_data_blocks
-        CIFParser.save(p, filepath)
+        cif2json('some_cif_file', filepath)
 
         # test correct file is written to exactly once
         open.assert_called_with(filepath, "w")
@@ -371,10 +370,10 @@ class TestSavingFile:
 
     def test_contents_are_sorted_and_stored_correctly(self, mocker):
         m = mocker.patch(OPEN, mock.mock_open())
+        l = mocker.patch('diffraction.cif.load_cif')
+        l.return_value = self.data
         filepath = "some_directory/some_file.json"
-        p = mock.Mock(spec=CIFParser)
-        p.data_blocks = self.example_data_blocks
-        CIFParser.save(p, filepath)
+        cif2json("some_cif_file", filepath)
         data = json.loads(m().write.call_args[0][0],
                           object_pairs_hook=OrderedDict)
 

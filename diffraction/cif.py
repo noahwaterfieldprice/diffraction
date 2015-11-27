@@ -131,14 +131,20 @@ def validate_cif(filepath):
 
 
 def cif2json(cif_filepath, json_filepath):
-    """ """
-    if not cif_filepath.lower().endswith('.cif'):
-        warnings.warn(("No .cif file extension detected. Assuming the filetype"
-                       "is CIF and continuing."), UserWarning)
-    p = CIFParser(cif_filepath)
-    p.parse()
-    p.save(json_filepath)
+    """Save data in JSON format with data items sorted
+        alphabetically by name.
 
+        Parameters
+        ----------
+        filepath (str):
+            Target filepath for output JSON file.
+        """
+    data = load_cif(cif_filepath)
+    json_data = OrderedDict()
+    for data_block_header, data_block in sorted(data.items()):
+        json_data[data_block_header] = OrderedDict(sorted(data_block.items()))
+    with open(json_filepath, 'w') as json_file:
+        json_file.write(json.dumps(json_data, indent=4))
 
 
 # Regular expressions used for parsing.
@@ -335,23 +341,6 @@ class CIFParser:
             data_block.extract_data_items(INLINE_DATA_ITEM)
             data_block.extract_loop_data_items()
 
-    def save(self, filepath):  # TODO: refactor to cif2json function
-        """Save data in JSON format with data items sorted
-        alphabetically by name.
-
-        Parameters
-        ----------
-        filepath (str):
-            Target filepath for output JSON file.
-        """
-
-        with open(filepath, 'w') as f:
-            json_data = OrderedDict()
-            json_data.keys()
-            for data_block in self.data_blocks:
-                json_data[data_block.header] = OrderedDict(
-                    sorted(data_block.data_items.items()))
-            f.write(json.dumps(json_data, indent=4))
 
 
 class CIFParseError(Exception):
