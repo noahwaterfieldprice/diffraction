@@ -121,11 +121,25 @@ def validate_cif(filepath):
     >>> validate_cif("path/to/invalid_cif_file.cif")
     CIFParseError: Missing inline data name on line 3: "some_lone_data_value"
     """
-
+    if not filepath.lower().endswith('.cif'):
+        warnings.warn(("No .cif file extension detected. Assuming the filetype"
+                       "is CIF and continuing."), UserWarning)
     with open(filepath, "r") as cif_file:
         raw_data = cif_file.read()
     v = CIFValidator(raw_data)
     return v.validate()
+
+
+def cif2json(cif_filepath, json_filepath):
+    """ """
+    if not cif_filepath.lower().endswith('.cif'):
+        warnings.warn(("No .cif file extension detected. Assuming the filetype"
+                       "is CIF and continuing."), UserWarning)
+    p = CIFParser(cif_filepath)
+    p.parse()
+    p.save(json_filepath)
+
+
 
 # Regular expressions used for parsing.
 COMMENT_OR_BLANK = re.compile("\w*#.*|\s+$|^$")

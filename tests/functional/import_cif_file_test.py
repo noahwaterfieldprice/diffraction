@@ -1,6 +1,39 @@
 import glob
+import json
 import pytest
 from diffraction import cif
+
+
+class TestFileLoading:
+
+    def test_raises_warning_if_file_extension_is_not_cif(self, tmpdir):
+        cif_filepath = \
+            "tests/functional/static/valid_cifs/non_cif_extension.txt"
+        json_filepath = str(tmpdir.join("temp.json"))
+
+        # test for warning on validating cif
+        with pytest.warns(UserWarning):
+            cif.validate_cif(cif_filepath)
+        # test for warning on loading cif
+        with pytest.warns(UserWarning):
+            cif.load_cif(cif_filepath)
+        # test for warning on saving to json
+        with pytest.warns(UserWarning):
+            cif.cif2json(cif_filepath, json_filepath)
+
+    def test_loading_cif_from_invalid_filepath_raises_exception(self, tmpdir):
+        cif_filepath = "/no/cif/file/here"
+        json_filepath = str(tmpdir.join("temp.json"))
+
+        # test for exception on validating cif
+        with pytest.raises(FileNotFoundError):
+            cif.validate_cif(cif_filepath)
+        # test for exception on loading cif
+        with pytest.raises(FileNotFoundError):
+            cif.load_cif(cif_filepath)
+        # test for exception on saving to json
+        with pytest.raises(FileNotFoundError):
+            cif.cif2json(cif_filepath, json_filepath)
 
 
 class TestCIFValidating:
@@ -18,22 +51,12 @@ class TestCIFValidating:
         'Invalid inline data value on line 28: "_cell_length_a"',
     ]
 
-    def test_raises_warning_if_file_extension_is_not_cif(self):
-        filepath = "tests/functional/static/valid_cifs/non_cif_extension.txt"
-        with pytest.warns(UserWarning):
-            cif.load_cif(filepath)
-
-    def test_loading_cif_from_invalid_filepath_raises_exception(self):
-        with pytest.raises(FileNotFoundError):
-            cif.load_cif('/no/cif/file/here')
-
     @pytest.mark.parametrize("filename, error_message",
                              zip(invalid_files, error_messages))
     def test_exception_with_invalid_cif_file(self, filename, error_message):
         filepath = "tests/functional/static/invalid_cifs/" + filename
         with pytest.raises(cif.CIFParseError) as exception_info:
-            p = cif.CIFParser(filepath)
-            p._validate_syntax()
+            cif.validate_cif(filepath)
         assert str(exception_info.value) == error_message
 
     @pytest.mark.parametrize("filepath",
@@ -117,3 +140,13 @@ class TestCIFReading:
         assert data_items_1["exptl_crystal_colour"] == "'dark brown'"
         assert data_items_2["journal_name_full"] == "'J.Mater.Chem. '"
         assert data_items_2["cell_angle_gamma"] == "76.35(2)"
+
+
+class TestSavingCIFAsJSON:
+    def test_can_save_cif_file_as_valid_json(self, tmpdir):
+        cif_filepath = "tests/functional/static/valid_cifs/calcite_icsd.cif"
+        json_filepath = str(tmpdir.join("temp.json"))
+        cif.cif2json(cif_filepath, json_filepath)
+
+        with open(json_filepath, 'r') as json_file:
+            assert json.load(json_file)
