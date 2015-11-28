@@ -19,3 +19,5 @@ test:
       - py.test tests --junitxml=$CIRCLE_TEST_REPORTS/report.xml
     post:
       - coveralls
+      - coverage xml
+      - python-codacy-coverage -r xml
