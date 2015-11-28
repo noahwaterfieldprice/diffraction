@@ -1,6 +1,6 @@
 """CIF file parsing and validation
 
-Module contains three main functions `load_cif`, `validate_cif` and `cif2json`.
+Module contains three main functions `load_cif`, `validate_cif`.
 
 Functions
 ---------
@@ -10,9 +10,6 @@ load_cif:
 validate_cif:
     Validate :term:`CIF` file, and return True if no syntax errors
     are found, else raise a :class:`CIFParseError`.
-cif2json:
-    Extract :term:`data items` from :term:`CIF` file and save to a
-    JSON file with :term:`data items` sorted alphabetically by name.
 
 Attributes
 ----------
@@ -22,10 +19,9 @@ CIFParseError:
 
 """  # TODO: finish this docstring
 
-import json
 import re
 import warnings
-from collections import OrderedDict, deque
+from collections import deque
 
 __all__ = ["load_cif", "validate_cif", "CIFParseError"]
 
@@ -70,6 +66,20 @@ def load_cif(filepath):
 
     Examples
     --------
+    >>> cif_data = load_cif("single_data_block.cif")
+    >>> cif_data.keys()
+    dict_keys(['data_block_heading_1'])
+    >>> cif_data.values()
+    dict_values([{'chemical_name_mineral': 'calcite',
+    'cell_volume': '366.63', 'journal_year': '2004',
+    'loop_4': {'atom_type_symbol': [['Ca2+', 'C4+', 'O2-'], ...},
+    'symmetry_space_group_name_H-M': "'R -3 c H'", ...}])
+    >>> cif_data = load_cif("multi_data_block.cif")
+    >>> cif_data.keys()
+    dict_keys(['data_block_heading_1', 'data_block_heading_2'])
+    >>> cif_data.values()
+    dict_values([{'cell_volume': '11.196', 'chemical_name_mineral':
+    'calcite',..}, {'cell_length_a': '13.94',
 
 
     """
@@ -128,23 +138,6 @@ def validate_cif(filepath):
         raw_data = cif_file.read()
     v = CIFValidator(raw_data)
     return v.validate()
-
-
-def cif2json(cif_filepath, json_filepath):
-    """Save data in JSON format with data items sorted
-        alphabetically by name.
-
-        Parameters
-        ----------
-        filepath (str):
-            Target filepath for output JSON file.
-        """
-    data = load_cif(cif_filepath)
-    json_data = OrderedDict()
-    for data_block_header, data_block in sorted(data.items()):
-        json_data[data_block_header] = OrderedDict(sorted(data_block.items()))
-    with open(json_filepath, 'w') as json_file:
-        json_file.write(json.dumps(json_data, indent=4))
 
 
 # Regular expressions used for parsing.

@@ -5,9 +5,8 @@ from unittest import mock
 
 import pytest
 
-from diffraction import cif
 from diffraction.cif import (DataBlock, INLINE_DATA_ITEM, SEMICOLON_DATA_ITEM,
-                             CIFParser, CIFValidator, CIFParseError, cif2json)
+                             CIFParser, CIFValidator, CIFParseError)
 
 OPEN = "builtins.open"
 
@@ -337,49 +336,3 @@ class TestCIFSyntaxExceptions:
             v.validate()
         assert str(exception_info.value) == \
                'Unclosed semicolon text field on line 4: "Unclosed text field"'
-
-
-class TestSavingFile:
-    data_items_1 = {"data_name_1": "data_value_1",
-                    "data_name_2": "data_value_2",
-                    "loop_1": {"loop_data_name_A": ["A1", "A2", "A3"],
-                               "loop_data_name_B": ["B1", "B2", "B3"]
-                               },
-                    "loop_2": {"loop_data_name_A": ["A1", "A2", "A3"],
-                               "loop_data_name_C": ["C1", "C2", "C3"]
-                               },
-                    }
-    data_items_2 = {"data_name_1": "data_value_1",
-                    "data_name_3": "data_value_3",
-                    }
-    data = {"data_block_1": data_items_1, "data_block_2": data_items_2}
-
-    def test_data_written_as_valid_json(self, mocker):
-        m = mocker.patch(OPEN, mock.mock_open())
-        l = mocker.patch('diffraction.cif.load_cif')
-        l.return_value = self.data
-        filepath = "some_directory/some_file.json"
-        cif2json('some_cif_file', filepath)
-
-        # test correct file is written to exactly once
-        open.assert_called_with(filepath, "w")
-        assert m().write.call_count == 1
-        # test content is valid json
-        write_call_json = m().write.call_args[0][0]
-        assert json.loads(write_call_json)
-
-    def test_contents_are_sorted_and_stored_correctly(self, mocker):
-        m = mocker.patch(OPEN, mock.mock_open())
-        l = mocker.patch('diffraction.cif.load_cif')
-        l.return_value = self.data
-        filepath = "some_directory/some_file.json"
-        cif2json("some_cif_file", filepath)
-        data = json.loads(m().write.call_args[0][0],
-                          object_pairs_hook=OrderedDict)
-
-        # test correct data was written as OrderedDict in alphabetical order
-        assert list(data.keys()) == ["data_block_1", "data_block_2"]
-        assert data["data_block_1"] == OrderedDict(
-            sorted(self.data_items_1.items()))
-        assert data["data_block_2"] == OrderedDict(
-            sorted(self.data_items_2.items()))
