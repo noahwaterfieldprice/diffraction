@@ -1,7 +1,7 @@
 import glob
 import json
 import pytest
-from diffraction import cif
+from diffraction import load_cif, validate_cif
 
 
 class TestFileLoading:
@@ -9,7 +9,6 @@ class TestFileLoading:
     def test_raises_warning_if_file_extension_is_not_cif(self, tmpdir):
         cif_filepath = \
             "tests/functional/static/valid_cifs/non_cif_extension.txt"
-        json_filepath = str(tmpdir.join("temp.json"))
 
         # test for warning on validating cif
         with pytest.warns(UserWarning):
@@ -20,7 +19,6 @@ class TestFileLoading:
 
     def test_loading_cif_from_invalid_filepath_raises_exception(self, tmpdir):
         cif_filepath = "/no/cif/file/here"
-        json_filepath = str(tmpdir.join("temp.json"))
 
         # test for exception on validating cif
         with pytest.raises(FileNotFoundError):

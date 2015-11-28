@@ -20,4 +20,4 @@ test:
     post:
       - coveralls
       - coverage xml
-      - python-codacy-coverage -r xml
+      - python-codacy-coverage -r coverage.xml
