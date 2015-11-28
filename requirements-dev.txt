@@ -1,6 +1,6 @@
 codacy-coverage==1.2.2
 cov-core==1.15.0
-coveralls==1.1e
+coveralls==1.1
 pep8==1.6.2
 py==1.4.30
 pytest==2.8.2
