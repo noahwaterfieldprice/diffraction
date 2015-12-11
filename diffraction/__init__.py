@@ -4,3 +4,4 @@ diffraction experiments and performing crystallographic calculations.
 """
 
 from .cif import *
+from .crystal import *

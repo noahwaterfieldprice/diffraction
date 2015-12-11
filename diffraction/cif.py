@@ -167,7 +167,7 @@ def validate_cif(filepath):
 
 # Regular expressions used for parsing.
 COMMENT_OR_BLANK = re.compile("\w*#.*|\s+$|^$")
-DATA_BLOCK_HEADING = re.compile("(?:^|\n)(data_\S*)\s*", re.IGNORECASE)
+DATA_BLOCK_HEADER = re.compile("(?:^|\n)(data_\S*)\s*", re.IGNORECASE)
 LOOP = re.compile("(?:^|\n)loop_\s*", re.IGNORECASE)
 DATA_NAME = re.compile("\s*_(\S+)")
 DATA_NAME_START_LINE = re.compile("(?:^|\n)\s*_(\S+)")
@@ -203,8 +203,8 @@ class DataBlock:
             :term:`data items` are extracted. Data items are stripped
             out after extraction.
         data_items: dict
-            A dictionary in which the :term:`data items` are stored as
-            :term:`data name`: :term:`data value` pairs.
+            A dictionary in which the :term:`data items` are stored
+            as :term:`data name`: :term:`data value` pairs.
 
     """
     def __init__(self, header, raw_data, data_items):
@@ -329,7 +329,7 @@ class CIFParser:
         of :class:`DataBlock` objects.
         """
         self.data_blocks = []
-        data_blocks = DATA_BLOCK_HEADING.split(self.raw_data)[1:]
+        data_blocks = DATA_BLOCK_HEADER.split(self.raw_data)[1:]
         headers, blocks = data_blocks[::2], data_blocks[1::2]
         for header, data in zip(headers, blocks):
             self.data_blocks.append(DataBlock(header, data, {}))
@@ -573,10 +573,10 @@ class CIFValidator:
         """
         return (COMMENT_OR_BLANK.match(self.current_line) or
                 INLINE_DATA_ITEM.match(self.current_line) or
-                DATA_BLOCK_HEADING.match(self.current_line))
+                DATA_BLOCK_HEADER.match(self.current_line))
 
     def _is_loop_data_values(self):
         """Check if valid :term:`data value` in a :term:`loop` context."""
         return (DATA_VALUE.match(self.current_line) and not
                 LOOP.match(self.current_line) and not
-                DATA_BLOCK_HEADING.match(self.current_line))
+                DATA_BLOCK_HEADER.match(self.current_line))

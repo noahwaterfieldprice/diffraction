@@ -1,31 +1,33 @@
 import glob
 import json
+
 import pytest
-from diffraction import load_cif, validate_cif
+
+from diffraction import load_cif, validate_cif, CIFParseError
+from diffraction.cif import CIFParser
 
 
 class TestFileLoading:
-
-    def test_raises_warning_if_file_extension_is_not_cif(self, tmpdir):
+    def test_raises_warning_if_file_extension_is_not_cif(self):
         cif_filepath = \
             "tests/functional/static/valid_cifs/non_cif_extension.txt"
 
         # test for warning on validating cif
         with pytest.warns(UserWarning):
-            cif.validate_cif(cif_filepath)
+            validate_cif(cif_filepath)
         # test for warning on loading cif
         with pytest.warns(UserWarning):
-            cif.load_cif(cif_filepath)
+            load_cif(cif_filepath)
 
-    def test_loading_cif_from_invalid_filepath_raises_exception(self, tmpdir):
+    def test_loading_cif_from_invalid_filepath_raises_exception(self):
         cif_filepath = "/no/cif/file/here"
 
         # test for exception on validating cif
         with pytest.raises(FileNotFoundError):
-            cif.validate_cif(cif_filepath)
+            validate_cif(cif_filepath)
         # test for exception on loading cif
         with pytest.raises(FileNotFoundError):
-            cif.load_cif(cif_filepath)
+            load_cif(cif_filepath)
 
 
 class TestCIFValidating:
@@ -45,21 +47,21 @@ class TestCIFValidating:
 
     @pytest.mark.parametrize("filename, error_message",
                              zip(invalid_files, error_messages))
-    def test_exception_with_invalid_cif_file(self, filename, error_message):
+    def test_exception_with_invalid_cif(self, filename, error_message):
         filepath = "tests/functional/static/invalid_cifs/" + filename
-        with pytest.raises(cif.CIFParseError) as exception_info:
-            cif.validate_cif(filepath)
+        with pytest.raises(CIFParseError) as exception_info:
+            validate_cif(filepath)
         assert str(exception_info.value) == error_message
 
     @pytest.mark.parametrize("filepath",
                              glob.glob('tests/functional/static/valid_cifs/*'))
-    def test_no_exception_and_return_true_with_valid_cif_files(self, filepath):
-        assert cif.validate_cif(filepath) == True
+    def test_no_exception_and_return_true_with_valid_cif(self, filepath):
+        assert validate_cif(filepath) == True
 
 
 class TestCIFReading:
-    def test_can_load_crystal_data_from_vesta_cif_file(self):
-        p = cif.CIFParser(
+    def test_can_load_crystal_data_from_vesta_cif(self):
+        p = CIFParser(
             "tests/functional/static/valid_cifs/calcite_vesta.cif")
         p.parse()
         # basic checks that correct number of data items were caught
@@ -79,8 +81,8 @@ class TestCIFReading:
         assert data_items["symmetry_space_group_name_H-M"] == "'R -3 c'"
         assert data_items["symmetry_Int_Tables_number"] == "167"
 
-    def test_can_load_crystal_data_from_icsd_cif_file(self):
-        p = cif.CIFParser(
+    def test_can_load_crystal_data_from_icsd_cif(self):
+        p = CIFParser(
             "tests/functional/static/valid_cifs/calcite_icsd.cif")
         p.parse()
         # basic checks that correct number of data items were caught
@@ -102,8 +104,8 @@ class TestCIFReading:
         assert data_items["chemical_name_mineral"] == "Calcite"
         assert data_items["cell_formula_units_Z"] == "6"
 
-    def test_can_load_crystal_data_from_multi_data_block_cif_file(self):
-        p = cif.CIFParser(
+    def test_can_load_crystal_data_from_multi_data_block_cif(self):
+        p = CIFParser(
             "tests/functional/static/valid_cifs/multi_data_block.cif")
         p.parse()
         # basic checks that correct number of data items were caught

@@ -12,6 +12,14 @@ diffraction.cif module
     :undoc-members:
     :show-inheritance:
 
+diffraction.crystal module
+--------------------------
+
+.. automodule:: diffraction.crystal
+    :members:
+    :undoc-members:
+    :show-inheritance:
+
 
 Module contents
 ---------------
