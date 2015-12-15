@@ -4,7 +4,8 @@ import random
 import pytest
 
 from diffraction import Crystal
-from diffraction.crystal import LATTICE_PARAMETERS, CIF_NUMERICAL
+from diffraction.crystal import (LATTICE_PARAMETERS, CIF_NUMERICAL,
+                                 load_data_block, numerical_data_value)
 
 
 def random_numerical_cif_data(data_names, errors=False, no_data_blocks=1):
@@ -20,43 +21,78 @@ def random_numerical_cif_data(data_names, errors=False, no_data_blocks=1):
     return data
 
 
-class TestCreatingCrystalFromCIF:
-    def test_error_if_lattice_parameter_is_missing_from_cif(self, mocker):
+class TestConvertingCIFData:
+    def test_single_datablock_loaded_automatically(self, mocker):
+        data_names, attributes = zip(*LATTICE_PARAMETERS.items())
+        input_dict = random_numerical_cif_data(data_names)
+        mocker.patch('diffraction.crystal.load_cif', return_value=input_dict)
+
+        assert load_data_block("single/data/block/cif") == \
+               input_dict["data_block_0"]
+
+    def test_error_if_data_block_not_given_for_multi_data_blocks(self, mocker):
+        data_names, attributes = zip(*LATTICE_PARAMETERS.items())
+        input_dict = random_numerical_cif_data(data_names, no_data_blocks=5)
+        mocker.patch('diffraction.crystal.load_cif', return_value=input_dict)
+
+        with pytest.raises(TypeError) as exception_info:
+            load_data_block("multi/data/block/cif")
+        assert str(exception_info.value) == \
+               ("__init__() missing keyword argument: 'data_block'. "
+                "Required when input CIF has multiple data blocks.")
+
+    @pytest.mark.parametrize("data_block", ["data_block_{}".format(i)
+                                            for i in range(5)])
+    def test_data_block_loaded_for_multi_data_blocks(self, mocker, data_block):
+        data_names, attributes = zip(*LATTICE_PARAMETERS.items())
+        input_dict = random_numerical_cif_data(data_names, no_data_blocks=5)
+        mocker.patch('diffraction.crystal.load_cif', return_value=input_dict)
+
+        assert load_data_block("multi/data/block/cif", data_block) == \
+               input_dict[data_block]
+
+    def test_error_if_numerical_parameter_is_missing_from_cif(self):
         data_names = collections.deque(LATTICE_PARAMETERS.keys())
         # test exception is raised for each possible missing parameter
         for _ in range(len(data_names)):
             missing_data_name, *remaining_data_names = data_names
-            input_dict = random_numerical_cif_data(remaining_data_names)
-            mocker.patch('diffraction.crystal.load_cif',
-                         return_value=input_dict)
+            data_items = random_numerical_cif_data(
+                remaining_data_names)["data_block_0"]
 
             with pytest.raises(ValueError) as exception_info:
-                Crystal('some/cif/with/missing/parameter')
+                numerical_data_value(missing_data_name, data_items)
             assert str(exception_info.value) == \
                    "{} missing from input CIF file".format(missing_data_name)
 
             data_names.rotate(-1)
 
-    def test_error_if_invalid_lattice_parameter_values_in_cif(self, mocker):
+    def test_error_if_invalid_numerical_data_values_in_cif(self):
         data_names, attributes = zip(*LATTICE_PARAMETERS.items())
-        input_dict = random_numerical_cif_data(data_names)
+        data_items = random_numerical_cif_data(data_names)["data_block_0"]
         for invalid_value in ["abc", "123@%£", "1232.43543.21"]:
-            input_dict["data_block_0"]["cell_length_a"] = invalid_value
-            mocker.patch('diffraction.crystal.load_cif',
-                         return_value=input_dict)
+            data_items["cell_length_a"] = invalid_value
 
             with pytest.raises(ValueError) as exception_info:
-                Crystal('some/single/data/block/cif')
+                numerical_data_value("cell_length_a", data_items)
             assert str(exception_info.value) == \
-                "Invalid lattice parameter cell_length_a: {}".format(
-                    invalid_value)
+                   "Invalid lattice parameter cell_length_a: {}".format(
+                       invalid_value)
 
     @pytest.mark.parametrize("errors", [True, False])
-    def test_lattice_parameters_assigned_for_single_data_block(self,
-                                                               mocker,
-                                                               errors):
+    def test_numerical_data_values_are_converted_to_float(self, errors):
         data_names, attributes = zip(*LATTICE_PARAMETERS.items())
-        input_dict = random_numerical_cif_data(data_names, errors=errors)
+        data_items = random_numerical_cif_data(
+            data_names, errors=errors)["data_block_0"]
+
+        for data_name in data_items.keys():
+            value = numerical_data_value(data_name, data_items)
+            assert isinstance(value, float)
+
+
+class TestCreatingCrystalFromCIF:
+    def test_lattice_parameters_assigned_for_single_data_block(self, mocker):
+        data_names, attributes = zip(*LATTICE_PARAMETERS.items())
+        input_dict = random_numerical_cif_data(data_names)
         mocker.patch('diffraction.crystal.load_cif',
                      return_value=input_dict)
         c = Crystal('some/single/data/block/cif')
@@ -67,23 +103,9 @@ class TestCreatingCrystalFromCIF:
             assert getattr(c, attribute) == value
             assert isinstance(getattr(c, attribute), float)
 
-    def test_error_if_datablock_not_given_for_multi_data_blocks(self, mocker):
+    def test_lattice_parameters_assigned_for_multi_data_blocks(self, mocker):
         data_names, attributes = zip(*LATTICE_PARAMETERS.items())
         input_dict = random_numerical_cif_data(data_names, no_data_blocks=5)
-        mocker.patch('diffraction.crystal.load_cif', return_value=input_dict)
-
-        with pytest.raises(TypeError) as exception_info:
-            Crystal("some/multi/data/block/cif")
-        assert str(exception_info.value) == \
-               ("__init__() missing keyword argument: 'data_block'. "
-                "Required when input CIF has multiple data blocks.")
-
-    @pytest.mark.parametrize("errors", [True, False])
-    def test_lattice_parameters_assigned_for_multi_data_blocks(self, mocker,
-                                                               errors):
-        data_names, attributes = zip(*LATTICE_PARAMETERS.items())
-        input_dict = random_numerical_cif_data(data_names, errors=errors,
-                                               no_data_blocks=5)
         mocker.patch('diffraction.crystal.load_cif', return_value=input_dict)
 
         for data_block_header, data_items in input_dict.items():
