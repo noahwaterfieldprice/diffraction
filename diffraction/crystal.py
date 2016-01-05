@@ -2,14 +2,14 @@ import re
 
 from . import load_cif
 
+NUMERICAL_PARAMETERS = {"cell_length_a": "a",
+                        "cell_length_b": "b",
+                        "cell_length_c": "c",
+                        "cell_angle_alpha": "alpha",
+                        "cell_angle_beta": "beta",
+                        "cell_angle_gamma": "gamma"}
 
-LATTICE_PARAMETERS = {"cell_length_a": "a",
-                      "cell_length_b": "b",
-                      "cell_length_c": "c",
-                      "cell_angle_alpha": "alpha",
-                      "cell_angle_beta": "beta",
-                      "cell_angle_gamma": "gamma"}
-
+TEXTUAL_PARAMETERS = {"symmetry_space_group_name_H-M": "space_group"}
 
 CIF_NUMERICAL = re.compile("(\d+\.?\d*)(?:\(\d+\))?$")
 
@@ -146,6 +146,6 @@ class Crystal:  # TODO: Finish Docstring
     """
     def __init__(self, filepath, data_block=None):
         data = load_data_block(filepath, data_block)
-        for data_name, attr in LATTICE_PARAMETERS.items():
+        for data_name, attr in NUMERICAL_PARAMETERS.items():
             value = numerical_data_value(data_name, data)
             setattr(self, attr, value)
