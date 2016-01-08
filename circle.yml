@@ -16,7 +16,7 @@ dependencies:
 
 test:
     override:
-      - py.test --junitxml=$CIRCLE_TEST_REPORTS/report.xml
+      - py.test --junitxml=$CIRCLE_TEST_REPORTS/report.xml --ignore=venv
     post:
       - coveralls
       - coverage xml
