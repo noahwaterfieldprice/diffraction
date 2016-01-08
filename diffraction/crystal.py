@@ -98,10 +98,8 @@ def numerical_data_value(data_name, data_items):
     try:
         data_value = data_items[data_name]
         if not CIF_NUMERICAL.match(data_value):
-            raise ValueError(
-                "Invalid lattice parameter {0}: {1}".format(data_name,
-                                                            data_value)
-            )
+            raise ValueError("Invalid lattice parameter {0}: {1}".format(
+                data_name, data_value))
     except KeyError:
         raise ValueError(
             "{} missing from input CIF file".format(data_name))

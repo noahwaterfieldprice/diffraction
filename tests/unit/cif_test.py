@@ -16,11 +16,11 @@ class TestParsingFile:
         # test when raw_data is shorter than 18 characters
         data_block = DataBlock("header", "a" * 10, {})
         assert repr(data_block) == \
-               "DataBlock('header', '%s', {})" % ("a" * 10)
+            "DataBlock('header', '%s', {})" % ("a" * 10)
         # test when raw_data is longer than 18 characters
         data_block = DataBlock("header", "a" * 100, {})
         assert repr(data_block) == \
-               "DataBlock('header', '%s...', {})" % ("a" * 15)
+            "DataBlock('header', '%s...', {})" % ("a" * 15)
 
     def test_file_contents_are_stored_as_raw_string_attribute(self, mocker):
         contents = [
@@ -236,7 +236,7 @@ class TestCIFSyntaxExceptions:
             v.error = CIFValidator.error
             v.error(v, message, 1, "Erroneous line")
         assert str(exception_info.value) == \
-               '{} on line 1: "Erroneous line"'.format(message)
+            '{} on line 1: "Erroneous line"'.format(message)
 
     @pytest.mark.parametrize("valid_contents", [valid_comments,
                                                 valid_inline_items,
@@ -270,7 +270,7 @@ class TestCIFSyntaxExceptions:
         with pytest.raises(CIFParseError) as exception_info:
             v.validate()
         assert str(exception_info.value) == \
-               'Missing inline data name on line 2: "{}"'.format(invalid_line)
+            'Missing inline data name on line 2: "{}"'.format(invalid_line)
 
     def test_error_if_invalid_inline_data_value(self):
         contents = [
@@ -285,7 +285,7 @@ class TestCIFSyntaxExceptions:
         with pytest.raises(CIFParseError) as exception_info:
             v.validate()
         assert str(exception_info.value) == \
-               'Invalid inline data value on line 2: "_data_name_2 "'
+            'Invalid inline data value on line 2: "_data_name_2 "'
 
         # test when followed by another line
         v = CIFValidator("\n".join(contents))
@@ -293,7 +293,7 @@ class TestCIFSyntaxExceptions:
         with pytest.raises(CIFParseError) as exception_info:
             v.validate()
         assert str(exception_info.value) == \
-               'Invalid inline data value on line 2: "_data_name_2 "'
+            'Invalid inline data value on line 2: "_data_name_2 "'
 
     @pytest.mark.parametrize("invalid_line", ["value_A1",
                                               "value_A1 value_B1 value_C1"])
@@ -310,8 +310,8 @@ class TestCIFSyntaxExceptions:
         with pytest.raises(CIFParseError) as exception_info:
             v.validate()
         assert str(exception_info.value) == \
-               ('Unmatched data values to data names in loop '
-                'on line 5: "{}"'.format(invalid_line))
+            ('Unmatched data values to data names in loop '
+             'on line 5: "{}"'.format(invalid_line))
 
     def test_error_if_semicolon_data_item_not_closed(self):
         contents = [
@@ -327,7 +327,7 @@ class TestCIFSyntaxExceptions:
         with pytest.raises(CIFParseError) as exception_info:
             v.validate()
         assert str(exception_info.value) == \
-               'Unclosed semicolon text field on line 4: "Unclosed text field"'
+            'Unclosed semicolon text field on line 4: "Unclosed text field"'
 
         # test when field is terminated by another data item
         v = CIFValidator("\n".join(contents))
@@ -335,4 +335,4 @@ class TestCIFSyntaxExceptions:
         with pytest.raises(CIFParseError) as exception_info:
             v.validate()
         assert str(exception_info.value) == \
-               'Unclosed semicolon text field on line 4: "Unclosed text field"'
+            'Unclosed semicolon text field on line 4: "Unclosed text field"'

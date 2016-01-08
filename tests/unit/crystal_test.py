@@ -17,7 +17,7 @@ DATA_NAMES = list(NUM_DATA_NAMES) + list(TEXT_DATA_NAMES)
 ATTRIBUTES = list(NUM_ATTRIBUTES) + list(TEXT_ATTRIBUTES)
 
 
-def numerical_data(data_names, errors=False, no_data_blocks=1):
+def fake_num_data(data_names, errors=False, no_data_blocks=1):
     """Generates dummy numerical input cif data for testing"""
     if errors:
         data_values = ["{0}.{0}({0})".format(i)
@@ -27,20 +27,20 @@ def numerical_data(data_names, errors=False, no_data_blocks=1):
     return data_values
 
 
-def textual_data(data_names, no_data_blocks=1):
+def fake_text_data(data_names, no_data_blocks=1):
     """Generates dummy textual input cif data for testing"""
-    data_values = [string.ascii_letters[i] * 5
-                   for i in range(len(data_names))]
+    data_values = [string.ascii_letters[i] * 5 for i in range(len(data_names))]
     return data_values
 
 
-def cif_data(data_names, errors=False, no_data_blocks=1):
+def fake_cif_data(data_names, errors=False, no_data_blocks=1):
     num_data_names = [name for name in data_names
                       if name in NUMERICAL_PARAMETERS.keys()]
     text_data_names = [name for name in data_names
                        if name in TEXTUAL_PARAMETERS.keys()]
-    data_values = numerical_data(num_data_names, errors, no_data_blocks) + \
-        textual_data(text_data_names, no_data_blocks)
+    data_values = fake_num_data(num_data_names, errors, no_data_blocks) + \
+        fake_text_data(text_data_names, no_data_blocks)
+
     data = {}
     for i in range(no_data_blocks):
         data_items = dict(zip(num_data_names + text_data_names, data_values))
@@ -50,7 +50,7 @@ def cif_data(data_names, errors=False, no_data_blocks=1):
 
 class TestLoadingDataFromSingleDatablockCIF:
     def test_single_datablock_loaded_automatically(self, mocker):
-        input_dict = cif_data(DATA_NAMES)
+        input_dict = fake_cif_data(DATA_NAMES)
         mocker.patch('diffraction.crystal.load_cif', return_value=input_dict)
 
         data_items = load_data_block("single/data/block/cif")
@@ -59,21 +59,21 @@ class TestLoadingDataFromSingleDatablockCIF:
 
 class TestLoadingDataFromMultiDatablockCIF:
     def test_error_if_data_block_not_given_for_multi_data_blocks(self, mocker):
-        input_dict = cif_data(DATA_NAMES, no_data_blocks=5)
+        input_dict = fake_cif_data(DATA_NAMES, no_data_blocks=5)
         mocker.patch('diffraction.crystal.load_cif', return_value=input_dict)
 
         with pytest.raises(TypeError) as exception_info:
             load_data_block("multi/data/block/cif")
         assert str(exception_info.value) == \
-               ("__init__() missing keyword argument: 'data_block'. "
+            ("__init__() missing keyword argument: 'data_block'. "
                 "Required when input CIF has multiple data blocks.")
 
     def test_data_block_loads_for_multi_data_blocks(self, mocker):
-        input_dict = cif_data(DATA_NAMES, no_data_blocks=5)
+        input_dict = fake_cif_data(DATA_NAMES, no_data_blocks=5)
         mocker.patch('diffraction.crystal.load_cif', return_value=input_dict)
 
         assert load_data_block("multi/data/block/cif", "data_block_0") == \
-               input_dict["data_block_0"]
+            input_dict["data_block_0"]
 
 
 class TestConvertingCIFData:
@@ -81,27 +81,26 @@ class TestConvertingCIFData:
     def test_error_if_parameter_is_missing_from_cif(self, missing_data_name):
         data_names_with_missing_name = DATA_NAMES[:]
         data_names_with_missing_name.remove(missing_data_name)
-        data_items = cif_data(data_names_with_missing_name)["data_block_0"]
+        data_items = fake_cif_data(data_names_with_missing_name)["data_block_0"]
 
         with pytest.raises(ValueError) as exception_info:
             numerical_data_value(missing_data_name, data_items)
         assert str(exception_info.value) == \
-               "{} missing from input CIF file".format(missing_data_name)
+            "{} missing from input CIF file".format(missing_data_name)
 
     @pytest.mark.parametrize("invalid_value", ["abc", "123@%£", "1232.433.21"])
     def test_error_if_invalid_numerical_value_data_in_cif(self, invalid_value):
-        data_items = cif_data(NUM_DATA_NAMES)["data_block_0"]
+        data_items = fake_cif_data(NUM_DATA_NAMES)["data_block_0"]
         data_items["cell_length_a"] = invalid_value
 
         with pytest.raises(ValueError) as exception_info:
             numerical_data_value("cell_length_a", data_items)
         assert str(exception_info.value) == \
-               "Invalid lattice parameter cell_length_a: {}".format(
-                   invalid_value)
+            "Invalid lattice parameter cell_length_a: {}".format(invalid_value)
 
     @pytest.mark.parametrize("errors", [True, False])
     def test_numerical_data_values_are_converted_to_float(self, errors):
-        data_items = cif_data(NUM_DATA_NAMES, errors=errors)["data_block_0"]
+        data_items = fake_cif_data(NUM_DATA_NAMES, errors=errors)["data_block_0"]
 
         for data_name in data_items.keys():
             value = numerical_data_value(data_name, data_items)
@@ -110,7 +109,7 @@ class TestConvertingCIFData:
 
 class TestCreatingCrystalFromCIF:
     def test_numerical_parameters_assigned_for_single_data_block(self, mocker):
-        input_dict = cif_data(NUM_DATA_NAMES)
+        input_dict = fake_cif_data(NUM_DATA_NAMES)
         mocker.patch('diffraction.crystal.load_cif', return_value=input_dict)
         c = Crystal('some/single/data/block/cif')
 
@@ -121,13 +120,12 @@ class TestCreatingCrystalFromCIF:
             assert isinstance(getattr(c, attribute), float)
 
     def test_numerical_parameters_assigned_for_multi_data_blocks(self, mocker):
-        input_dict = cif_data(NUM_DATA_NAMES, no_data_blocks=5)
+        input_dict = fake_cif_data(NUM_DATA_NAMES, no_data_blocks=5)
         mocker.patch('diffraction.crystal.load_cif', return_value=input_dict)
 
         for data_block_header, data_items in input_dict.items():
             c = Crystal('some_file', data_block=data_block_header)
             for data_name, attribute in zip(NUM_DATA_NAMES, NUM_ATTRIBUTES):
-                value = float(
-                    CIF_NUMERICAL.match(data_items[data_name]).group(1))
+                value = float(CIF_NUMERICAL.match(data_items[data_name]).group(1))
                 assert getattr(c, attribute) == value
                 assert isinstance(getattr(c, attribute), float)

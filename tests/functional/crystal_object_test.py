@@ -19,20 +19,18 @@ class TestLoadingFromCIF:
         with pytest.raises(ValueError) as exception_info:
             Crystal("tests/functional/static/invalid_cifs/"
                     "calcite_icsd_missing_lattice_parameter.cif")
-        assert str(exception_info.value) == \
-               "cell_length_b missing from input CIF file"
+        assert str(exception_info.value) == "cell_length_b missing from input CIF file"
 
     def test_error_datablock_not_given_for_multi_data_block_cif(self):
         with pytest.raises(TypeError) as exception_info:
             Crystal("tests/functional/static/valid_cifs/multi_data_block.cif")
         assert str(exception_info.value) == \
-               ("__init__() missing keyword argument: 'data_block'. "
-                "Required when input CIF has multiple data blocks.")
+            ("__init__() missing keyword argument: 'data_block'. "
+             "Required when input CIF has multiple data blocks.")
 
     def test_can_create_crystal_from_multi_data_block_cif(self):
-        CHFeNOS = Crystal(
-            "tests/functional/static/valid_cifs/multi_data_block.cif",
-            data_block="data_CSD_CIF_ACAKOF")
+        CHFeNOS = Crystal("tests/functional/static/valid_cifs/multi_data_block.cif",
+                          data_block="data_CSD_CIF_ACAKOF")
 
         assert CHFeNOS.a == 6.1250
         assert CHFeNOS.b == 9.2460
