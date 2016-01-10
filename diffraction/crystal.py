@@ -12,6 +12,7 @@ NUMERICAL_PARAMETERS = {"cell_length_a": "a",
 TEXTUAL_PARAMETERS = {"symmetry_space_group_name_H-M": "space_group"}
 
 CIF_NUMERICAL = re.compile("(\d+\.?\d*)(?:\(\d+\))?$")
+CIF_TEXTUAL = re.compile("\'(.*?)\'")
 
 
 def load_data_block(filepath, data_block=None):
@@ -108,6 +109,20 @@ def numerical_data_value(data_name, data_items):
     return value
 
 
+def textual_data_value(data_name, data_items):
+    """Get the string of a :term:`data value` extracted from
+    a :term:`CIF`."""
+    try:
+        data_value = data_items[data_name]
+
+    except KeyError:
+        raise ValueError(
+            "{} missing from input CIF file".format(data_name))
+    else:
+        value = CIF_TEXTUAL.match(data_value).group(1)
+    return value
+
+
 class Crystal:  # TODO: Finish Docstring
     """Class to represent Crystal
 
@@ -146,4 +161,7 @@ class Crystal:  # TODO: Finish Docstring
         data = load_data_block(filepath, data_block)
         for data_name, attr in NUMERICAL_PARAMETERS.items():
             value = numerical_data_value(data_name, data)
+            setattr(self, attr, value)
+        for data_name, attr in TEXTUAL_PARAMETERS.items():
+            value = textual_data_value(data_name, data)
             setattr(self, attr, value)

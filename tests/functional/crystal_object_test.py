@@ -14,6 +14,7 @@ class TestLoadingFromCIF:
         assert calcite.alpha == 90
         assert calcite.beta == 90
         assert calcite.gamma == 120
+        assert calcite.space_group == "R -3 c H"
 
     def test_error_if_lattice_parameter_is_missing_from_cif(selfs):
         with pytest.raises(ValueError) as exception_info:
@@ -38,3 +39,4 @@ class TestLoadingFromCIF:
         assert CHFeNOS.alpha == 77.16
         assert CHFeNOS.beta == 83.44
         assert CHFeNOS.gamma == 80.28
+        assert CHFeNOS.space_group == "P -1"

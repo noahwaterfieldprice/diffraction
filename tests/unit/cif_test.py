@@ -15,12 +15,10 @@ class TestParsingFile:
     def test_datablock_class_abbreviates_raw_data_when_printed(self):
         # test when raw_data is shorter than 18 characters
         data_block = DataBlock("header", "a" * 10, {})
-        assert repr(data_block) == \
-            "DataBlock('header', '%s', {})" % ("a" * 10)
+        assert repr(data_block) == "DataBlock('header', '%s', {})" % ("a" * 10)
         # test when raw_data is longer than 18 characters
         data_block = DataBlock("header", "a" * 100, {})
-        assert repr(data_block) == \
-            "DataBlock('header', '%s...', {})" % ("a" * 15)
+        assert repr(data_block) == "DataBlock('header', '%s...', {})" % ("a" * 15)
 
     def test_file_contents_are_stored_as_raw_string_attribute(self, mocker):
         contents = [
