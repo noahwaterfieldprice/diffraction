@@ -2,15 +2,20 @@ import re
 
 from . import load_cif
 
-NUMERICAL_PARAMETERS = {"cell_length_a": "a",
-                        "cell_length_b": "b",
-                        "cell_length_c": "c",
-                        "cell_angle_alpha": "alpha",
-                        "cell_angle_beta": "beta",
-                        "cell_angle_gamma": "gamma"}
+CIF_NUMERICAL_PARAMETERS = {
+    "cell_length_a": "a",
+    "cell_length_b": "b",
+    "cell_length_c": "c",
+    "cell_angle_alpha": "alpha",
+    "cell_angle_beta": "beta",
+    "cell_angle_gamma": "gamma"
+}
 
-TEXTUAL_PARAMETERS = {"symmetry_space_group_name_H-M": "space_group"}
+CIF_TEXTUAL_PARAMETERS = {
+    "symmetry_space_group_name_H-M": "space_group"
+}
 
+# Regular expressions for cif data value matching
 CIF_NUMERICAL = re.compile("(\d+\.?\d*)(?:\(\d+\))?$")
 CIF_TEXTUAL = re.compile("\'(.*?)\'")
 
@@ -65,7 +70,7 @@ def load_data_block(filepath, data_block=None):
 
 
 def numerical_data_value(data_name, data_items):
-    """Get the numerical value of a :term:`data value` extracted from
+    """Get the value of a numerical :term:`data value` extracted from
     a :term:`CIF`.
 
     The numerical data value is matched to the pattern #.#(#), where
@@ -76,8 +81,8 @@ def numerical_data_value(data_name, data_items):
     Parameters
     ----------
     data_name: str
-        The corresponding :term:`data name` of the :term:`data
-        value`.
+        The corresponding :term:`data name` of the numerical
+        :term:`data value`.
     data: dict
         A dictionary of :term:`data items` for a single :term:`data
         block` extracted from a :term:`CIF`.
@@ -94,7 +99,7 @@ def numerical_data_value(data_name, data_items):
     Returns
     -------
     float:
-        The numerical value of :term:`data value`
+        The value of numerical :term:`data value`
     """
     try:
         data_value = data_items[data_name]
@@ -110,11 +115,31 @@ def numerical_data_value(data_name, data_items):
 
 
 def textual_data_value(data_name, data_items):
-    """Get the string of a :term:`data value` extracted from
-    a :term:`CIF`."""
+    """Get the value of a textual :term:`data value` extracted from
+    a :term:`CIF`.
+
+    Parameters
+    ----------
+    data_name: str
+        The corresponding :term:`data name` of the textual :term:`data
+        value`.
+    data: dict
+        A dictionary of :term:`data items` for a single :term:`data
+        block` extracted from a :term:`CIF`.
+
+    Raises
+    ------
+    ValueError:
+        If `data` does not contain a :term:`data item` with the
+        corresponding :term:`data name`.
+
+    Returns
+    -------
+    str:
+        The value of textual :term:`data value`
+    """
     try:
         data_value = data_items[data_name]
-
     except KeyError:
         raise ValueError(
             "{} missing from input CIF file".format(data_name))
@@ -154,14 +179,12 @@ class Crystal:  # TODO: Finish Docstring
     Examples
     --------
 
-
-
     """
     def __init__(self, filepath, data_block=None):
         data = load_data_block(filepath, data_block)
-        for data_name, attr in NUMERICAL_PARAMETERS.items():
+        for data_name, attr in CIF_NUMERICAL_PARAMETERS.items():
             value = numerical_data_value(data_name, data)
             setattr(self, attr, value)
-        for data_name, attr in TEXTUAL_PARAMETERS.items():
+        for data_name, attr in CIF_TEXTUAL_PARAMETERS.items():
             value = textual_data_value(data_name, data)
             setattr(self, attr, value)

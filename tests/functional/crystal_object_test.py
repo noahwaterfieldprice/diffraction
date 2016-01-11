@@ -3,10 +3,9 @@ import pytest
 from diffraction import Crystal
 
 
-class TestLoadingFromCIF:
+class TestCreatingFromCIF:
     def test_can_create_crystal_from_single_datablock_cif(self):
-        calcite = Crystal(
-            "tests/functional/static/valid_cifs/calcite_icsd.cif")
+        calcite = Crystal("tests/functional/static/valid_cifs/calcite_icsd.cif")
 
         assert calcite.a == 4.99
         assert calcite.b == 4.99
@@ -40,3 +39,26 @@ class TestLoadingFromCIF:
         assert CHFeNOS.beta == 83.44
         assert CHFeNOS.gamma == 80.28
         assert CHFeNOS.space_group == "P -1"
+
+
+class TestCreatingFromDictionary:
+
+    def test_can_create_crystal_from_dictionary(self):
+        crystal_info = {"a": 4.99, "b": 4.99, "c": 17.003,
+                        "alpha": 90, "beta": 90, "gamma": 120,
+                        "space_group": "R -3 c H"}
+        calcite = Crystal(crystal_info)
+
+        assert calcite.a == 4.99
+        assert calcite.b == 4.99
+        assert calcite.c == 17.002
+        assert calcite.alpha == 90
+        assert calcite.beta == 90
+        assert calcite.gamma == 120
+        assert calcite.space_group == "R -3 c H"
+
+    def test_error_if_numerical_parameter_missing_dict(self):
+        pass
+
+    def test_error_if_textual_parameter_missing_dict(self):
+        pass
