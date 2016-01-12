@@ -1,15 +1,21 @@
 import re
+from collections import abc
 
 from . import load_cif
 
+__all__ = ["Crystal"]
 
-NUMERICAL_DATA_NAMES = (
-    "cell_length_a", "cell_length_b", "cell_length_c",
-    "cell_angle_alpha", "cell_angle_beta", "cell_angle_gamma")
-NUMERICAL_ATTRIBUTES = ("a", "b", "c", "alpha", "beta", "gamma")
-
-TEXTUAL_DATA_NAMES = ("symmetry_space_group_name_H-M", )
-TEXTUAL_ATTRIBUTES = ("space_group", )
+# Lattice parameter names and map to CIF data names
+LATTICE_PARAMETERS = ["a", "b", "c", "alpha", "beta", "gamma"]
+CIF_NAMES = {
+    "a": "cell_length_a",
+    "b": "cell_length_b",
+    "c": "cell_length_c",
+    "alpha": "cell_angle_alpha",
+    "beta": "cell_angle_beta",
+    "gamma": "cell_angle_gamma",
+    "space_group": "symmetry_space_group_name_H-M"
+}
 
 # Regular expressions for cif data value matching
 CIF_NUMERICAL = re.compile("(\d+\.?\d*)(?:\(\d+\))?$")
@@ -20,10 +26,9 @@ def load_data_block(filepath, data_block=None):
     """Extract the :term:`data items` of a specific :term:`data
     block` from a :term:`CIF`.
 
-    For a multiple data block CIF, the data items of the data block
-    given by `data_block` (specified by :term:`data block header`)
-    are returned as dictionary. An exception is raised if the data
-    block is not specified.
+    For a multiple data block CIF, the data items of the data block given
+    by `data_block` (specified by :term:`data block header`) are returned
+    as dictionary. An exception is raised if the data block is not given.
 
     For a CIF with with only a single data block, the data items of
     that data block are returned automatically.
@@ -64,151 +69,173 @@ def load_data_block(filepath, data_block=None):
     return data
 
 
-def numerical_parameter(key, data):
-    """Get the value of a numerical parameter from an input
-    dictionary"""
+def get_input_value(key, dictionary, input_type):
+    """Retrieve value of input parameter from dictionary. Inform user
+    of missing input data if parameter is not found.
+    """
     try:
-        value = float(data[key])
-    except ValueError:
-        raise ValueError("Invalid numerical parameter {0}: {1}".format(
-            key, data[key]))
+        value = dictionary[key]
     except KeyError:
         raise ValueError(
-            "{} missing from input dictionary".format(key))
+            "{0} missing from input {1}".format(key, input_type))
     else:
         return value
 
 
-def cif_numerical_parameter(data_name, data_items):
-    """Get the value of a numerical :term:`data value` extracted from
-    a :term:`CIF`.
+def cif_numerical(data_name, data_value):
+    """Extract numerical :term:`data value` from raw :term:`CIF` data"""
+    if not CIF_NUMERICAL.match(data_value):
+        raise ValueError("Invalid numerical value in input CIF {0}: {1}".format(
+            data_name, data_value))
+    return CIF_NUMERICAL.match(data_value).group(1)
 
-    The numerical data value is matched to the pattern #.#(#), where
-    # signifies one or more digits and the decimal points and error
-    are optional. If present, the error is stripped off and the
-    remaining string is converted to a float.
 
-    """
-    try:
-        data_value = data_items[data_name]
-        if not CIF_NUMERICAL.match(data_value):
-            raise ValueError("Invalid numerical parameter {0}: {1}".format(
-                data_name, data_value))
-    except KeyError:
-        raise ValueError(
-            "{} missing from input CIF file".format(data_name))
-    else:
-        value = float(CIF_NUMERICAL.match(data_value).group(1))
+def cif_textual(data_value):
+    """Extract textual :term:`data value` from raw :term:`CIF` data"""
+    value = CIF_TEXTUAL.match(data_value).group(1)
     return value
 
 
-def textual_parameter(key, data):
-    """Get the value of a numerical parameter from an input
-    dictionary"""
-    try:
-        value = data[key]
-    except KeyError:
-        raise ValueError(
-            "{} missing from input dictionary".format(key))
-    else:
-        return value
-
-
-def cif_textual_parameter(data_name, data_items):
-    """Get the value of a textual :term:`data value` extracted from
-    a :term:`CIF`."""
-    try:
-        data_value = data_items[data_name]
-    except KeyError:
-        raise ValueError(
-            "{} missing from input CIF file".format(data_name))
-    else:
-        value = CIF_TEXTUAL.match(data_value).group(1)
-        return value
-
-
-class Crystal:  # TODO: Finish Docstring
+class Crystal:  # TODO: Finish docstring and update glossary
     """Class to represent Crystal
 
     Parameters
     ----------
-    crystal_data: str or dict
-        Filepath to the input :term:`CIF` or dictionary of parameters
-    data_block: str, optional
-            The :term:`data block` to generate the Crystal from,
-            specified by :term:`data block header`. Only giving a
-            :term:`CIF` with multiple data blocks as input.
+    lattice_parameters: seq of float
+        The lattice parameters of the crystal declared in the order
+        [*a*, *b*, *c*, *alpha*, *beta*, *gamma*]
+    space_group: str
+        The :term:`space group` of the crystal structure.
 
     Attributes
     ----------
     a, b, c: float
-        The *a*, *b* and *c* lattice parameters.
+        The *a*, *b* and *c* lattice parameters describing the
+        dimensions of the :term:`unit cell`.
     alpha, beta, gamma: float
-        The *alpha*, *beta* and *gamma* lattice parameters.
+        The *alpha*, *beta* and *gamma* lattice parameters describing
+        the angles of the :term:`unit cell`.
     space_group: str
-        The space group of the crystal structure.
-
-    Raises
-    ------
-    TypeError:
-        If the input CIF has multiple data blocks but data_block is
-        not given.
+        The :term:`space group` of the crystal structure.
 
     Notes
     -----
 
     Examples
     --------
-
-    Crystal can be created from CIF data
-
-    >>> from diffraction import Crystal, load_cif
-    >>> calcite_data = load_cif("calcite.cif")
-    >>> data_items = calcite_data["data_calcite"]
-    >>> calcite = Crystal(data_items)
+    >>> from diffraction import Crystal
+    >>> calcite = Crystal([4.99, 4.99, 17.002, 90, 90, 120], "R -3 c H")
     >>> calcite.a
     4.99
     >>> calcite.gamma
     120.0
     >>> calcite.space_group
     'R -3 c H'
-
-    Or from a manually created dictionary
-
-    >>> calcite_parameters = {
-        "a": 4.99, "b": 4.99, "c": 17.002,
-        "alpha": 90, "beta": 90, "gamma": 120,
-        "space_group": "R -3 c H"}
-    >>> calcite = Crystal(calcite_parameters)
-    >>> calcite.a
-    4.99
-    >>> calcite.gamma
-    120.0
-    >>> calcite.space_group
-    'R -3 c H'
-
 
 
     """
-    def __init__(self, crystal_data, data_block=None):
-        if isinstance(crystal_data, str):
-            self._instantiate_from_cif(crystal_data, data_block)
-        elif isinstance(crystal_data, dict):
-            self._instantiate_from_dict(crystal_data)
+    def __init__(self, lattice_parameters, space_group):
+        if len(lattice_parameters) < 6:
+            raise(ValueError("Missing lattice parameter from input"))
+        for name, value in zip(LATTICE_PARAMETERS, lattice_parameters):
+            try:
+                v = float(value)
+            except ValueError:
+                raise ValueError("Invalid lattice parameter {0}: {1}".format(
+                    name, value))
+            else:
+                setattr(self, name, v)
+        self.space_group = space_group
 
-    def _instantiate_from_cif(self, filepath, data_block):
-        data = load_data_block(filepath, data_block)
-        for data_name, attr in zip(NUMERICAL_DATA_NAMES, NUMERICAL_ATTRIBUTES):
-            value = cif_numerical_parameter(data_name, data)
-            setattr(self, attr, value)
-        for data_name, attr in zip(TEXTUAL_DATA_NAMES, TEXTUAL_ATTRIBUTES):
-            value = cif_textual_parameter(data_name, data)
-            setattr(self, attr, value)
+    @classmethod
+    def from_cif(cls, filepath, data_block=None):
+        """Create a Crystal using a CIF file as input
 
-    def _instantiate_from_dict(self, data):
-        for attribute in NUMERICAL_ATTRIBUTES:
-            value = numerical_parameter(attribute, data)
-            setattr(self, attribute, value)
-        for attribute in TEXTUAL_ATTRIBUTES:
-            value = textual_parameter(attribute, data)
-            setattr(self, attribute, value)
+        Parameters
+        ----------
+        filepath: str
+            Filepath to the input :term:`CIF`
+        data_block: str, optional
+            The :term:`data block` to generate the Crystal from,
+            specified by :term:`data block header`. Only giving a
+            :term:`CIF` with multiple data blocks as input.
+
+        Raises
+        ------
+        ValueError:
+            If the input :term:`CIF` is missing any :term:`lattice
+            parameters` or the :term:`space group`.
+        ValueError:
+            If any of the :term:`lattice parameters` are not valid
+            numerical data.
+        TypeError:
+            If the input CIF has multiple data blocks but data_block is
+            not given.
+
+        Examples
+        --------
+        >>> from diffraction import Crystal
+        >>> calcite = Crystal.from_cif("calcite.cif")
+        >>> calcite.a
+        4.99
+        >>> calcite.gamma
+        120.0
+        >>> calcite.space_group
+        'R -3 c H'
+        """
+
+        data_items = load_data_block(filepath, data_block)
+        lattice_parameters = []
+        for parameter in LATTICE_PARAMETERS:
+            data_name = CIF_NAMES[parameter]
+            data_value = get_input_value(data_name, data_items,
+                                         input_type="CIF file")
+            lattice_parameters.append(cif_numerical(data_name, data_value))
+        space_group = get_input_value(CIF_NAMES["space_group"], data_items,
+                                      input_type="CIF file")
+        space_group = cif_textual(space_group)
+        return cls(lattice_parameters, space_group)
+
+    @classmethod
+    def from_dict(cls, input_dict):
+        """Create a Crystal using a dictionary as input
+
+        Raises
+        ------
+        ValueError:
+            If the input :term:`CIF` is missing any :term:`lattice
+            parameters` or the :term:`space group`
+        TypeError:
+            If the input CIF has multiple data blocks but data_block is
+            not given.
+
+        Examples
+        --------
+        >>> from diffraction import Crystal
+        >>> calcite_parameters = {
+        "a": 4.99, "b": 4.99, "c": 17.002,
+        "alpha": 90, "beta": 90, "gamma": 120,
+        "space_group": "R -3 c H"}
+        >>> calcite = Crystal.from_dict(calcite_parameters)
+        >>> calcite.a
+        4.99
+        >>> calcite.gamma
+        120.0
+        >>> calcite.space_group
+        'R -3 c H'
+        """
+
+        lattice_parameters = []
+        for parameter in LATTICE_PARAMETERS:
+            value = get_input_value(parameter, input_dict,
+                                    input_type="dictionary")
+            lattice_parameters.append(value)
+        space_group = get_input_value("space_group", input_dict,
+                                      input_type="dictionary")
+        return cls(lattice_parameters, space_group)
+
+    def __repr__(self):
+        repr_string = ("{0}([{1.a!r}, {1.b!r}, {1.c!r}, "
+                       "{1.alpha!r}, {1.beta!r}, {1.gamma!r}], "
+                       "{1.space_group!r})")
+        return repr_string.format(self.__class__.__name__, self)

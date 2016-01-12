@@ -233,8 +233,7 @@ class TestCIFSyntaxExceptions:
             v = mock.Mock(spec=CIFValidator)
             v.error = CIFValidator.error
             v.error(v, message, 1, "Erroneous line")
-        assert str(exception_info.value) == \
-            '{} on line 1: "Erroneous line"'.format(message)
+        assert str(exception_info.value) == '{} on line 1: "Erroneous line"'.format(message)
 
     @pytest.mark.parametrize("valid_contents", [valid_comments,
                                                 valid_inline_items,
@@ -282,16 +281,14 @@ class TestCIFSyntaxExceptions:
 
         with pytest.raises(CIFParseError) as exception_info:
             v.validate()
-        assert str(exception_info.value) == \
-            'Invalid inline data value on line 2: "_data_name_2 "'
+        assert str(exception_info.value) == 'Invalid inline data value on line 2: "_data_name_2 "'
 
         # test when followed by another line
         v = CIFValidator("\n".join(contents))
 
         with pytest.raises(CIFParseError) as exception_info:
             v.validate()
-        assert str(exception_info.value) == \
-            'Invalid inline data value on line 2: "_data_name_2 "'
+        assert str(exception_info.value) == 'Invalid inline data value on line 2: "_data_name_2 "'
 
     @pytest.mark.parametrize("invalid_line", ["value_A1",
                                               "value_A1 value_B1 value_C1"])
@@ -307,9 +304,8 @@ class TestCIFSyntaxExceptions:
 
         with pytest.raises(CIFParseError) as exception_info:
             v.validate()
-        assert str(exception_info.value) == \
-            ('Unmatched data values to data names in loop '
-             'on line 5: "{}"'.format(invalid_line))
+        assert str(exception_info.value) == ('Unmatched data values to data names in loop on '
+                                             'line 5: "{}"'.format(invalid_line))
 
     def test_error_if_semicolon_data_item_not_closed(self):
         contents = [

@@ -7,15 +7,22 @@ import pytest
 
 from diffraction import Crystal
 from diffraction.crystal import (
-    NUMERICAL_DATA_NAMES, NUMERICAL_ATTRIBUTES,
-    TEXTUAL_DATA_NAMES, TEXTUAL_ATTRIBUTES,
-    CIF_NUMERICAL, CIF_TEXTUAL, load_data_block,
-    numerical_parameter, cif_numerical_parameter,
-    textual_parameter, cif_textual_parameter)
+    LATTICE_PARAMETERS, CIF_NAMES, CIF_NUMERICAL, CIF_TEXTUAL,
+    load_data_block, get_input_value, cif_numerical, cif_textual)
 
-# Numerical and textual data names and attributes for testing
-DATA_NAMES = list(NUMERICAL_DATA_NAMES) + list(TEXTUAL_DATA_NAMES)
-ATTRIBUTES = list(NUMERICAL_ATTRIBUTES) + list(TEXTUAL_ATTRIBUTES)
+# # Numerical and textual data names and attributes for testing
+NUMERICAL_ATTRIBUTES = LATTICE_PARAMETERS
+TEXTUAL_ATTRIBUTES = ["space_group"]
+NUMERICAL_DATA_NAMES = [CIF_NAMES[key] for key in NUMERICAL_ATTRIBUTES]
+TEXTUAL_DATA_NAMES = [CIF_NAMES[key] for key in TEXTUAL_ATTRIBUTES]
+DATA_NAMES = NUMERICAL_DATA_NAMES + TEXTUAL_DATA_NAMES
+
+# ATTRIBUTES = list(NUMERICAL_ATTRIBUTES) + list(TEXTUAL_ATTRIBUTES)
+
+# Example data for testing
+CALCITE_DATA = collections.OrderedDict([("a", 4.99), ("b", 4.99), ("c", 17.002),
+                                       ("alpha", 90), ("beta", 90), ("gamma", 120),
+                                       ("space_group", "R -3 c H")])
 
 
 def fake_num_data(data_names, errors=False, no_data_blocks=1):
@@ -48,6 +55,67 @@ def fake_cif_data(data_names, errors=False, no_data_blocks=1):
         data_items = dict(zip(num_data_names + text_data_names, data_values))
         data["data_block_{}".format(i)] = data_items
     return data
+
+
+class TestCreatingCrystalFromSequence:
+    def test_error_if_lattice_parameter_missing_from_input_list(self):
+        *lattice_parameters, space_group = CALCITE_DATA.values()
+        lattice_parameters_missing_one = lattice_parameters[:5]
+
+        with pytest.raises(ValueError) as exception_info:
+            c = Crystal(lattice_parameters_missing_one, space_group)
+        assert str(exception_info.value) == "Missing lattice parameter from input"
+
+    @pytest.mark.parametrize("invalid_value", ["abc", "123@%£", "1232.433.21"])
+    def test_error_if_invalid_lattice_parameter_given(self, invalid_value):
+        *lattice_parameters, space_group = CALCITE_DATA.values()
+        invalid_lattice_parameters = lattice_parameters[:]
+        invalid_lattice_parameters[0] = invalid_value
+
+        with pytest.raises(ValueError) as exception_info:
+            c = Crystal(invalid_lattice_parameters, space_group)
+        assert str(exception_info.value) == \
+            "Invalid lattice parameter a: {}".format(invalid_value)
+
+    def test_parameters_are_assigned_with_correct_type(self):
+        *lattice_parameters, space_group = CALCITE_DATA.values()
+        c = Crystal(lattice_parameters, space_group)
+
+        # test lattice parameters are assigned as floats
+        for parameter in LATTICE_PARAMETERS:
+            assert getattr(c, parameter) == CALCITE_DATA[parameter]
+            assert isinstance(getattr(c, parameter), float)
+        # test space group assigned as string
+        assert getattr(c, "space_group") == CALCITE_DATA["space_group"]
+        assert isinstance(getattr(c, "space_group"), str)
+
+    def test_string_representation_of_crystal(self):
+        *lattice_parameters, space_group = CALCITE_DATA.values()
+        c = Crystal(lattice_parameters, space_group)
+
+        assert repr(c) == "Crystal({0}, '{1}')".format(
+            [float(parameter) for parameter in lattice_parameters], space_group)
+
+
+class TestCreatingCrystalFromMapping:
+    @pytest.mark.parametrize("missing_parameter", LATTICE_PARAMETERS + ["space_group"])
+    def test_error_if_parameter_missing_from_dict(self, missing_parameter):
+        dict_with_missing_parameter = CALCITE_DATA.copy()
+        del dict_with_missing_parameter[missing_parameter]
+
+        with pytest.raises(ValueError) as exception_info:
+            get_input_value(missing_parameter, dict_with_missing_parameter, "dictionary")
+        assert str(exception_info.value) == \
+            "{} missing from input dictionary".format(missing_parameter)
+
+    def test_parameters_are_assigned_with_correct_type(self):
+        c = Crystal.from_dict(CALCITE_DATA)
+
+        for parameter in LATTICE_PARAMETERS:
+            assert getattr(c, parameter) == CALCITE_DATA[parameter]
+            assert isinstance(getattr(c, parameter), float)
+        assert getattr(c, "space_group") == CALCITE_DATA["space_group"]
+        assert isinstance(getattr(c, "space_group"), str)
 
 
 class TestLoadingDataFromCIF:
@@ -84,42 +152,36 @@ class TestCreatingCrystalFromCIF:
         data_items = fake_cif_data(data_names_with_missing_name)["data_block_0"]
 
         with pytest.raises(ValueError) as exception_info:
-            if missing_data_name in NUMERICAL_DATA_NAMES:
-                cif_numerical_parameter(missing_data_name, data_items)
-            elif missing_data_name in TEXTUAL_DATA_NAMES:
-                cif_textual_parameter(missing_data_name, data_items)
+            get_input_value(missing_data_name, data_items, "CIF file")
         assert str(exception_info.value) == \
             "{} missing from input CIF file".format(missing_data_name)
 
     @pytest.mark.parametrize("invalid_value", ["abc", "123@%£", "1232.433.21"])
-    def test_error_if_invalid_numerical_value_data_in_cif(self, invalid_value):
-        data_items = fake_cif_data(NUMERICAL_DATA_NAMES)["data_block_0"]
-        data_items["cell_length_a"] = invalid_value
+    def test_error_if_invalid_lattice_parameter_data_in_cif(self, invalid_value):
 
         with pytest.raises(ValueError) as exception_info:
-            cif_numerical_parameter("cell_length_a", data_items)
+            cif_numerical("cell_length_a", invalid_value)
         assert str(exception_info.value) == \
-            "Invalid numerical parameter cell_length_a: {}".format(invalid_value)
+            "Invalid numerical value in input CIF cell_length_a: {}".format(invalid_value)
 
-    @pytest.mark.parametrize("errors", [True, False])
-    def test_numerical_data_values_are_converted_to_float(self, errors):
-        data_items = fake_cif_data(NUMERICAL_DATA_NAMES, errors=errors)["data_block_0"]
+    def test_numerical_data_values_stripped_of_errors(self):
+        data_items = fake_cif_data(NUMERICAL_DATA_NAMES, errors=True)["data_block_0"]
 
-        for data_name in data_items.keys():
-            value = cif_numerical_parameter(data_name, data_items)
-            assert isinstance(value, float)
+        for data_name, data_value in data_items.items():
+            value = cif_numerical(data_name, data_value)
+            assert re.match(r"\d+\.?\d*", value)
 
     def test_textual_data_values_are_stripped_of_ending_quotes(self):
         data_items = fake_cif_data(TEXTUAL_DATA_NAMES)["data_block_0"]
 
-        for data_name in data_items.keys():
-            value = cif_textual_parameter(data_name, data_items)
+        for data_value in data_items.values():
+            value = cif_textual(data_value)
             assert re.match(r"[^'].*?[^']", value)
 
     def test_parameters_assigned_for_single_data_block(self, mocker):
         input_dict = fake_cif_data(DATA_NAMES)
         mocker.patch('diffraction.crystal.load_cif', return_value=input_dict)
-        c = Crystal('some/single/data/block/cif')
+        c = Crystal.from_cif('some/single/data/block/cif')
 
         data_items = list(input_dict.values())[0]
         # test numerical data is assigned with the correct type
@@ -138,7 +200,7 @@ class TestCreatingCrystalFromCIF:
         mocker.patch('diffraction.crystal.load_cif', return_value=input_dict)
 
         for data_block_header, data_items in input_dict.items():
-            c = Crystal('some_file', data_block=data_block_header)
+            c = Crystal.from_cif('some_file', data_block=data_block_header)
             # test numerical data is assigned with the correct type
             for num_data_name, num_attribute in zip(NUMERICAL_DATA_NAMES, NUMERICAL_ATTRIBUTES):
                 value = float(CIF_NUMERICAL.match(data_items[num_data_name]).group(1))
@@ -149,44 +211,3 @@ class TestCreatingCrystalFromCIF:
                 value = CIF_TEXTUAL.match(data_items[text_data_name]).group(1)
                 assert getattr(c, text_attribute) == value
                 assert isinstance(getattr(c, text_attribute), str)
-
-
-class TestCreatingCrystalFromDict():
-    crystal_info = {"a": 4.99, "b": 4.99, "c": 17.003,
-                    "alpha": 90, "beta": 90, "gamma": 120,
-                    "space_group": "R -3 c H"}
-
-    @pytest.mark.parametrize("missing_parameter", ATTRIBUTES)
-    def test_error_if_parameter_missing_from_dict(self, missing_parameter):
-        dict_with_missing_parameter = self.crystal_info.copy()
-        del dict_with_missing_parameter[missing_parameter]
-
-        with pytest.raises(ValueError) as exception_info:
-            if missing_parameter in NUMERICAL_ATTRIBUTES:
-                numerical_parameter(missing_parameter, dict_with_missing_parameter)
-            elif missing_parameter in TEXTUAL_ATTRIBUTES:
-                textual_parameter(missing_parameter, dict_with_missing_parameter)
-        assert str(exception_info.value) == \
-            "{} missing from input dictionary".format(missing_parameter)
-
-    @pytest.mark.parametrize("invalid_parameter", ["abc", "123@%£", "1232.433.21"])
-    def test_error_if_invalid_numerical_parameter_in_dict(self, invalid_parameter):
-        dict_with_invalid_parameter = self.crystal_info.copy()
-        dict_with_invalid_parameter["a"] = invalid_parameter
-
-        with pytest.raises(ValueError) as exception_info:
-            numerical_parameter("a", dict_with_invalid_parameter)
-        assert str(exception_info.value) == \
-            "Invalid numerical parameter a: {}".format(invalid_parameter)
-
-    def test_parameters_are_assigned_with_correct_type(self):
-        c = Crystal(self.crystal_info)
-
-        # test numerical data is assigned with the correct type
-        for num_attribute in NUMERICAL_ATTRIBUTES:
-            assert getattr(c, num_attribute) == self.crystal_info[num_attribute]
-            assert isinstance(getattr(c, num_attribute), float)
-        # test textual data is assigned with the correct type
-        for text_attribute in TEXTUAL_ATTRIBUTES:
-            assert getattr(c, text_attribute) == self.crystal_info[text_attribute]
-            assert isinstance(getattr(c, text_attribute), str)

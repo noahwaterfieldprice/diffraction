@@ -39,6 +39,9 @@ Glossary
       beginning with the case-insensitive reserved characters `data_`. Bounded
       by whitespace, it precedes the :term:`data block` on a line of it's own.
 
+   lattice parameters
+      The dimensions describing :term:`unit cell` of the crystal structure
+
    loop
       sadsdoajidjasoidj a
 
@@ -49,3 +52,10 @@ Glossary
       A semicolon text field is a :term:`data value` delimited by two
       semicolons located at the start of a line. The field may contain
       semicolons so long as they do not immediately follow a newline character.
+
+   space group
+      The group of symmetry operators that describe the symmetry operations of
+      the crystal lattice
+
+   Unit cell
+      The repeat unit of the crystal structure
