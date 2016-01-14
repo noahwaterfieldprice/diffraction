@@ -1,99 +1,11 @@
 import re
-from collections import abc
 
-from . import load_cif
+from .cif import CIF_NAMES, cif_numerical, cif_textual, load_data_block
+from .lattice import DirectLattice
 
 __all__ = ["Crystal"]
 
-# Lattice parameter names and map to CIF data names
 LATTICE_PARAMETERS = ["a", "b", "c", "alpha", "beta", "gamma"]
-CIF_NAMES = {
-    "a": "cell_length_a",
-    "b": "cell_length_b",
-    "c": "cell_length_c",
-    "alpha": "cell_angle_alpha",
-    "beta": "cell_angle_beta",
-    "gamma": "cell_angle_gamma",
-    "space_group": "symmetry_space_group_name_H-M"
-}
-
-# Regular expressions for cif data value matching
-CIF_NUMERICAL = re.compile("(\d+\.?\d*)(?:\(\d+\))?$")
-CIF_TEXTUAL = re.compile("\'(.*?)\'")
-
-
-def load_data_block(filepath, data_block=None):
-    """Extract the :term:`data items` of a specific :term:`data
-    block` from a :term:`CIF`.
-
-    For a multiple data block CIF, the data items of the data block given
-    by `data_block` (specified by :term:`data block header`) are returned
-    as dictionary. An exception is raised if the data block is not given.
-
-    For a CIF with with only a single data block, the data items of
-    that data block are returned automatically.
-
-
-    Parameters
-    ----------
-    filepath: str
-        Filepath to the input :term:`CIF`.
-    data_block: str
-        The :term:`data block` to load the data from. Only required
-        when the input :term:`CIF` has multiple data blocks.
-
-    Raises
-    ------
-    TypeError:
-        If the input CIF has multiple data blocks but data_block is
-        not given.
-
-
-    Returns
-    -------
-    dict:
-        A dictionary of the :term:`data items` of the :term:`data
-        block` in :term:`data name`: :term:`data value` pairs.
-
-    """
-    cif = load_cif(filepath)
-    if len(cif) == 1:
-        (_, data), = cif.items()
-    else:
-        if data_block is None:
-            raise TypeError(
-                "__init__() missing keyword argument: 'data_block'. "
-                "Required when input CIF has multiple data blocks.")
-        else:
-            data = cif[data_block]
-    return data
-
-
-def get_input_value(key, dictionary, input_type):
-    """Retrieve value of input parameter from dictionary. Inform user
-    of missing input data if parameter is not found.
-    """
-    try:
-        value = dictionary[key]
-    except KeyError:
-        raise ValueError(
-            "{0} missing from input {1}".format(key, input_type))
-    else:
-        return value
-
-
-def cif_numerical(data_name, data_value):
-    """Extract numerical :term:`data value` from raw :term:`CIF` data"""
-    if not CIF_NUMERICAL.match(data_value):
-        raise ValueError("Invalid numerical value in input CIF {0}: {1}".format(
-            data_name, data_value))
-    return CIF_NUMERICAL.match(data_value).group(1)
-
-
-def cif_textual(data_value):
-    """Extract textual :term:`data value` from raw :term:`CIF` data"""
-    value = CIF_TEXTUAL.match(data_value).group(1)
-    return value
 
 
 class Crystal:  # TODO: Finish docstring and update glossary
@@ -135,21 +47,12 @@ class Crystal:  # TODO: Finish docstring and update glossary
 
     """
     def __init__(self, lattice_parameters, space_group):
-        if len(lattice_parameters) < 6:
-            raise(ValueError("Missing lattice parameter from input"))
-        for name, value in zip(LATTICE_PARAMETERS, lattice_parameters):
-            try:
-                v = float(value)
-            except ValueError:
-                raise ValueError("Invalid lattice parameter {0}: {1}".format(
-                    name, value))
-            else:
-                setattr(self, name, v)
+        self.lattice = DirectLattice(lattice_parameters)
         self.space_group = space_group
 
     @classmethod
     def from_cif(cls, filepath, data_block=None):
-        """Create a Crystal using a CIF file as input
+        """Create a Crystal using a CIF as input
 
         Parameters
         ----------
@@ -157,8 +60,8 @@ class Crystal:  # TODO: Finish docstring and update glossary
             Filepath to the input :term:`CIF`
         data_block: str, optional
             The :term:`data block` to generate the Crystal from,
-            specified by :term:`data block header`. Only giving a
-            :term:`CIF` with multiple data blocks as input.
+            specified by :term:`data block header`. Only required for
+            an input :term:`CIF` with multiple data blocks.
 
         Raises
         ------
@@ -188,12 +91,19 @@ class Crystal:  # TODO: Finish docstring and update glossary
         lattice_parameters = []
         for parameter in LATTICE_PARAMETERS:
             data_name = CIF_NAMES[parameter]
-            data_value = get_input_value(data_name, data_items,
-                                         input_type="CIF file")
-            lattice_parameters.append(cif_numerical(data_name, data_value))
-        space_group = get_input_value(CIF_NAMES["space_group"], data_items,
-                                      input_type="CIF file")
-        space_group = cif_textual(space_group)
+            try:
+                data_value = data_items[data_name]
+                lattice_parameters.append(cif_numerical(data_name, data_value))
+            except KeyError:
+                raise ValueError("Parameter: '{0}' missing from input "
+                                 "CIF".format(data_name))
+        try:
+            space_group = data_items[CIF_NAMES["space_group"]]
+            space_group = cif_textual(space_group)
+        except KeyError:
+            raise ValueError("Parameter: '{0}' missing from input "
+                             "CIF".format(CIF_NAMES["space_group"]))
+
         return cls(lattice_parameters, space_group)
 
     @classmethod
@@ -227,11 +137,15 @@ class Crystal:  # TODO: Finish docstring and update glossary
 
         lattice_parameters = []
         for parameter in LATTICE_PARAMETERS:
-            value = get_input_value(parameter, input_dict,
-                                    input_type="dictionary")
-            lattice_parameters.append(value)
-        space_group = get_input_value("space_group", input_dict,
-                                      input_type="dictionary")
+            try:
+                lattice_parameters.append(input_dict[parameter])
+            except KeyError:
+                raise ValueError("Parameter: '{0}' missing from input "
+                                 "dictionary".format(parameter))
+        try:
+            space_group = input_dict["space_group"]
+        except KeyError:
+            raise ValueError("Parameter: 'space_group' missing from input dictionary")
         return cls(lattice_parameters, space_group)
 
     def __repr__(self):
@@ -239,3 +153,9 @@ class Crystal:  # TODO: Finish docstring and update glossary
                        "{1.alpha!r}, {1.beta!r}, {1.gamma!r}], "
                        "{1.space_group!r})")
         return repr_string.format(self.__class__.__name__, self)
+
+    def __str__(self):
+        return repr(self)
+
+    def __getattr__(self, name):
+        return getattr(self.lattice, name)

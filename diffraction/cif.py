@@ -29,6 +29,10 @@ from collections import deque
 
 __all__ = ["load_cif", "validate_cif", "CIFParseError"]
 
+#
+# Public functions for parsing and validating CIF files
+#
+
 
 def load_cif(filepath):
     """Extract and return :term:`data items` from a :term:`CIF`.
@@ -164,6 +168,183 @@ def validate_cif(filepath):
     v = CIFValidator(raw_data)
     return v.validate()
 
+#
+# Internal utility functions for dealing with CIF data
+#
+
+
+def load_data_block(filepath, data_block=None):
+    """Extract the :term:`data items` of a specific :term:`data
+    block` from a :term:`CIF`.
+
+    For a multiple data block CIF, the data items of the data block given
+    by `data_block` (specified by :term:`data block header`) are returned
+    as dictionary. An exception is raised if the data block is not given.
+
+    For a CIF with with only a single data block, the data items of
+    that data block are returned automatically.
+
+
+    Parameters
+    ----------
+    filepath: str
+        Filepath to the input :term:`CIF`.
+    data_block: str
+        The :term:`data block` to load the data from. Only required
+        when the input :term:`CIF` has multiple data blocks.
+
+    Raises
+    ------
+    TypeError:
+        If the input CIF has multiple data blocks but data_block is
+        not given.
+
+
+    Returns
+    -------
+    dict:
+        A dictionary of the :term:`data items` of the :term:`data
+        block` in :term:`data name`: :term:`data value` pairs.
+
+    """
+    cif = load_cif(filepath)
+    if len(cif) == 1:
+        (_, data), = cif.items()
+    else:
+        if data_block is None:
+            raise TypeError(
+                "__init__() missing keyword argument: 'data_block'. "
+                "Required when input CIF has multiple data blocks.")
+        else:
+            data = cif[data_block]
+    return data
+
+
+# Regular expressions for cif data value matching
+CIF_NUMERICAL = re.compile("(\d+\.?\d*)(?:\(\d+\))?$")
+CIF_TEXTUAL = re.compile("\'(.*?)\'")
+
+
+def cif_numerical(data_name, data_value):
+    """Extract numerical :term:`data value` from raw :term:`CIF` data
+
+    The numerical data value is matched to the pattern #.#(#), where #
+    signifies one or more digits and the decimal points and error are
+    optional. If present, the error is stripped off and the remaining
+    string containing only the numerical data is returned.
+    """
+    if not CIF_NUMERICAL.match(data_value):
+        raise ValueError("Invalid numerical value in input CIF {0}: {1}".format(
+            data_name, data_value))
+    return CIF_NUMERICAL.match(data_value).group(1)
+
+
+def cif_textual(data_value):
+    """Extract textual :term:`data value` from raw :term:`CIF` data
+
+    The textual data value is matched to the pattern 'string' and
+    returned with the ending quotes stripped off.
+    """
+    value = CIF_TEXTUAL.match(data_value).group(1)
+    return value
+
+# Map between diffraction object parameters and CIF data names
+CIF_NAMES = {
+    "a": "cell_length_a",
+    "b": "cell_length_b",
+    "c": "cell_length_c",
+    "alpha": "cell_angle_alpha",
+    "beta": "cell_angle_beta",
+    "gamma": "cell_angle_gamma",
+    "space_group": "symmetry_space_group_name_H-M"
+}
+
+# CIF data names corresponding to numerical parameters
+NUMERICAL_DATA_NAMES = (
+    "atom_site_fract_x",
+    "atom_site_fract_y",
+    "atom_site_fract_z",
+    "atom_site_B_iso_or_equiv",
+    "atom_site_Wyckoff_symbol",
+    "atom_site_aniso_U_11",
+    "atom_site_aniso_U_12",
+    "atom_site_aniso_U_13",
+    "atom_site_aniso_U_22",
+    "atom_site_aniso_U_23",
+    "atom_site_aniso_U_33",
+    "atom_site_attached_hydrogens",
+    "atom_site_fract_x",
+    "atom_site_fract_y",
+    "atom_site_fract_z",
+    "atom_site_occupancy",
+    "atom_site_symmetry_multiplicity",
+    "atom_type_oxidation_number",
+    "atom_type_radius_bond",
+    "cell_angle_alpha",
+    "cell_angle_beta",
+    "cell_angle_gamma",
+    "cell_formula_units_Z",
+    "cell_length_a",
+    "cell_length_b",
+    "cell_length_c",
+    "cell_volume",
+    "citation_journal_volume",
+    "citation_page_first",
+    "citation_page_last",
+    "citation_year",
+    "cod_database_code",
+    "database_code_ICSD",
+    "diffrn_ambient_temperature",
+    "exptl_crystal_density_diffrn",
+    "exptl_crystal_density_meas",
+    "refine_ls_R_factor_all",
+    "refine_ls_R_factor_gt",
+    "refine_ls_wR_factor_gt",
+    "symmetry_Int_Tables_number",
+    "symmetry_equiv_pos_site_id",
+)
+
+# CIF data names corresponding to textual parameters
+TEXTUAL_DATA_NAMES = (
+    "atom_site_aniso_label",
+    "atom_site_calc_flag",
+    "atom_site_label",
+    "atom_site_type_symbol",
+    "atom_type_symbol",
+    "audit_creation_date",
+    "audit_creation_method",
+    "audit_update_record",
+    "chemical_compound_source",
+    "chemical_formula_moiety",
+    "chemical_formula_structural",
+    "chemical_formula_sum",
+    "chemical_formula_sum ",
+    "chemical_name_mineral",
+    "chemical_name_structure",
+    "chemical_name_systematic",
+    "citation_id",
+    "citation_journal_full",
+    "database_code_CSD",
+    "database_code_depnum_ccdc_archive",
+    "exptl_crystal_colour",
+    "exptl_crystal_description",
+    "exptl_special_details",
+    "journal_coden",
+    "journal_coden_ASTM",
+    "journal_name_full",
+    "pd_phase_name",
+    "publ_author_name",
+    "publ_section_title",
+    "refine_special_details",
+    "symmetry_cell_setting",
+    "symmetry_equiv_pos_as_xyz",
+    "symmetry_space_group_name_H-M",
+    "symmetry_space_group_name_Hall"
+)
+
+#
+# Classes and functions that carry out CIF parsing and validation
+#
 
 # Regular expressions used for parsing.
 COMMENT_OR_BLANK = re.compile("\w*#.*|\s+$|^$")
