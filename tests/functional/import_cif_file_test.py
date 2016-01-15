@@ -1,10 +1,9 @@
 import glob
-import json
 
 import pytest
 
 from diffraction import load_cif, validate_cif, CIFParseError
-from diffraction.cif import CIFParser
+from diffraction.cif.cif import CIFParser
 
 
 class TestFileLoading:
@@ -74,7 +73,7 @@ class TestCIFReading:
 
         # check a few inline data items
         assert data_items["cell_length_a"] == "4.9900(2)"
-        assert data_items["symmetry_space_group_name_H-M"] == "'R -3 c'"
+        assert data_items["symmetry_space_group_name_H-M"] == "R -3 c"
         assert data_items["symmetry_Int_Tables_number"] == "167"
 
     def test_can_load_crystal_data_from_icsd_cif(self):
@@ -93,7 +92,7 @@ class TestCIFReading:
         assert data_items["loop_5"]["atom_site_label"] == ["Ca1", "C1", "O1"]
         assert data_items["loop_6"]["atom_site_aniso_U_22"] == ["0.01775(90)"]
         assert data_items["loop_2"]["publ_author_name"] == \
-            ["'Chessin, H.'", "'Hamilton, W.C.'", "'Post, B.'"]
+            ["Chessin, H.", "Hamilton, W.C.", "Post, B."]
 
         # check a few inline data items
         assert data_items["cell_length_a"] == "4.9900(2)"
@@ -123,13 +122,13 @@ class TestCIFReading:
 
         # check semicolon text fields assigned correctly
         assert data_items_1["refine_special_details"] == \
-            "'One of the water molecules is disordered over two sites.'"
+            "One of the water molecules is disordered over two sites."
         assert data_items_2["chemical_name_systematic"] == \
-            ("'tris(bis(Ethylenedithio)tetrathiafulvalene) \n"
-             "2,5-difluoro-1,4-bis(iodoethynyl)benzene bromide'")
+            ("tris(bis(Ethylenedithio)tetrathiafulvalene) \n"
+             "2,5-difluoro-1,4-bis(iodoethynyl)benzene bromide")
 
         # check a few inline data items
         assert data_items_1["journal_year"] == "2001"
-        assert data_items_1["exptl_crystal_colour"] == "'dark brown'"
-        assert data_items_2["journal_name_full"] == "'J.Mater.Chem. '"
+        assert data_items_1["exptl_crystal_colour"] == "dark brown"
+        assert data_items_2["journal_name_full"] == "J.Mater.Chem. "
         assert data_items_2["cell_angle_gamma"] == "76.35(2)"

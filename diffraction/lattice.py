@@ -1,24 +1,16 @@
-from .cif import cif_numerical, load_data_block
+from .cif.helpers import CIF_NAMES, get_cif_data, load_data_block
+
 __all__ = ["DirectLattice"]
 
 # Lattice parameter names and map to CIF data names
-LATTICE_PARAMETERS = ["a", "b", "c", "alpha", "beta", "gamma"]
-CIF_NAMES = {
-    "a": "cell_length_a",
-    "b": "cell_length_b",
-    "c": "cell_length_c",
-    "alpha": "cell_angle_alpha",
-    "beta": "cell_angle_beta",
-    "gamma": "cell_angle_gamma",
-    "space_group": "symmetry_space_group_name_H-M"
-}
+LATTICE_PARAMETER_KEYS = ["a", "b", "c", "alpha", "beta", "gamma"]
 
 
 class DirectLattice:
     def __init__(self, lattice_parameters):
         if len(lattice_parameters) < 6:
             raise(ValueError("Missing lattice parameter from input"))
-        for name, value in zip(LATTICE_PARAMETERS, lattice_parameters):
+        for name, value in zip(LATTICE_PARAMETER_KEYS, lattice_parameters):
             try:
                 v = float(value)
             except ValueError:
@@ -26,38 +18,6 @@ class DirectLattice:
                     name, value))
             else:
                 setattr(self, name, v)
-
-    @classmethod
-    def from_dict(cls, input_dict):
-        """Create a DirectLattice using a dictionary as input
-
-        Raises
-        ------
-        ValueError:
-            If the input dict is missing any :term:`lattice parameters`
-
-        Examples
-        --------
-        >>> from diffraction import DirectLattice
-        >>> calcite_lattice = {
-        "a": 4.99, "b": 4.99, "c": 17.002,
-        "alpha": 90, "beta": 90, "gamma": 120}
-        >>> lattice = DirectLattice.from_dict(calcite_parameters)
-        >>> lattice.a
-        4.99
-        >>> lattice.gamma
-        120.0
-        """
-
-        lattice_parameters = []
-        for parameter in LATTICE_PARAMETERS:
-            try:
-                lattice_parameters.append(input_dict[parameter])
-            except KeyError:
-                raise ValueError(
-                    "Lattice parameter {0} missing from input "
-                    "dictionary".format(parameter))
-        return cls(lattice_parameters)
 
     @classmethod
     def from_cif(cls, filepath, data_block=None):
@@ -95,17 +55,42 @@ class DirectLattice:
         >>> calcite.space_group
         'R -3 c H'
         """
-        # TODO: write function to retrieve parameters from CIF input
+
         data_items = load_data_block(filepath, data_block)
+        lattice_parameter_names = [CIF_NAMES[key]
+                                   for key in LATTICE_PARAMETER_KEYS]
+        lattice_parameters = get_cif_data(data_items, *lattice_parameter_names)
+        return cls(lattice_parameters)
+
+    @classmethod
+    def from_dict(cls, input_dict):
+        """Create a DirectLattice using a dictionary as input
+
+        Raises
+        ------
+        ValueError:
+            If the input dict is missing any :term:`lattice parameters`
+
+        Examples
+        --------
+        >>> from diffraction import DirectLattice
+        >>> calcite_lattice = {
+        "a": 4.99, "b": 4.99, "c": 17.002,
+        "alpha": 90, "beta": 90, "gamma": 120}
+        >>> lattice = DirectLattice.from_dict(calcite_parameters)
+        >>> lattice.a
+        4.99
+        >>> lattice.gamma
+        120.0
+        """
+
         lattice_parameters = []
-        for parameter in LATTICE_PARAMETERS:
-            data_name = CIF_NAMES[parameter]
+        for parameter in LATTICE_PARAMETER_KEYS:
             try:
-                data_value = data_items[data_name]
-                lattice_parameters.append(cif_numerical(data_name, data_value))
+                lattice_parameters.append(input_dict[parameter])
             except KeyError:
-                raise ValueError("Lattice parameter {0} missing from input "
-                                 "CIF".format(data_name))
+                raise ValueError("Parameter: '{0}' missing from input "
+                                 "dictionary".format(parameter))
         return cls(lattice_parameters)
 
     def __repr__(self):

@@ -1,19 +1,13 @@
-from collections import OrderedDict
-import random
-import re
-import string
-
 import pytest
+from collections import OrderedDict
 
-from diffraction.cif import (CIF_NAMES, CIF_NUMERICAL, cif_numerical, CIF_TEXTUAL,
-                             cif_textual, NUMERICAL_DATA_NAMES, TEXTUAL_DATA_NAMES)
-from diffraction.crystal import (Crystal, load_data_block, cif_numerical, cif_textual,
-                                 LATTICE_PARAMETERS)
-from diffraction.lattice import DirectLattice
-from cif_test import fake_cif_data
+from diffraction.cif.helpers import (CIF_NAMES, NUMERICAL_DATA_VALUE,
+                                     NUMERICAL_DATA_NAMES, TEXTUAL_DATA_NAMES)
+from diffraction.crystal import Crystal
+from diffraction.lattice import DirectLattice, LATTICE_PARAMETER_KEYS
 
 # Data names and parameters for testing
-CRYSTAL_PARAMETERS = LATTICE_PARAMETERS + ["space_group"]
+CRYSTAL_PARAMETERS = LATTICE_PARAMETER_KEYS + ["space_group"]
 CRYSTAL_DATA_NAMES = [CIF_NAMES[parameter] for parameter in CRYSTAL_PARAMETERS]
 
 # Example data for testing
@@ -63,14 +57,14 @@ class TestCreatingCrystalFromSequence:  # TODO: add test to check space group va
         *lattice_parameters, space_group = CALCITE_DATA.values()
         # mock DirectLattice to return mock with lattice parameter attributes
         mock_lattice = mocker.Mock(spec=DirectLattice)
-        for parameter, value in zip(LATTICE_PARAMETERS, lattice_parameters):
-            setattr(mock_lattice, parameter, float(value))
+        for key, value in zip(LATTICE_PARAMETER_KEYS, lattice_parameters):
+            setattr(mock_lattice, key, float(value))
         m = mocker.patch("diffraction.crystal.DirectLattice", return_value=mock_lattice)
 
         c = Crystal(lattice_parameters, space_group)
-        for parameter in LATTICE_PARAMETERS:
-            assert getattr(c, parameter) == CALCITE_DATA[parameter]
-            assert isinstance(getattr(c, parameter), float)
+        for key in LATTICE_PARAMETER_KEYS:
+            assert getattr(c, key) == CALCITE_DATA[key]
+            assert isinstance(getattr(c, key), float)
 
     def test_string_representation_of_crystal(self):
         *lattice_parameters, space_group = CALCITE_DATA.values()
@@ -83,7 +77,7 @@ class TestCreatingCrystalFromSequence:  # TODO: add test to check space group va
 
 
 class TestCreatingCrystalFromMapping:
-    @pytest.mark.parametrize("missing_parameter", LATTICE_PARAMETERS + ["space_group"])
+    @pytest.mark.parametrize("missing_parameter", CRYSTAL_PARAMETERS)
     def test_error_if_parameter_missing_from_dict(self, missing_parameter):
         dict_with_missing_parameter = CALCITE_DATA.copy()
         del dict_with_missing_parameter[missing_parameter]
@@ -96,14 +90,14 @@ class TestCreatingCrystalFromMapping:
     def test_parameters_are_assigned_with_correct_type(self):
         c = Crystal.from_dict(CALCITE_DATA)
 
-        for parameter in LATTICE_PARAMETERS:
-            assert getattr(c, parameter) == CALCITE_DATA[parameter]
-            assert isinstance(getattr(c, parameter), float)
+        for key in LATTICE_PARAMETER_KEYS:
+            assert getattr(c, key) == CALCITE_DATA[key]
+            assert isinstance(getattr(c, key), float)
         assert getattr(c, "space_group") == CALCITE_DATA["space_group"]
         assert isinstance(getattr(c, "space_group"), str)
 
 
-class TestCreatingCrystalFromCIF: # TODO: add multi data block test
+class TestCreatingCrystalFromCIF:  # TODO: add multi data block test
     @pytest.mark.parametrize("missing_data_name", CALCITE_CIF.keys())
     def test_error_if_parameter_is_missing_from_cif(self, missing_data_name, mocker):
         data_items_with_missing_item = CALCITE_CIF.copy()
@@ -116,17 +110,16 @@ class TestCreatingCrystalFromCIF: # TODO: add multi data block test
         assert str(exception_info.value) == \
             "Parameter: '{}' missing from input CIF".format(missing_data_name)
 
-    def test_parameters_assigned_for_single_data_block(self, mocker):
-        mocker.patch("diffraction.crystal.load_data_block", return_value=CALCITE_CIF)
+    def test_parameters_assigned_with_values_read_from_cif(self, mocker):
+        load_data_block_mock = mocker.patch("diffraction.crystal.load_data_block",
+                                            return_value="data_items")
+        get_cif_data_mock = mocker.patch("diffraction.crystal.get_cif_data",
+                                         return_value=CALCITE_DATA.values())
+
         c = Crystal.from_cif("some/single/data/block/cif")
 
-        # test numerical data is assigned with the correct type
-        for data_name, parameter in zip(CALCITE_CIF.keys(), CALCITE_DATA.keys()):
-            if data_name in NUMERICAL_DATA_NAMES:
-                value = float(CIF_NUMERICAL.match(CALCITE_CIF[data_name]).group(1))
-                assert getattr(c, parameter) == value
-                assert isinstance(getattr(c, parameter), float)
-            elif data_name in TEXTUAL_DATA_NAMES:
-                value = CIF_TEXTUAL.match(CALCITE_CIF[data_name]).group(1)
-                assert getattr(c, parameter) == value
-                assert isinstance(getattr(c, parameter), str)
+        load_data_block_mock.assert_called_with("some/single/data/block/cif", None)
+        get_cif_data_mock.assert_called_with("data_items", *CALCITE_CIF.keys())
+
+        for data_name, (key, value) in zip(CALCITE_CIF.keys(), CALCITE_DATA.items()):
+            assert getattr(c, key) == value

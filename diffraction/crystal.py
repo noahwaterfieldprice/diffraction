@@ -1,11 +1,7 @@
-import re
-
-from .cif import CIF_NAMES, cif_numerical, cif_textual, load_data_block
-from .lattice import DirectLattice
+from .cif.helpers import CIF_NAMES, get_cif_data, load_data_block
+from .lattice import DirectLattice, LATTICE_PARAMETER_KEYS
 
 __all__ = ["Crystal"]
-
-LATTICE_PARAMETERS = ["a", "b", "c", "alpha", "beta", "gamma"]
 
 
 class Crystal:  # TODO: Finish docstring and update glossary
@@ -88,22 +84,10 @@ class Crystal:  # TODO: Finish docstring and update glossary
         """
 
         data_items = load_data_block(filepath, data_block)
-        lattice_parameters = []
-        for parameter in LATTICE_PARAMETERS:
-            data_name = CIF_NAMES[parameter]
-            try:
-                data_value = data_items[data_name]
-                lattice_parameters.append(cif_numerical(data_name, data_value))
-            except KeyError:
-                raise ValueError("Parameter: '{0}' missing from input "
-                                 "CIF".format(data_name))
-        try:
-            space_group = data_items[CIF_NAMES["space_group"]]
-            space_group = cif_textual(space_group)
-        except KeyError:
-            raise ValueError("Parameter: '{0}' missing from input "
-                             "CIF".format(CIF_NAMES["space_group"]))
-
+        parameter_names = ([CIF_NAMES[key] for key in LATTICE_PARAMETER_KEYS] +
+                           ["symmetry_space_group_name_H-M"])
+        *lattice_parameters, space_group = get_cif_data(data_items,
+                                                        *parameter_names)
         return cls(lattice_parameters, space_group)
 
     @classmethod
@@ -136,12 +120,12 @@ class Crystal:  # TODO: Finish docstring and update glossary
         """
 
         lattice_parameters = []
-        for parameter in LATTICE_PARAMETERS:
+        for name in LATTICE_PARAMETER_KEYS:
             try:
-                lattice_parameters.append(input_dict[parameter])
+                lattice_parameters.append(input_dict[name])
             except KeyError:
                 raise ValueError("Parameter: '{0}' missing from input "
-                                 "dictionary".format(parameter))
+                                 "dictionary".format(name))
         try:
             space_group = input_dict["space_group"]
         except KeyError:

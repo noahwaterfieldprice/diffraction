@@ -1,10 +1,8 @@
+import pytest
 from collections import OrderedDict
 
-import pytest
-
-from diffraction.cif import CIF_NAMES, CIF_NUMERICAL
-from diffraction.lattice import DirectLattice, LATTICE_PARAMETERS
-from cif_test import fake_cif_data
+from diffraction.cif.helpers import NUMERICAL_DATA_VALUE
+from diffraction.lattice import DirectLattice, LATTICE_PARAMETER_KEYS
 
 CALCITE_LATTICE = OrderedDict([("a", 4.99), ("b", 4.99), ("c", 17.002),
                                ("alpha", 90), ("beta", 90), ("gamma", 120)])
@@ -56,7 +54,7 @@ class TestCreatingDirectLatticeFromSequence:
 
 
 class TestCreatingDirectLatticeFromMapping:
-    @pytest.mark.parametrize("missing_parameter", LATTICE_PARAMETERS)
+    @pytest.mark.parametrize("missing_parameter", LATTICE_PARAMETER_KEYS)
     def test_error_if_parameter_missing_from_dict(self, missing_parameter):
         dict_with_missing_parameter = CALCITE_LATTICE.copy()
         del dict_with_missing_parameter[missing_parameter]
@@ -64,17 +62,17 @@ class TestCreatingDirectLatticeFromMapping:
         with pytest.raises(ValueError) as exception_info:
             DirectLattice.from_dict(dict_with_missing_parameter)
         assert str(exception_info.value) == \
-            "Lattice parameter {} missing from input dictionary".format(missing_parameter)
+            "Parameter: '{}' missing from input dictionary".format(missing_parameter)
 
     def test_parameters_are_assigned_with_correct_type(self):
         c = DirectLattice.from_dict(CALCITE_LATTICE)
 
-        for parameter in LATTICE_PARAMETERS:
+        for parameter in LATTICE_PARAMETER_KEYS:
             assert getattr(c, parameter) == CALCITE_LATTICE[parameter]
             assert isinstance(getattr(c, parameter), float)
 
 
-class TestCreatingDirectLatticeFromCIF: # add multiple data block test, DRY! with crystal tests
+class TestCreatingDirectLatticeFromCIF:
     @pytest.mark.parametrize("missing_data_name", CALCITE_CIF.keys())
     def test_error_if_parameter_is_missing_from_cif(self, missing_data_name, mocker):
         data_items_with_missing_item = CALCITE_CIF.copy()
@@ -85,14 +83,17 @@ class TestCreatingDirectLatticeFromCIF: # add multiple data block test, DRY! wit
         with pytest.raises(ValueError) as exception_info:
             DirectLattice.from_cif("some/cif/file")
         assert str(exception_info.value) == \
-            "Lattice parameter {} missing from input CIF".format(missing_data_name)
+            "Parameter: '{}' missing from input CIF".format(missing_data_name)
 
-    def test_parameters_assigned_for_single_data_block(self, mocker):
-        mocker.patch("diffraction.lattice.load_data_block", return_value=CALCITE_CIF)
+    def test_parameters_assigned_with_values_read_from_cif(self, mocker):
+        load_data_block_mock = mocker.patch("diffraction.lattice.load_data_block",
+                                            return_value="data_items")
+        get_cif_data_mock = mocker.patch("diffraction.lattice.get_cif_data",
+                                         return_value=CALCITE_LATTICE.values())
+
         l = DirectLattice.from_cif("some/single/data/block/cif")
 
-        # test numerical data is assigned with the correct type
-        for data_name, parameter in zip(CALCITE_CIF.keys(), CALCITE_LATTICE.keys()):
-            value = float(CIF_NUMERICAL.match(CALCITE_CIF[data_name]).group(1))
+        load_data_block_mock.assert_called_with("some/single/data/block/cif", None)
+        get_cif_data_mock.assert_called_with("data_items", *CALCITE_CIF.keys())
+        for data_name, (parameter, value) in zip(CALCITE_CIF.keys(), CALCITE_LATTICE.items()):
             assert getattr(l, parameter) == value
-            assert isinstance(getattr(l, parameter), float)

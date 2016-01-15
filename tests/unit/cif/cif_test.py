@@ -1,17 +1,12 @@
-from collections import OrderedDict
-import os
-import json
-import re
 import string
 from unittest import mock
 
 import pytest
+import re
+from collections import OrderedDict
 
-from diffraction.cif import (cif_numerical, cif_textual, CIFParser, CIFValidator,
-                             CIFParseError, DataBlock, INLINE_DATA_ITEM, load_data_block,
-                             NUMERICAL_DATA_NAMES, TEXTUAL_DATA_NAMES, SEMICOLON_DATA_ITEM)
-
-OPEN = "builtins.open"
+from diffraction.cif.cif import (CIFParser, CIFValidator, CIFParseError, DataBlock,
+                                 INLINE_DATA_ITEM, SEMICOLON_DATA_ITEM, strip_quotes)
 
 
 class TestParsingFile:
@@ -29,7 +24,7 @@ class TestParsingFile:
             "_data_name_2 data_value_2",
             "_etc etc",
         ]
-        mocker.patch(OPEN, mock.mock_open(read_data='\n'.join(contents)))
+        mocker.patch("builtins.open", mock.mock_open(read_data='\n'.join(contents)))
 
         filepath = "/some_directory/some_file.cif"
         p = CIFParser(filepath)
@@ -47,7 +42,7 @@ class TestParsingFile:
             "  _another_normal_line starting_with_whitespace",
             '# Final comment ## with # extra hashes ### in ##'
         ]
-        mocker.patch(OPEN, mock.mock_open(read_data='\n'.join(contents)))
+        mocker.patch("builtins.open", mock.mock_open(read_data='\n'.join(contents)))
         expected_remaining_lines = contents[4:6]
 
         p = CIFParser("/some_directory/some_file.cif")
@@ -72,7 +67,7 @@ class TestParsingFile:
             "_data_name_C data_value_C"
         ]
         contents = block_1 + block_2 + block_3
-        mocker.patch(OPEN, mock.mock_open(read_data=str("\n".join(contents))))
+        mocker.patch("builtins.open", mock.mock_open(read_data=str("\n".join(contents))))
         # generate expected output - each data block stored in DataBlock object
         expected = []
         for block in [block_1, block_2, block_3]:
@@ -83,7 +78,24 @@ class TestParsingFile:
         p._extract_data_blocks()
         assert p.data_blocks == expected
 
-    def test_semicolon_data_items_are_assigned(self):
+    def test_textual_data_values_are_stripped_of_ending_quotes(self):
+        test_data_values = ["'data value with single quotes'",
+                            "\"data value with double quotes\"",
+                            "'data value with \n newline and single quotes'",
+                            "data value with no quotes",
+                            "12345.6789",
+                            "''"]
+        expected_data_values = ["data value with single quotes",
+                                "data value with double quotes",
+                                "data value with \n newline and single quotes",
+                                "data value with no quotes",
+                                "12345.6789",
+                                ""]
+
+        for test, expected in zip(test_data_values, expected_data_values):
+            assert strip_quotes(test) == expected
+
+    def test_semicolon_data_items_are_assigned(self, mocker):
         contents = [
             "_data_name_1",
             ";",
@@ -102,13 +114,17 @@ class TestParsingFile:
             ";"
         ]
         data_block = DataBlock('data_block_header', "\n".join(contents), {})
-        semicolon_data_items = {
-            "data_name_1": "'very long semicolon text field with many words'",
-            "data_name_3": "'semicolon text field with\ntwo lines of text'",
-            "data_name_5": "'semicolon text ; field containing ;;; semicolons'"
-        }
+        semicolon_data_items = OrderedDict([
+            ("data_name_1", "very long semicolon text field with many words"),
+            ("data_name_3", "semicolon text field with\ntwo lines of text"),
+            ("data_name_5", "semicolon text ; field containing ;;; semicolons")])
+        strip_quotes_mock = mocker.patch("diffraction.cif.cif.strip_quotes",
+                                         side_effect=lambda data_value: data_value)
 
         data_block.extract_data_items(SEMICOLON_DATA_ITEM)
+        expected_calls = [mock.call(data_value)
+                          for data_value in semicolon_data_items.values()]
+        assert strip_quotes_mock.call_args_list == expected_calls
         assert data_block.data_items == semicolon_data_items
 
     def test_semicolon_data_items_are_stripped_out(self):
@@ -131,19 +147,22 @@ class TestParsingFile:
         data_block.extract_data_items(SEMICOLON_DATA_ITEM)
         assert data_block.raw_data == expected_remaining_data
 
-    def test_inline_declared_variables_are_assigned(self):
-        data_items = {
-            "data_name": "value",
-            "four_word_data_name": "four_word_data_value",
-            "data_name-with_hyphens-in-it": "some_data_value",
-            "data_name_4": "'data value inside single quotes'",
-            "data_name_5": '"data value inside double quotes"'
-        }
+    def test_inline_declared_variables_are_assigned(self, mocker):
+        data_items = OrderedDict([
+            ("data_name", "value"),
+            ("four_word_data_name", "four_word_data_value"),
+            ("data_name-with_hyphens-in-it", "some_data_value"),
+            ("data_name_4", "'data value inside single quotes'"),
+            ("data_name_5", '"data value inside double quotes"')])
         contents = ['_{} {}'.format(data_name, data_value)
                     for data_name, data_value in data_items.items()]
         data_block = DataBlock('data_block_header', "\n".join(contents), {})
+        strip_quotes_mock = mocker.patch("diffraction.cif.cif.strip_quotes",
+                                         side_effect=lambda data_value: data_value)
 
         data_block.extract_data_items(INLINE_DATA_ITEM)
+        expected_calls = [mock.call(data_value) for data_value in data_items.values()]
+        assert strip_quotes_mock.call_args_list == expected_calls
         assert data_block.data_items == data_items
 
     def test_inline_declared_variables_are_stripped_out(self):
@@ -163,7 +182,7 @@ class TestParsingFile:
         data_block.extract_data_items(INLINE_DATA_ITEM)
         assert data_block.raw_data == expected_remaining_data
 
-    def test_variables_declared_in_loop_are_assigned(self):
+    def test_variables_declared_in_loop_are_assigned(self, mocker):
         data_items = {
             "number": ["1", "2222", "3456789"],
             "symbol": [".", "-", "?"],
@@ -181,8 +200,11 @@ class TestParsingFile:
             *[data_items[data_name][i] for data_name in data_names])
             for i in range(3))
         data_block = DataBlock('data_block_header', "\n".join(contents), {})
+        strip_quotes_mock = mocker.patch("diffraction.cif.cif.strip_quotes",
+                                         side_effect=lambda data_value: data_value)
 
         data_block.extract_loop_data_items()
+        assert strip_quotes_mock.call_count == 21
         assert data_block.data_items['loop_1'] == data_items
 
     def test_parse_method_calls_in_correct_order(self):
@@ -296,8 +318,7 @@ class TestCIFSyntaxExceptions:
         assert str(exception_info.value) == \
             'Invalid inline data value on line 2: "_data_name_2 "'
 
-    @pytest.mark.parametrize("invalid_line", ["value_A1",
-                                              "value_A1 value_B1 value_C1"])
+    @pytest.mark.parametrize("invalid_line", ["value_A1", "value_A1 value_B1 value_C1"])
     def test_error_if_unmatched_data_items_in_loop(self, invalid_line):
         contents = [
             "loop_",
@@ -337,84 +358,3 @@ class TestCIFSyntaxExceptions:
             v.validate()
         assert str(exception_info.value) == \
             'Unclosed semicolon text field on line 4: "Unclosed text field"'
-
-
-def fake_num_data(data_names, errors=False, no_data_blocks=1):
-    """Generates dummy numerical input cif data for testing"""
-    if errors:
-        data_values = ["{0}.{0}({0})".format(i)
-                       for i in range(len(data_names))]
-    else:
-        data_values = ["{0}.{0}".format(i) for i in range(len(data_names))]
-    return data_values
-
-
-def fake_text_data(data_names, no_data_blocks=1):
-    """Generates dummy textual input cif data for testing"""
-    data_values = ["'{0}'".format(string.ascii_letters[i] * 5)
-                   for i in range(len(data_names))]
-    return data_values
-
-
-def fake_cif_data(data_names, errors=False, no_data_blocks=1):
-    num_data_names = [name for name in data_names
-                      if name in NUMERICAL_DATA_NAMES]
-    text_data_names = [name for name in data_names
-                       if name in TEXTUAL_DATA_NAMES]
-    data_values = fake_num_data(num_data_names, errors, no_data_blocks) + \
-        fake_text_data(text_data_names, no_data_blocks)
-
-    data = {}
-    for i in range(no_data_blocks):
-        data_items = dict(zip(num_data_names + text_data_names, data_values))
-        data["data_block_{}".format(i)] = data_items
-    return data
-
-
-class TestLoadingDataFromCIF:
-    def test_single_datablock_loaded_automatically(self, mocker):
-        input_dict = fake_cif_data(NUMERICAL_DATA_NAMES + TEXTUAL_DATA_NAMES)
-        mocker.patch('diffraction.cif.load_cif', return_value=input_dict)
-
-        data_items = load_data_block("single/data/block/cif")
-        assert data_items == input_dict["data_block_0"]
-
-    def test_error_if_data_block_not_given_for_multi_data_blocks(self, mocker):
-        input_dict = fake_cif_data(NUMERICAL_DATA_NAMES + TEXTUAL_DATA_NAMES, no_data_blocks=5)
-        mocker.patch('diffraction.cif.load_cif', return_value=input_dict)
-
-        with pytest.raises(TypeError) as exception_info:
-            load_data_block("multi/data/block/cif")
-        assert str(exception_info.value) == \
-            ("__init__() missing keyword argument: 'data_block'. "
-             "Required when input CIF has multiple data blocks.")
-
-    def test_data_block_loads_for_multi_data_blocks(self, mocker):
-        input_dict = fake_cif_data(NUMERICAL_DATA_NAMES + TEXTUAL_DATA_NAMES, no_data_blocks=5)
-        mocker.patch('diffraction.cif.load_cif', return_value=input_dict)
-
-        assert load_data_block("multi/data/block/cif", "data_block_0") == \
-            input_dict["data_block_0"]
-
-
-class TestConvertingLoadedCIFData:
-    @pytest.mark.parametrize("invalid_value", ["abc", "123@%£", "1232.433.21"])
-    def test_error_if_invalid_numerical_parameter_data_in_cif(self, invalid_value):
-        with pytest.raises(ValueError) as exception_info:
-            cif_numerical("cell_length_a", invalid_value)
-        assert str(exception_info.value) == \
-            "Invalid numerical value in input CIF cell_length_a: {}".format(invalid_value)
-
-    def test_numerical_data_values_stripped_of_errors(self):
-        data_items = fake_cif_data(NUMERICAL_DATA_NAMES, errors=True)["data_block_0"]
-
-        for data_name, data_value in data_items.items():
-            value = cif_numerical(data_name, data_value)
-            assert re.match(r"\d+\.?\d*", value)
-
-    def test_textual_data_values_are_stripped_of_ending_quotes(self):
-        data_items = fake_cif_data(TEXTUAL_DATA_NAMES)["data_block_0"]
-
-        for data_value in data_items.values():
-            value = cif_textual(data_value)
-            assert re.match(r"[^'].*?[^']", value)
