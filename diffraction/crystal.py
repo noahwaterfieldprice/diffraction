@@ -39,9 +39,8 @@ class Crystal:  # TODO: Finish docstring and update glossary
     120.0
     >>> calcite.space_group
     'R -3 c H'
-
-
     """
+
     def __init__(self, lattice_parameters, space_group):
         self.lattice = DirectLattice(lattice_parameters)
         self.space_group = space_group

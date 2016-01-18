@@ -1,4 +1,3 @@
-import collections
 import re
 
 from .cif import load_cif

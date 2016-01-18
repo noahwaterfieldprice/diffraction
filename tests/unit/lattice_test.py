@@ -1,5 +1,8 @@
-import pytest
 from collections import OrderedDict
+
+from numpy import array, array_equal, pi, sqrt
+from numpy.testing import assert_almost_equal, assert_array_almost_equal
+import pytest
 
 from diffraction.cif.helpers import NUMERICAL_DATA_VALUE
 from diffraction.lattice import DirectLattice, LATTICE_PARAMETER_KEYS
@@ -12,6 +15,10 @@ CALCITE_CIF = OrderedDict([("cell_length_a", "4.9900(2)"),
                            ("cell_angle_alpha", "90."),
                            ("cell_angle_beta", "90."),
                            ("cell_angle_gamma", "90.")])
+
+CALCITE_DIRECT_METRIC = array([[24.9001, -12.45005, 0],
+                               [-12.45005, 24.9001, 0],
+                               [0, 0, 289.068004]])
 
 
 class TestCreatingDirectLatticeFromSequence:
@@ -97,3 +104,42 @@ class TestCreatingDirectLatticeFromCIF:
         get_cif_data_mock.assert_called_with("data_items", *CALCITE_CIF.keys())
         for data_name, (parameter, value) in zip(CALCITE_CIF.keys(), CALCITE_LATTICE.items()):
             assert getattr(l, parameter) == value
+
+
+class TestAccessingComputedProperties:
+    def test_can_get_lattice_parameters_as_a_list(self, mocker):
+        mock = mocker.MagicMock(**CALCITE_LATTICE)
+        mock.lattice_parameters = DirectLattice.lattice_parameters
+
+        assert mock.lattice_parameters.fget(mock) == tuple(CALCITE_LATTICE.values())
+
+    def test_lattice_parameters_updated_if_lattice_parameter_changed(self, mocker):
+        mock = mocker.MagicMock(**CALCITE_LATTICE)
+        mock.lattice_parameters = DirectLattice.lattice_parameters
+        expected_lattice_parameters = (10,) + tuple(CALCITE_LATTICE.values())[1:]
+
+        mock.a = 10
+        assert mock.lattice_parameters.fget(mock) == expected_lattice_parameters
+
+    def test_can_get_lattice_parameters_in_radians(self, mocker):
+        mock = mocker.MagicMock(**CALCITE_LATTICE)
+        mock.lattice_parameters_rad = DirectLattice.lattice_parameters_rad
+        expected = tuple(CALCITE_LATTICE.values())[:3] + (pi / 2, pi / 2, 2 * pi / 3)
+
+        assert mock.lattice_parameters_rad.fget(mock) == expected
+
+    def test_direct_metric_is_calculated_correctly(self, mocker):
+        lps_rad = tuple(CALCITE_LATTICE.values())[:3] + (pi / 2, pi / 2, 2 * pi / 3)
+        mock = mocker.MagicMock(lattice_parameters_rad=lps_rad)
+        mock.direct_metric = DirectLattice.direct_metric
+
+        assert_array_almost_equal(mock.direct_metric.fget(mock), CALCITE_DIRECT_METRIC)
+
+    def test_unit_cell_volume_is_calculated_correctly(self, mocker):
+        mock = mocker.MagicMock(**CALCITE_LATTICE)
+        mock.unit_cell_volume = DirectLattice.unit_cell_volume
+        mock.direct_metric = CALCITE_DIRECT_METRIC
+        a, c = CALCITE_LATTICE["a"], CALCITE_LATTICE["c"]
+        expected = sqrt(3) / 2 * a * a * c
+
+        assert_almost_equal(mock.unit_cell_volume.fget(mock), expected)

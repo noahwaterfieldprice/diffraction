@@ -1,3 +1,6 @@
+from numpy import around, cos, radians, sqrt
+from numpy.linalg import det
+
 from .cif.helpers import CIF_NAMES, get_cif_data, load_data_block
 
 __all__ = ["DirectLattice"]
@@ -7,6 +10,50 @@ LATTICE_PARAMETER_KEYS = ["a", "b", "c", "alpha", "beta", "gamma"]
 
 
 class DirectLattice:
+    """Class to represent a direct lattice
+
+    Parameters
+    ----------
+    lattice_parameters: seq of float
+        The :term:`lattice parameters` of the lattice declared in the
+        order [*a*, *b*, *c*, *alpha*, *beta*, *gamma*]
+
+    Attributes
+    ----------
+    a, b, c: float
+        The *a*, *b* and *c* :term:`lattice parameters` describing the
+        dimensions of the :term:`unit cell`.
+    alpha, beta, gamma: float
+        The *alpha*, *beta* and *gamma* :term:`lattice parameters`
+        describing the angles of the :term:`unit cell` in degrees.
+    lattice_parameters: tuple of float
+        The :term:`lattice parameters` in the form
+        (*a*, *b*, *c*, *alpha*, *beta*, *gamma*)
+        with angles in degrees.
+    lattice_parameters_rad: tuple of float
+        The lattice parameters in the form
+        (*a*, *b*, *c*, *alpha*, *beta*, *gamma*)
+        with angles in radians.
+    direct_metric: array_like
+        The :term:`metric tensor` of the direct basis.
+    unit_cell_volume: float
+
+
+    Notes
+    -----
+
+    Examples
+    --------
+    >>> from diffraction import Crystal
+    >>> calcite = Crystal([4.99, 4.99, 17.002, 90, 90, 120], "R -3 c H")
+    >>> calcite.a
+    4.99
+    >>> calcite.gamma
+    120.0
+    >>> calcite.space_group
+    'R -3 c H'
+    """
+
     def __init__(self, lattice_parameters):
         if len(lattice_parameters) < 6:
             raise(ValueError("Missing lattice parameter from input"))
@@ -92,6 +139,27 @@ class DirectLattice:
                 raise ValueError("Parameter: '{0}' missing from input "
                                  "dictionary".format(parameter))
         return cls(lattice_parameters)
+
+    @property
+    def lattice_parameters(self):
+        return self.a, self.b, self.c, self.alpha, self.beta, self.gamma
+
+    @property
+    def lattice_parameters_rad(self):
+        return (self.a, self.b, self.c,
+                radians(self.alpha), radians(self.beta), radians(self.gamma))
+
+    @property
+    def direct_metric(self):
+        a, b, c, al, be, ga = self.lattice_parameters_rad
+        tensor = around([[a ** 2, a * b * cos(ga), a * c * cos(be)],
+                        [a * b * cos(ga), b ** 2, b * c * cos(al)],
+                        [a * c * cos(be), b * c * cos(al), c ** 2]], 10)
+        return tensor
+
+    @property
+    def unit_cell_volume(self):
+        return sqrt(det(self.direct_metric))
 
     def __repr__(self):
         repr_string = ("{0}([{1.a!r}, {1.b!r}, {1.c!r}, "

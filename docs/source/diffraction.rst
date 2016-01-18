@@ -1,21 +1,28 @@
 diffraction package
 ===================
 
+Subpackages
+-----------
+
+.. toctree::
+
+    diffraction.cif
+
 Submodules
 ----------
-
-diffraction.cif module
-----------------------
-
-.. automodule:: diffraction.cif
-    :members:
-    :undoc-members:
-    :show-inheritance:
 
 diffraction.crystal module
 --------------------------
 
 .. automodule:: diffraction.crystal
+    :members:
+    :undoc-members:
+    :show-inheritance:
+
+diffraction.lattice module
+--------------------------
+
+.. automodule:: diffraction.lattice
     :members:
     :undoc-members:
     :show-inheritance:
