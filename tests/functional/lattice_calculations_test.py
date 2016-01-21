@@ -2,7 +2,7 @@ import pytest
 from numpy import array, sqrt
 from numpy.testing import assert_almost_equal, assert_array_almost_equal
 
-from diffraction import DirectLattice
+from diffraction import DirectLattice, DirectLatticeVector
 
 CALCITE_LATTICE_PARAMETERS = (4.99, 4.99, 17.002, 90.0, 90.0, 120.0)
 CALCITE_DIRECT_METRIC = array([[24.9001, -12.45005, 0],
@@ -112,3 +112,11 @@ class TestDirectSpaceCalculations:
         expected_volume = sqrt(3) / 2 * a * a * c
 
         assert_almost_equal(lattice.unit_cell_volume, expected_volume)
+
+    def test_calculating_length_of_direct_lattice_vector(self):
+        lattice = DirectLattice(CALCITE_LATTICE_PARAMETERS)
+        v1 = DirectLatticeVector([1, 1, 0], lattice)
+        v2 = DirectLatticeVector([1, 2, 3], lattice)
+
+        assert_almost_equal(v1.norm(), 4.99)
+        assert_almost_equal(v2.norm(), 51.7330874)

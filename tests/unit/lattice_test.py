@@ -1,11 +1,11 @@
 from collections import OrderedDict
 
-from numpy import array, array_equal, pi, sqrt
+from numpy import add, array, array_equal, ndarray, pi, sqrt
 from numpy.testing import assert_almost_equal, assert_array_almost_equal
 import pytest
 
 from diffraction.cif.helpers import NUMERICAL_DATA_VALUE
-from diffraction.lattice import DirectLattice, LATTICE_PARAMETER_KEYS
+from diffraction.lattice import DirectLattice, LATTICE_PARAMETER_KEYS, DirectLatticeVector
 
 CALCITE_LATTICE = OrderedDict([("a", 4.99), ("b", 4.99), ("c", 17.002),
                                ("alpha", 90), ("beta", 90), ("gamma", 120)])
@@ -129,3 +129,65 @@ class TestAccessingComputedProperties:
         expected = sqrt(3) / 2 * a * a * c
 
         assert_almost_equal(mock.unit_cell_volume.fget(mock), expected)
+
+
+class TestCreatingDirectLatticeVectors:
+    def test_creating_direct_lattice_vector_directly(self, mocker):
+        lattice = mocker.MagicMock()
+
+        vector = DirectLatticeVector([1, 0, 0], lattice)
+        assert issubclass(DirectLatticeVector, ndarray)
+        assert vector.lattice == lattice
+
+    def test_lattice_attribute_persists_when_new_array_created(self, mocker):
+        lattice = mocker.MagicMock()
+
+        vector1 = DirectLatticeVector([1, 0, 0], lattice)
+        vector2 = 2 * vector1
+        vector3 = vector1.copy()
+        assert vector2.lattice == lattice
+        assert vector3.lattice == lattice
+
+    def test_direct_lattice_vector_equivalence(self, mocker):
+        lattice1 = mocker.MagicMock()
+        lattice2 = mocker.MagicMock()
+        vector1 = DirectLatticeVector([1, 0, 0], lattice1)
+        vector2 = DirectLatticeVector([1, 0, 0], lattice1)
+        vector3 = DirectLatticeVector([1, 0, 0], lattice2)
+        vector4 = DirectLatticeVector([0, 1, 0], lattice1)
+
+        assert vector1 == vector2
+        assert vector1 != vector3
+        assert vector1 != vector4
+
+    def test_adding_and_subtracting_direct_lattice_vectors(self, mocker):
+        lattice = mocker.MagicMock()
+        vector1 = DirectLatticeVector([1, 0, 0], lattice)
+        vector2 = DirectLatticeVector([0, 2, 3], lattice)
+        vector3 = DirectLatticeVector([1, 2, 3], lattice)
+
+        assert vector1 + vector2 == vector3
+        assert vector3 - vector2 == vector1
+
+    def test_error_if_adding_or_subtracting_with_different_lattices(self, mocker):
+        lattice1 = mocker.MagicMock()
+        lattice2 = mocker.MagicMock()
+        vector1 = DirectLatticeVector([1, 0, 0], lattice1)
+        vector2 = DirectLatticeVector([0, 2, 3], lattice2)
+
+        with pytest.raises(TypeError) as exception_info:
+            vector1 + vector2
+        assert str(exception_info.value) == "lattice must be the same " \
+                                            "for both DirectLatticeVectors"
+        with pytest.raises(TypeError) as exception_info:
+            vector1 - vector2
+        assert str(exception_info.value) == "lattice must be the same " \
+                                            "for both DirectLatticeVectors"
+
+    def test_calculating_norm_of_direct_lattice_vector(self, mocker):
+        lattice = mocker.MagicMock(direct_metric=CALCITE_DIRECT_METRIC)
+        vector_1 = DirectLatticeVector([1, 1, 0], lattice)
+        vector_2 = DirectLatticeVector([1, 2, 3], lattice)
+
+        assert_almost_equal(vector_1.norm(), 4.99)
+        assert_almost_equal(vector_2.norm(), 51.7330874)

@@ -1,9 +1,11 @@
-from numpy import around, cos, radians, sqrt
+from functools import wraps
+
+from numpy import around, array_equal, asarray, cos, ndarray, radians, sqrt
 from numpy.linalg import det
 
 from .cif.helpers import CIF_NAMES, get_cif_data, load_data_block
 
-__all__ = ["DirectLattice"]
+__all__ = ["DirectLattice", "DirectLatticeVector"]
 
 # Lattice parameter names and map to CIF data names
 LATTICE_PARAMETER_KEYS = ["a", "b", "c", "alpha", "beta", "gamma"]
@@ -168,3 +170,42 @@ class DirectLattice:
 
     def __str__(self):
         return repr(self)
+
+
+def lattice_check(operation):
+    @wraps(operation)
+    def wrapper(self, other):
+        if self.lattice != other.lattice:
+            raise TypeError("lattice must be the same for both "
+                            "{0}s".format(self.__class__.__name__))
+        else:
+            return operation(self, other)
+    return wrapper
+
+
+class DirectLatticeVector(ndarray):
+
+    def __new__(cls, uvw, lattice):
+        vector = asarray(uvw).view(cls)
+        vector.lattice = lattice
+        return vector
+
+    def __array_finalize__(self, vector):
+        self.lattice = getattr(vector, "lattice", None)
+
+    def __eq__(self, other):
+        return array_equal(self, other) and self.lattice == other.lattice
+
+    def __ne__(self, other):
+        return not self == other
+
+    @lattice_check
+    def __add__(self, other):
+        return ndarray.__add__(self, other)
+
+    @lattice_check
+    def __sub__(self, other):
+        return ndarray.__sub__(self, other)
+
+    def norm(self):
+        return sqrt(self.dot(self.lattice.direct_metric).dot(self))

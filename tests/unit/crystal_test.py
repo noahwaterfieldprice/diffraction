@@ -124,7 +124,7 @@ class TestCreatingCrystalFromCIF:
 
     def test_loading_atomic_sites_from_cif(self, mocker):
         mocker.patch("diffraction.crystal.load_data_block", return_value=CALCITE_CIF)
-        mock = mocker.MagicMock(**CALCITE_DATA)
+        mock = mocker.MagicMock()
         mock.add_sites_from_cif = Crystal.add_sites_from_cif
         mock.sites = {}
 
@@ -171,7 +171,7 @@ class TestAddingAndModifyingAtomicSites:
         assert atom_1 == atom_3
 
     def test_adding_single_sites(self, mocker):
-        mock = mocker.MagicMock(**CALCITE_DATA)
+        mock = mocker.MagicMock()
         mock.add_sites = Crystal.add_sites
         mock.sites = {}
 
@@ -182,7 +182,7 @@ class TestAddingAndModifyingAtomicSites:
                               "C1": Site("C4+", [0, 0, 0.25])}
 
     def test_adding_multiple_sites(self, mocker):
-        mock = mocker.MagicMock(**CALCITE_DATA)
+        mock = mocker.MagicMock()
         mock.add_sites = Crystal.add_sites
 
         mock.sites = {}
@@ -192,7 +192,7 @@ class TestAddingAndModifyingAtomicSites:
         assert mock.sites == expected_sites
 
     def test_modifying_atom_position(self, mocker):
-        mock = mocker.MagicMock(**CALCITE_DATA)
+        mock = mocker.MagicMock()
         mock.add_sites = Crystal.add_sites
 
         mock.sites = {}
