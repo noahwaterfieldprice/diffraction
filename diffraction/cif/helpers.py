@@ -1,9 +1,10 @@
+from collections import Iterable
 import re
 
 from .cif import load_cif
 
 # CIF data names corresponding to numerical parameters
-NUMERICAL_DATA_NAMES = (
+NUMERICAL_DATA_NAMES = (  # TODO: strip down to only data names used
     "atom_site_fract_x",
     "atom_site_fract_y",
     "atom_site_fract_z",
@@ -96,7 +97,7 @@ CIF_NAMES = {
     "space_group": "symmetry_space_group_name_H-M"
 }
 
-NUMERICAL_DATA_VALUE = re.compile("(\d+\.?\d*)(?:\(\d+\))?$")
+NUMERICAL_DATA_VALUE = re.compile("(-?\d+\.?\d*)(?:\(\d+\))?$")
 
 
 def load_data_block(filepath, data_block=None):
@@ -123,12 +124,15 @@ def load_data_block(filepath, data_block=None):
 
 
 def get_cif_data(data_items, *data_names):
-    """Retrieve :term:`data values` from dictionary of raw :term:`CIF`
-    :term:`data items` given an arbitrary number of :term:`data names`.
+    """Retrieve a list of :term:`data values` from dictionary of raw
+    :term:`CIF` :term:`data items` given an arbitrary number of
+    :term:`data names`.
 
     Any numerical data values are converted to numerical strings i.e.
     the errors are stripped off. Raises a ValueError if input data does
     not contain any requested data items.
+
+
     """
     data = []
     for data_name in data_names:
@@ -149,11 +153,19 @@ def cif_numerical(data_name, data_value):
     The numerical data value is matched to the pattern #.#(#), where #
     signifies one or more digits and the decimal points and error are
     optional. If present, the error is stripped off and the remaining
-    string containing only the numerical data is returned.
-    """
+    string is converted to a float and returned.
 
-    match = NUMERICAL_DATA_VALUE.match(data_value)
-    if match is None:
-        raise ValueError("Invalid numerical value in input CIF {0}: {1}".format(
-            data_name, data_value))
-    return match.group(1)
+    If the numerical data value is a list then each data value in the
+    list is converted and the converted list is returned.
+    """
+    if isinstance(data_value, list):
+        data_value = [cif_numerical(data_name, data_value_element)
+                      for data_value_element in data_value]
+    else:
+        try:
+            match = NUMERICAL_DATA_VALUE.match(data_value)
+            data_value = float(match.group(1))
+        except (AttributeError, ValueError):
+            raise ValueError("Invalid numerical value in input "
+                             "CIF {0}: {1}".format(data_name, data_value))
+    return data_value

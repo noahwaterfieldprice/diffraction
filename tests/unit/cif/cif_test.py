@@ -12,10 +12,10 @@ from diffraction.cif.cif import (CIFParser, CIFValidator, CIFParseError, DataBlo
 class TestParsingFile:
     def test_datablock_class_abbreviates_raw_data_when_printed(self):
         # test when raw_data is shorter than 18 characters
-        data_block = DataBlock("header", "a" * 10, {})
+        data_block = DataBlock("header", "a" * 10)
         assert repr(data_block) == "DataBlock('header', '%s', {})" % ("a" * 10)
         # test when raw_data is longer than 18 characters
-        data_block = DataBlock("header", "a" * 100, {})
+        data_block = DataBlock("header", "a" * 100)
         assert repr(data_block) == "DataBlock('header', '%s...', {})" % ("a" * 15)
 
     def test_file_contents_are_stored_as_raw_string_attribute(self, mocker):
@@ -72,7 +72,7 @@ class TestParsingFile:
         expected = []
         for block in [block_1, block_2, block_3]:
             header, *raw_data = block
-            expected.append(DataBlock(header, "\n".join(raw_data), {}))
+            expected.append(DataBlock(header, "\n".join(raw_data)))
 
         p = CIFParser("/some_directory/some_file.cif")
         p._extract_data_blocks()
@@ -113,7 +113,7 @@ class TestParsingFile:
             "semicolon text ; field containing ;;; semicolons",
             ";"
         ]
-        data_block = DataBlock('data_block_header', "\n".join(contents), {})
+        data_block = DataBlock('data_block_header', "\n".join(contents))
         semicolon_data_items = OrderedDict([
             ("data_name_1", "very long semicolon text field with many words"),
             ("data_name_3", "semicolon text field with\ntwo lines of text"),
@@ -141,7 +141,7 @@ class TestParsingFile:
             "two lines of text",
             ";"
         ]
-        data_block = DataBlock('data_block_header', "\n".join(contents), {})
+        data_block = DataBlock('data_block_header', "\n".join(contents))
         expected_remaining_data = "\n".join([contents[0], contents[5]])
 
         data_block.extract_data_items(SEMICOLON_DATA_ITEM)
@@ -156,7 +156,7 @@ class TestParsingFile:
             ("data_name_5", '"data value inside double quotes"')])
         contents = ['_{} {}'.format(data_name, data_value)
                     for data_name, data_value in data_items.items()]
-        data_block = DataBlock('data_block_header', "\n".join(contents), {})
+        data_block = DataBlock('data_block_header', "\n".join(contents))
         strip_quotes_mock = mocker.patch("diffraction.cif.cif.strip_quotes",
                                          side_effect=lambda data_value: data_value)
 
@@ -176,7 +176,7 @@ class TestParsingFile:
             "value-B1 value_B2",
             "_one_more_data_item_ one_more_data_value"
         ]
-        data_block = DataBlock('data_block_header', "\n".join(contents), {})
+        data_block = DataBlock('data_block_header', "\n".join(contents))
         expected_remaining_data = "\n" + "\n".join(contents[2:7])
 
         data_block.extract_data_items(INLINE_DATA_ITEM)
@@ -199,13 +199,13 @@ class TestParsingFile:
         contents.extend('{} {} {} {} {} {} {}'.format(
             *[data_items[data_name][i] for data_name in data_names])
             for i in range(3))
-        data_block = DataBlock('data_block_header', "\n".join(contents), {})
+        data_block = DataBlock('data_block_header', "\n".join(contents))
         strip_quotes_mock = mocker.patch("diffraction.cif.cif.strip_quotes",
                                          side_effect=lambda data_value: data_value)
 
         data_block.extract_loop_data_items()
         assert strip_quotes_mock.call_count == 21
-        assert data_block.data_items['loop_1'] == data_items
+        assert data_block.data_items == data_items
 
     def test_parse_method_calls_in_correct_order(self):
         p = mock.Mock(spec=CIFParser)

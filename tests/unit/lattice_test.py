@@ -71,27 +71,14 @@ class TestCreatingDirectLatticeFromMapping:
         assert str(exception_info.value) == \
             "Parameter: '{}' missing from input dictionary".format(missing_parameter)
 
-    def test_parameters_are_assigned_with_correct_type(self):
+    def test_parameters_are_assigned_with_values_read_from_dict(self):
         c = DirectLattice.from_dict(CALCITE_LATTICE)
 
         for parameter in LATTICE_PARAMETER_KEYS:
             assert getattr(c, parameter) == CALCITE_LATTICE[parameter]
-            assert isinstance(getattr(c, parameter), float)
 
 
 class TestCreatingDirectLatticeFromCIF:
-    @pytest.mark.parametrize("missing_data_name", CALCITE_CIF.keys())
-    def test_error_if_parameter_is_missing_from_cif(self, missing_data_name, mocker):
-        data_items_with_missing_item = CALCITE_CIF.copy()
-        data_items_with_missing_item.pop(missing_data_name)
-        mocker.patch("diffraction.lattice.load_data_block",
-                     return_value=data_items_with_missing_item)
-
-        with pytest.raises(ValueError) as exception_info:
-            DirectLattice.from_cif("some/cif/file")
-        assert str(exception_info.value) == \
-            "Parameter: '{}' missing from input CIF".format(missing_data_name)
-
     def test_parameters_assigned_with_values_read_from_cif(self, mocker):
         load_data_block_mock = mocker.patch("diffraction.lattice.load_data_block",
                                             return_value="data_items")
@@ -99,7 +86,6 @@ class TestCreatingDirectLatticeFromCIF:
                                          return_value=CALCITE_LATTICE.values())
 
         l = DirectLattice.from_cif("some/single/data/block/cif")
-
         load_data_block_mock.assert_called_with("some/single/data/block/cif", None)
         get_cif_data_mock.assert_called_with("data_items", *CALCITE_CIF.keys())
         for data_name, (parameter, value) in zip(CALCITE_CIF.keys(), CALCITE_LATTICE.items()):

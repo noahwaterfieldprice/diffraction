@@ -84,7 +84,8 @@ class TestLoadingSpecificDataItems:
     def test_get_numerical_cif_data_by_name(self, mocker):
         test_data_items = {"cell_length_a": "4.9900(2)",
                            "cell_length_b": "4.9900(2)",
-                           "cell_angle_gamma": "120."}
+                           "cell_angle_gamma": "120.",
+                           "atom_site_fract_x": "-2.34"}
         cif_num_mock = mocker.patch("diffraction.cif.helpers.cif_numerical",
                                     side_effect=lambda data_name, data_value: data_value)
 
@@ -96,7 +97,7 @@ class TestLoadingSpecificDataItems:
         assert cif_num_mock.call_args_list == expected_calls
         assert data == list(data_values)
 
-    def test_get_textual_cif_date_by_name(self):
+    def test_get_textual_cif_data_by_name(self):
         test_data_items = {"symmetry_space_group_name_H-M": "R -3 c H",
                            "chemical_name_mineral ": "Calcite",
                            "chemical_formula_sum": "C1 Ca1 O3"}
@@ -105,8 +106,43 @@ class TestLoadingSpecificDataItems:
         data = get_cif_data(test_data_items, *data_names)
         assert data == list(data_values)
 
-    def test_numerical_data_values_stripped_of_errors(self):
+    def test_get_textual_loop_cif_data_by_name(self):
+        test_data_items = {"cell_length_a": "4.9900(2)",
+                           "atom_site_label": ["Ca1", "C1", "O1"],
+                           "atom_type_symbol": ["Ca2+", "C4+", "O2-"]}
+
+        labels, symbols = get_cif_data(test_data_items,
+                                       "atom_site_label",
+                                       "atom_type_symbol")
+        assert labels == ["Ca1", "C1", "O1"]
+        assert symbols == ["Ca2+", "C4+", "O2-"]
+
+    def test_get_numerical_loop_cif_data_by_name(self, mocker):
+        test_data_items = {"cell_length_a": "4.9900(2)",
+                           "atom_site_fract_x": ["0", "0", "0.25706(33)"],
+                           "atom_site_fract_y": ["0", "0.25", "0.25"]}
+        cif_num_mock = mocker.patch("diffraction.cif.helpers.cif_numerical",
+                                    side_effect=lambda data_name, data_value: data_value)
+
+        expected_calls = [(("atom_site_fract_x", test_data_items["atom_site_fract_x"]),),
+                          (("atom_site_fract_y", test_data_items["atom_site_fract_y"]),)]
+        x, y = get_cif_data(test_data_items, "atom_site_fract_x", "atom_site_fract_y")
+        assert cif_num_mock.call_args_list == expected_calls
+        assert x == test_data_items["atom_site_fract_x"]
+        assert y == test_data_items["atom_site_fract_y"]
+
+    def test_getting_single_data_value(self):
+        test_data_items = {"symmetry_space_group_name_H-M": "R -3 c H",
+                           "chemical_name_mineral ": "Calcite",
+                           "chemical_formula_sum": "C1 Ca1 O3"}
+
+        data_name = "chemical_formula_sum"
+        [data] = get_cif_data(test_data_items, data_name)
+        assert data == "C1 Ca1 O3"
+
+    def test_numerical_data_values_stripped_of_errors(self, mocker):
         data_items = fake_cif_data(NUMERICAL_DATA_NAMES, errors=True)["data_block_0"]
+        mocker.patch("diffraction.cif.helpers.float", side_effect=lambda x: x)
 
         for data_name, data_value in data_items.items():
             value = cif_numerical(data_name, data_value)

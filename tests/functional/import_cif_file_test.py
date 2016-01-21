@@ -63,13 +63,13 @@ class TestCIFReading:
         assert p.data_blocks[0].header == 'data_VESTA_phase_1'
         assert len(p.data_blocks) == 1
         data_items = p.data_blocks[0].data_items
-        assert len(data_items) == 12
+        assert len(data_items) == 25
 
         # check the loops operated correctly
-        pos = data_items["loop_1"]["symmetry_equiv_pos_as_xyz"]
+        pos = data_items["symmetry_equiv_pos_as_xyz"]
         assert len(pos) == 36
-        assert data_items["loop_2"]["atom_site_occupancy"] == ["1.0", "1.0", "1.0"]
-        assert data_items["loop_3"]["atom_site_aniso_label"] == ["Ca1", "C1", "O1"]
+        assert data_items["atom_site_occupancy"] == ["1.0", "1.0", "1.0"]
+        assert data_items["atom_site_aniso_label"] == ["Ca1", "C1", "O1"]
 
         # check a few inline data items
         assert data_items["cell_length_a"] == "4.9900(2)"
@@ -84,14 +84,14 @@ class TestCIFReading:
         assert p.data_blocks[0].header == "data_18166-ICSD"
         assert len(p.data_blocks) == 1
         data_items = p.data_blocks[0].data_items
-        assert len(data_items) == 27
+        assert len(data_items) == 51
 
         # check the loops operated correctly
-        ids = data_items["loop_3"]["symmetry_equiv_pos_site_id"]
+        ids = data_items["symmetry_equiv_pos_site_id"]
         assert ids == [str(i) for i in range(1, 37)]
-        assert data_items["loop_5"]["atom_site_label"] == ["Ca1", "C1", "O1"]
-        assert data_items["loop_6"]["atom_site_aniso_U_22"] == ["0.01775(90)"]
-        assert data_items["loop_2"]["publ_author_name"] == \
+        assert data_items["atom_site_label"] == ["Ca1", "C1", "O1"]
+        assert data_items["atom_site_aniso_U_22"] == ["0.01775(90)"]
+        assert data_items["publ_author_name"] == \
             ["Chessin, H.", "Hamilton, W.C.", "Post, B."]
 
         # check a few inline data items
@@ -109,15 +109,15 @@ class TestCIFReading:
         assert p.data_blocks[11].header == "data_CSD_CIF_AHUKOD"
         data_items_1 = p.data_blocks[0].data_items
         data_items_2 = p.data_blocks[11].data_items
-        assert len(data_items_1) == 33
-        assert len(data_items_2) == 35
+        assert len(data_items_1) == 39
+        assert len(data_items_2) == 41
 
         # check loops operated correctly
-        assert len(data_items_1["loop_4"]["atom_site_label"]) == 119
-        assert len(data_items_2["loop_4"]["atom_site_label"]) == 69
-        assert data_items_1["loop_3"]["atom_type_radius_bond"] == \
+        assert len(data_items_1["atom_site_label"]) == 119
+        assert len(data_items_2["atom_site_label"]) == 69
+        assert data_items_1["atom_type_radius_bond"] == \
             ["0.68", "0.23", "1.35", "0.68", "1.02"]
-        assert data_items_2["loop_3"]["atom_type_radius_bond"] == \
+        assert data_items_2["atom_type_radius_bond"] == \
             ["0.68", "0.23", "1.21", "0.64", "1.40", "1.02"]
 
         # check semicolon text fields assigned correctly

@@ -45,12 +45,9 @@ def load_cif(filepath):
         where the key and value are the :term:`data name` and
         :term:`data value` respectively.
 
-        Loop data is stored in a child dictionary under the key
-        `"loop_i"` where i is the number of the loop in the order they
-        appear in the CIF. Within the loop dictionary, the data items
-        are stored in key: value pairs as above but where the value is
-        now a list of one or more data values assigned to that data
-        name in the loop.
+        Loop data is stored similarly with the data items stored in
+        key: value pairs as above but where the value is now a list of
+        one or more data values assigned to that data name in the loop.
 
     Parameters
     ----------
@@ -89,11 +86,12 @@ def load_cif(filepath):
     >>> calcite_data['data_calcite']['cell_volume']
     '366.63'
 
-    Data items declared in a loop are stored in a dictionary.
+    Data items declared in a loop are stored in lists.
 
-    >>> calcite_data['data_calcite']['loop_4']
-    {'atom_type_symbol': ['Ca2+', 'C4+', 'O2-'],
-    'atom_type_oxidation_number': ['2', '4', '-2']}
+    >>> calcite_data['data_calcite']['atom_type_symbol']
+    ['Ca2+', 'C4+', 'O2-']
+    >>> calcite_data['data_calcite']['atom_type_oxidation_number']
+    ['2', '4', '-2']
 
     A CIF with multiple data blocks is handled identically, where each
     is stored as a dictionary referenced by the corresponding data
@@ -114,7 +112,7 @@ def load_cif(filepath):
 
 
 def validate_cif(filepath):
-    """  Validate :term:`CIF` syntax
+    """Validate :term:`CIF` syntax
 
     The CIF is scanned and checked for syntax errors. If one is found
     the error is reported explicitly, along with line number where it
@@ -210,10 +208,10 @@ class DataBlock:
             as :term:`data name`: :term:`data value` pairs.
 
     """
-    def __init__(self, header, raw_data, data_items):
+    def __init__(self, header, raw_data):
         self.header = header
         self.raw_data = raw_data
-        self.data_items = data_items
+        self.data_items = {}
 
     def extract_data_items(self, data_item_pattern):
         """Extract matching (non-:term:`loop`) :term:`data items`
@@ -243,29 +241,26 @@ class DataBlock:
     def extract_loop_data_items(self):
         """Extract all :term:`loop` :term:`data items` from raw data.
 
-        The data items are extracted and stored in a dictionary where
-        the keys are the :term:`data names` and the values are lists
-        of the corresponding :term:'data values' i.e.
+        For each :term:`data name`, a list of the corresponding
+        :term:`data values' declared in the loop is extracted. These
+        are then added to the `data_item` dictionary i.e.
 
           .. code-block:: python
 
             {"data_name_A": ["data_value_A1", "data_value_A2", ...],
              "data_name_B": ["data_value_B1", "data_value_B2", ...]}
 
-        The loop is then added to the `DataBlock` `data_items`
-        dictionary with the key `"loop_i"` where i is the number of
-        the loop in the order they appear in the :term:`CIF`.
         """
         loops = LOOP.split(self.raw_data)[1:]
-        for i, loop in enumerate(loops):
+        for loop in loops:
             data_names = DATA_NAME_START_LINE.findall(loop)
-            loop_data_items = {data_name: [] for data_name in data_names}
+            for data_name in data_names:
+                self.data_items[data_name] = []
             data_value_lines = loop.split("\n")[len(data_names):]
             for line in data_value_lines:
                 data_values = DATA_VALUE.findall(line)
                 for data_name, data_value in zip(data_names, data_values):
-                    loop_data_items[data_name].append(strip_quotes(data_value))
-            self.data_items["loop_{}".format(i + 1)] = loop_data_items
+                    self.data_items[data_name].append(strip_quotes(data_value))
 
     def __repr__(self):
         """Representation of DataBlock, abbreviating raw data"""
@@ -332,7 +327,7 @@ class CIFParser:
         data_blocks = DATA_BLOCK_HEADER.split(self.raw_data)[1:]
         headers, blocks = data_blocks[::2], data_blocks[1::2]
         for header, data in zip(headers, blocks):
-            self.data_blocks.append(DataBlock(header, data, {}))
+            self.data_blocks.append(DataBlock(header, data))
 
     def parse(self):
         """Parse the :term:`CIF` by :term:`data block` and extract
