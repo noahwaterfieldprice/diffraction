@@ -131,7 +131,7 @@ class TestAccessingComputedProperties:
         assert_almost_equal(mock.unit_cell_volume.fget(mock), expected)
 
 
-class TestCreatingDirectLatticeVectors:
+class TestDirectLatticeVectorCreationAndMagicMethods:
     def test_creating_direct_lattice_vector_directly(self, mocker):
         lattice = mocker.MagicMock()
 
@@ -184,6 +184,9 @@ class TestCreatingDirectLatticeVectors:
         assert str(exception_info.value) == "lattice must be the same " \
                                             "for both DirectLatticeVectors"
 
+
+class TestDirectLatticeVectorCalculations:
+
     def test_calculating_norm_of_direct_lattice_vector(self, mocker):
         lattice = mocker.MagicMock(direct_metric=CALCITE_DIRECT_METRIC)
         vector_1 = DirectLatticeVector([1, 1, 0], lattice)
@@ -191,3 +194,29 @@ class TestCreatingDirectLatticeVectors:
 
         assert_almost_equal(vector_1.norm(), 4.99)
         assert_almost_equal(vector_2.norm(), 51.7330874)
+
+    @pytest.mark.parametrize("uvw,result", [
+        ([0, 1, 0], 12.45005),
+        ([0, 0, 1], 289.068004),
+        ([1, -1, 0], 0,),
+        ([1, 2, 3], 904.554162)
+    ])
+    def test_calculating_inner_product_of_vectors(self, mocker, uvw, result):
+        lattice = mocker.MagicMock(direct_metric=CALCITE_DIRECT_METRIC)
+        vector1 = DirectLatticeVector([1, 1, 1], lattice)
+        vector2 = DirectLatticeVector(uvw, lattice)
+
+        assert_almost_equal(vector1.inner(vector2), result)
+
+    @pytest.mark.parametrize("uvw,result", [
+        ([0, 1, 0], 81.90538705),
+        ([0, 0, 1], 16.3566939),
+        ([1, -1, 0], 90),
+        ([1, 2, 3], 9.324336578)
+    ])
+    def test_calculating_angle_between_two_vectors(self, mocker, uvw, result):
+        lattice = mocker.MagicMock(direct_metric=CALCITE_DIRECT_METRIC)
+        vector1 = DirectLatticeVector([1, 1, 1], lattice)
+        vector2 = DirectLatticeVector(uvw, lattice)
+
+        assert_almost_equal(vector1.angle(vector2), result)

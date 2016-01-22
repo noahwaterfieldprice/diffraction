@@ -1,7 +1,6 @@
 from functools import wraps
 
-from numpy import around, array_equal, asarray, cos, ndarray, radians, sqrt
-from numpy.linalg import det
+import numpy as np
 
 from .cif.helpers import CIF_NAMES, get_cif_data, load_data_block
 
@@ -149,19 +148,22 @@ class DirectLattice:
     @property
     def lattice_parameters_rad(self):
         return (self.a, self.b, self.c,
-                radians(self.alpha), radians(self.beta), radians(self.gamma))
+                np.radians(self.alpha),
+                np.radians(self.beta),
+                np.radians(self.gamma))
 
     @property
     def direct_metric(self):
         a, b, c, al, be, ga = self.lattice_parameters_rad
-        tensor = around([[a ** 2, a * b * cos(ga), a * c * cos(be)],
-                        [a * b * cos(ga), b ** 2, b * c * cos(al)],
-                        [a * c * cos(be), b * c * cos(al), c ** 2]], 10)
+        tensor = np.around([[a ** 2, a * b * np.cos(ga), a * c * np.cos(be)],
+                           [a * b * np.cos(ga), b ** 2, b * c * np.cos(al)],
+                           [a * c * np.cos(be), b * c * np.cos(al), c ** 2]],
+                           10)
         return tensor
 
     @property
     def unit_cell_volume(self):
-        return sqrt(det(self.direct_metric))
+        return np.sqrt(np.linalg.det(self.direct_metric))
 
     def __repr__(self):
         repr_string = ("{0}([{1.a!r}, {1.b!r}, {1.c!r}, "
@@ -183,10 +185,10 @@ def lattice_check(operation):
     return wrapper
 
 
-class DirectLatticeVector(ndarray):
+class DirectLatticeVector(np.ndarray):
 
     def __new__(cls, uvw, lattice):
-        vector = asarray(uvw).view(cls)
+        vector = np.asarray(uvw).view(cls)
         vector.lattice = lattice
         return vector
 
@@ -194,18 +196,25 @@ class DirectLatticeVector(ndarray):
         self.lattice = getattr(vector, "lattice", None)
 
     def __eq__(self, other):
-        return array_equal(self, other) and self.lattice == other.lattice
+        return np.array_equal(self, other) and self.lattice == other.lattice
 
     def __ne__(self, other):
         return not self == other
 
     @lattice_check
     def __add__(self, other):
-        return ndarray.__add__(self, other)
+        return np.ndarray.__add__(self, other)
 
     @lattice_check
     def __sub__(self, other):
-        return ndarray.__sub__(self, other)
+        return np.ndarray.__sub__(self, other)
 
     def norm(self):
-        return sqrt(self.dot(self.lattice.direct_metric).dot(self))
+        return np.sqrt(self.dot(self.lattice.direct_metric).dot(self))
+
+    def inner(self, other):
+        return self.dot(self.lattice.direct_metric).dot(other)
+
+    def angle(self, other):
+        u, v = self, other
+        return np.degrees(np.arccos(u.inner(v) / (u.norm() * v.norm())))

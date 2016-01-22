@@ -120,3 +120,27 @@ class TestDirectSpaceCalculations:
 
         assert_almost_equal(v1.norm(), 4.99)
         assert_almost_equal(v2.norm(), 51.7330874)
+
+    def test_calculating_inner_product(self):
+        lattice = DirectLattice(CALCITE_LATTICE_PARAMETERS)
+        v1 = DirectLatticeVector([1, 0, 0], lattice)
+        v2 = DirectLatticeVector([0, 1, 0], lattice)
+        v3 = DirectLatticeVector([0, 0, 1], lattice)
+        v4 = DirectLatticeVector([1, 4, 2], lattice)
+
+        assert_almost_equal(v1.inner(v2), -12.45005)
+        assert_almost_equal(v2.inner(v1), -12.45005)
+        assert_almost_equal(v1.inner(v3), 0)
+        assert_almost_equal(v1.inner(v4), -24.9001)
+
+    def test_calculating_angle_between_two_vectors(self):
+        lattice = DirectLattice(CALCITE_LATTICE_PARAMETERS)
+        v1 = DirectLatticeVector([1, 0, 0], lattice)
+        v2 = DirectLatticeVector([0, 1, 0], lattice)
+        v3 = DirectLatticeVector([0, 0, 1], lattice)
+        v4 = DirectLatticeVector([1, 4, 2], lattice)
+
+        assert_almost_equal(v1.angle(v2), 120)
+        assert_almost_equal(v2.angle(v1), 120)
+        assert_almost_equal(v1.angle(v3), 90)
+        assert_almost_equal(v1.angle(v4), 97.4528371)
