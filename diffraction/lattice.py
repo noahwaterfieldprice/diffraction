@@ -1,17 +1,52 @@
 from functools import wraps
 
+from numpy import arccos, cos, radians, sin, sqrt
 import numpy as np
 
 from .cif.helpers import CIF_NAMES, get_cif_data, load_data_block
 
-__all__ = ["DirectLattice", "DirectLatticeVector"]
-
-# Lattice parameter names and map to CIF data names
-LATTICE_PARAMETER_KEYS = ["a", "b", "c", "alpha", "beta", "gamma"]
+__all__ = ["DirectLattice", "DirectLatticeVector", "ReciprocalLattice"]
 
 
-class DirectLattice:
-    """Class to represent a direct lattice
+def lattice_parameters_to_radians(lattice_parameters):
+    lengths = tuple(lattice_parameters)[:3]
+    angles_in_radians = tuple(np.radians(angle)
+                              for angle in tuple(lattice_parameters)[3:])
+    return lengths + angles_in_radians
+
+
+def lattice_parameters_to_degrees(lattice_parameters):
+    lengths = tuple(lattice_parameters)[:3]
+    angles_in_degrees = tuple(np.degrees(angle)
+                              for angle in tuple(lattice_parameters)[3:])
+    return lengths + angles_in_degrees
+
+
+def metric_tensor(lattice_parameters):
+    a, b, c, al, be, ga = lattice_parameters_to_radians(lattice_parameters)
+    tensor = np.around([[a ** 2, a * b * cos(ga), a * c * cos(be)],
+                        [a * b * cos(ga), b ** 2, b * c * cos(al)],
+                        [a * c * cos(be), b * c * cos(al), c ** 2]],
+                       10)
+    return tensor
+
+
+def transform_lattice_parameters(lattice_parameters):
+    a, b, c, al, be, ga = lattice_parameters_to_radians(lattice_parameters)
+    cell_volume = sqrt(np.linalg.det(metric_tensor(lattice_parameters)))
+
+    a_ = b * c * sin(al) / cell_volume
+    b_ = a * c * sin(be) / cell_volume
+    c_ = a * b * sin(ga) / cell_volume
+    alpha_ = arccos((cos(be) * cos(ga) - cos(al)) / (sin(be) * sin(ga)))
+    beta_ = arccos((cos(al) * cos(ga) - cos(be)) / (sin(al) * sin(ga)))
+    gamma_ = arccos((cos(al) * cos(be) - cos(ga)) / (sin(al) * sin(be)))
+
+    return lattice_parameters_to_degrees((a_, b_, c_, alpha_, beta_, gamma_))
+
+
+class AbstractLattice:
+    """Parent class to represent lattice object.
 
     Parameters
     ----------
@@ -35,41 +70,111 @@ class DirectLattice:
         The lattice parameters in the form
         (*a*, *b*, *c*, *alpha*, *beta*, *gamma*)
         with angles in radians.
-    direct_metric: array_like
+    metric: array_like
         The :term:`metric tensor` of the direct basis.
     unit_cell_volume: float
 
-
-    Notes
-    -----
-
-    Examples
-    --------
-    >>> from diffraction import Crystal
-    >>> calcite = Crystal([4.99, 4.99, 17.002, 90, 90, 120], "R -3 c H")
-    >>> calcite.a
-    4.99
-    >>> calcite.gamma
-    120.0
-    >>> calcite.space_group
-    'R -3 c H'
     """
+    LATTICE_PARAMETER_KEYS = None
 
     def __init__(self, lattice_parameters):
+        lattice_parameters = self.convert_parameters(lattice_parameters)
+        for key, value in zip(self.LATTICE_PARAMETER_KEYS, lattice_parameters):
+            setattr(self, key, value)
+
+    def convert_parameters(self, lattice_parameters):
         if len(lattice_parameters) < 6:
             raise(ValueError("Missing lattice parameter from input"))
-        for name, value in zip(LATTICE_PARAMETER_KEYS, lattice_parameters):
+        lattice_parameters_ = []
+        for key, value in zip(self.LATTICE_PARAMETER_KEYS, lattice_parameters):
             try:
-                v = float(value)
+                lattice_parameters_.append(float(value))
             except ValueError:
                 raise ValueError("Invalid lattice parameter {0}: {1}".format(
-                    name, value))
-            else:
-                setattr(self, name, v)
+                    key, value))
+        return lattice_parameters_
 
     @classmethod
     def from_cif(cls, filepath, data_block=None):
-        """Create a DirectLattice using a :term:`CIF` as input
+        raise NotImplementedError
+
+    @classmethod
+    def from_dict(cls, input_dict):
+        """Create an AbstractLattice using a dictionary as input
+
+        Raises
+        ------
+        ValueError:
+            If the input dict is missing any :term:`lattice parameters`
+        """
+
+        lattice_parameters = []
+        for parameter in cls.LATTICE_PARAMETER_KEYS:
+            try:
+                lattice_parameters.append(input_dict[parameter])
+            except KeyError:
+                raise ValueError("Parameter: '{0}' missing from input "
+                                 "dictionary".format(parameter))
+        return cls(lattice_parameters)
+
+    @property
+    def lattice_parameters(self):
+        return tuple(getattr(self, name)
+                     for name in self.LATTICE_PARAMETER_KEYS)
+
+    @property
+    def metric(self):
+        return metric_tensor(self.lattice_parameters)
+
+    @property
+    def unit_cell_volume(self):
+        return np.sqrt(np.linalg.det(self.metric))
+
+    def __repr__(self):
+        repr_string = ("{0}([{1!r}, {2!r}, {3!r}, "
+                       "{4!r}, {5!r}, {6!r}])")
+        return repr_string.format(self.__class__.__name__,
+                                  *self.lattice_parameters)
+
+    def __str__(self):
+        return repr(self)
+
+
+class DirectLattice(AbstractLattice):
+    """Parent class to represent lattice object.
+
+    Parameters
+    ----------
+    lattice_parameters: seq of float
+        The :term:`lattice parameters` of the lattice declared in the
+        order [*a*, *b*, *c*, *alpha*, *beta*, *gamma*]
+
+    Attributes
+    ----------
+    a, b, c: float
+        The *a*, *b* and *c* :term:`lattice parameters` describing the
+        dimensions of the :term:`unit cell`.
+    alpha, beta, gamma: float
+        The *alpha*, *beta* and *gamma* :term:`lattice parameters`
+        describing the angles of the :term:`unit cell` in degrees.
+    lattice_parameters: list of float
+        The :term:`lattice parameters` in the form
+        (*a*, *b*, *c*, *alpha*, *beta*, *gamma*)
+        with angles in degrees.
+    lattice_parameters_rad: tuple of float
+        The lattice parameters in the form
+        (*a*, *b*, *c*, *alpha*, *beta*, *gamma*)
+        with angles in radians.
+    metric: array_like
+        The :term:`metric tensor` of the direct basis.
+    unit_cell_volume: float
+
+    """
+    LATTICE_PARAMETER_KEYS = ("a", "b", "c", "alpha", "beta", "gamma")
+
+    @classmethod
+    def from_cif(cls, filepath, data_block=None):
+        """Create an AbstractLattice using a :term:`CIF` as input
 
         Parameters
         ----------
@@ -84,94 +189,72 @@ class DirectLattice:
         ------
         ValueError:
             If the input :term:`CIF` is missing any :term:`lattice
-            parameters` or the :term:`space group`.
+            parameters`.
         ValueError:
             If any of the :term:`lattice parameters` are not valid
             numerical data.
         TypeError:
             If the input CIF has multiple data blocks but data_block is
             not given.
-
-        Examples
-        --------
-        >>> from diffraction import Crystal
-        >>> calcite = Crystal.from_cif("calcite.cif")
-        >>> calcite.a
-        4.99
-        >>> calcite.gamma
-        120.0
-        >>> calcite.space_group
-        'R -3 c H'
         """
 
         data_items = load_data_block(filepath, data_block)
-        lattice_parameter_names = [CIF_NAMES[key]
-                                   for key in LATTICE_PARAMETER_KEYS]
-        lattice_parameters = get_cif_data(data_items, *lattice_parameter_names)
+        data_names = [CIF_NAMES[key] for key in "a b c alpha beta gamma".split()]
+        lattice_parameters = get_cif_data(data_items, *data_names)
         return cls(lattice_parameters)
 
+    def vector(self, uvw):
+        return DirectLatticeVector(uvw, self)
+
+    def reciprocal(self):
+        reciprocal_lps = transform_lattice_parameters(self.lattice_parameters)
+        return ReciprocalLattice(reciprocal_lps)
+
+
+class ReciprocalLattice(AbstractLattice):
+    """Class to asdoiapidjas
+    """
+    LATTICE_PARAMETER_KEYS = ("a_star", "b_star", "c_star",
+                              "alpha_star", "beta_star", "gamma_star")
+
     @classmethod
-    def from_dict(cls, input_dict):
-        """Create a DirectLattice using a dictionary as input
+    def from_cif(cls, filepath, data_block=None):
+        """Create an AbstractLattice using a :term:`CIF` as input
+
+        Parameters
+        ----------
+        filepath: str
+            Filepath to the input CIF
+        data_block: str, optional
+            The :term:`data block` to generate the Lattice from,
+            specified by :term:`data block header`. Only required for
+            an input :term:`CIF` with multiple data blocks.
 
         Raises
         ------
         ValueError:
-            If the input dict is missing any :term:`lattice parameters`
-
-        Examples
-        --------
-        >>> from diffraction import DirectLattice
-        >>> calcite_lattice = {
-        "a": 4.99, "b": 4.99, "c": 17.002,
-        "alpha": 90, "beta": 90, "gamma": 120}
-        >>> lattice = DirectLattice.from_dict(calcite_parameters)
-        >>> lattice.a
-        4.99
-        >>> lattice.gamma
-        120.0
+            If the input :term:`CIF` is missing any :term:`lattice
+            parameters`.
+        ValueError:
+            If any of the :term:`lattice parameters` are not valid
+            numerical data.
+        TypeError:
+            If the input CIF has multiple data blocks but data_block is
+            not given.
         """
 
-        lattice_parameters = []
-        for parameter in LATTICE_PARAMETER_KEYS:
-            try:
-                lattice_parameters.append(input_dict[parameter])
-            except KeyError:
-                raise ValueError("Parameter: '{0}' missing from input "
-                                 "dictionary".format(parameter))
-        return cls(lattice_parameters)
+        data_items = load_data_block(filepath, data_block)
+        data_names = [CIF_NAMES[key] for key in "a b c alpha beta gamma".split()]
+        lattice_parameters = get_cif_data(data_items, *data_names)
+        reciprocal_lps = transform_lattice_parameters(lattice_parameters)
+        return cls(reciprocal_lps)
 
-    @property
-    def lattice_parameters(self):
-        return self.a, self.b, self.c, self.alpha, self.beta, self.gamma
+    # def vector(self, hkl):
+    #     return ReciprocalLatticeVector(hkl, self)
 
-    @property
-    def lattice_parameters_rad(self):
-        return (self.a, self.b, self.c,
-                np.radians(self.alpha),
-                np.radians(self.beta),
-                np.radians(self.gamma))
-
-    @property
-    def direct_metric(self):
-        a, b, c, al, be, ga = self.lattice_parameters_rad
-        tensor = np.around([[a ** 2, a * b * np.cos(ga), a * c * np.cos(be)],
-                           [a * b * np.cos(ga), b ** 2, b * c * np.cos(al)],
-                           [a * c * np.cos(be), b * c * np.cos(al), c ** 2]],
-                           10)
-        return tensor
-
-    @property
-    def unit_cell_volume(self):
-        return np.sqrt(np.linalg.det(self.direct_metric))
-
-    def __repr__(self):
-        repr_string = ("{0}([{1.a!r}, {1.b!r}, {1.c!r}, "
-                       "{1.alpha!r}, {1.beta!r}, {1.gamma!r}])")
-        return repr_string.format(self.__class__.__name__, self)
-
-    def __str__(self):
-        return repr(self)
+    def direct(self, hkl):
+        direct_lps = transform_lattice_parameters(self.lattice_parameters)
+        return DirectLattice(direct_lps)
 
 
 def lattice_check(operation):
@@ -186,6 +269,32 @@ def lattice_check(operation):
 
 
 class DirectLatticeVector(np.ndarray):
+    """Class to represent a direct lattice vector
+
+    Parameters
+    ----------
+    uvw: array_like
+        The u, v
+    lattice: DirectLattice
+        The direct lattice the vector is associated with.
+
+    Attributes
+    ----------
+    lattice: DirectLattice
+        The direct lattice the vector is associated with.
+
+    Methods
+    -------
+    norm:
+        Calculate the norm of the vector.
+    inner:
+        Calculate the inner product of the vector with another lattice
+        vector.
+    angle:
+        Calculate the angle between the vector and another lattice
+        vector.
+
+    """
 
     def __new__(cls, uvw, lattice):
         vector = np.asarray(uvw).view(cls)
@@ -210,10 +319,30 @@ class DirectLatticeVector(np.ndarray):
         return np.ndarray.__sub__(self, other)
 
     def norm(self):
-        return np.sqrt(self.dot(self.lattice.direct_metric).dot(self))
+        """Calculate the norm (or magnitude) of the vector
+
+        Returns
+        -------
+        float:
+            The norm of the vector.
+        """
+
+        return np.sqrt(self.dot(self.lattice.metric).dot(self))
 
     def inner(self, other):
-        return self.dot(self.lattice.direct_metric).dot(other)
+        """Calculate the inner product between the vector and another
+        lattice vector
+
+        Parameters
+        ----------
+        other:
+            The
+
+        Returns
+        -------
+
+        """
+        return self.dot(self.lattice.metric).dot(other)
 
     def angle(self, other):
         u, v = self, other

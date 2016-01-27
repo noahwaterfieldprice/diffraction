@@ -2,7 +2,7 @@ import pytest
 from numpy import array, sqrt
 from numpy.testing import assert_almost_equal, assert_array_almost_equal
 
-from diffraction import DirectLattice, DirectLatticeVector
+from diffraction import DirectLattice, DirectLatticeVector, ReciprocalLattice
 
 CALCITE_LATTICE_PARAMETERS = (4.99, 4.99, 17.002, 90.0, 90.0, 120.0)
 CALCITE_DIRECT_METRIC = array([[24.9001, -12.45005, 0],
@@ -104,7 +104,7 @@ class TestDirectSpaceCalculations:
     def test_calculating_metric_tensor(self):
         lattice = DirectLattice(CALCITE_LATTICE_PARAMETERS)
 
-        assert_array_almost_equal(lattice.direct_metric, CALCITE_DIRECT_METRIC)
+        assert_array_almost_equal(lattice.metric, CALCITE_DIRECT_METRIC)
 
     def test_calculating_unit_cell_volume(self):
         lattice = DirectLattice(CALCITE_LATTICE_PARAMETERS)
@@ -112,6 +112,12 @@ class TestDirectSpaceCalculations:
         expected_volume = sqrt(3) / 2 * a * a * c
 
         assert_almost_equal(lattice.unit_cell_volume, expected_volume)
+
+    def test_creating_direct_lattice_vectors(self):
+        lattice = DirectLattice(CALCITE_LATTICE_PARAMETERS)
+        v1 = DirectLatticeVector([1, 2, 3], lattice)
+        v2 = lattice.vector([1, 2, 3])
+        assert v1 == v2
 
     def test_calculating_length_of_direct_lattice_vector(self):
         lattice = DirectLattice(CALCITE_LATTICE_PARAMETERS)
@@ -144,3 +150,15 @@ class TestDirectSpaceCalculations:
         assert_almost_equal(v2.angle(v1), 120)
         assert_almost_equal(v1.angle(v3), 90)
         assert_almost_equal(v1.angle(v4), 97.4528371)
+
+
+class TestCreatingReciprocalLatticeFromSequence:
+    def test_can_create_from_sequence(self):
+        lattice = ReciprocalLattice([0.34969, 0.34969, 0.06665, 90, 90, 60])
+
+        assert lattice.a_star == 0.34969
+        assert lattice.b_star == 0.34969
+        assert lattice.c_star == 0.06665
+        assert lattice.alpha_star == 90
+        assert lattice.beta_star == 90
+        assert lattice.gamma_star == 60
