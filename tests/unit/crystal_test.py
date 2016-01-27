@@ -7,10 +7,10 @@ import pytest
 from diffraction.cif.helpers import (CIF_NAMES, NUMERICAL_DATA_VALUE,
                                      NUMERICAL_DATA_NAMES, TEXTUAL_DATA_NAMES)
 from diffraction.crystal import Site, Crystal
-from diffraction.lattice import DirectLattice, LATTICE_PARAMETER_KEYS
+from diffraction.lattice import DirectLattice
 
 # Data names and parameters for testing
-CRYSTAL_PARAMETERS = LATTICE_PARAMETER_KEYS + ["space_group"]
+CRYSTAL_PARAMETERS = list(DirectLattice.lattice_parameter_keys) + ["space_group"]
 CRYSTAL_DATA_NAMES = [CIF_NAMES[parameter] for parameter in CRYSTAL_PARAMETERS]
 
 # Example data for testing
@@ -60,12 +60,12 @@ class TestCreatingCrystalFromSequence:  # TODO: add test to check space group va
         *lattice_parameters, space_group = CALCITE_DATA.values()
         # mock DirectLattice to return mock with lattice parameter attributes
         mock_lattice = mocker.Mock(spec=DirectLattice)
-        for key, value in zip(LATTICE_PARAMETER_KEYS, lattice_parameters):
+        for key, value in zip(DirectLattice.lattice_parameter_keys, lattice_parameters):
             setattr(mock_lattice, key, float(value))
         mocker.patch("diffraction.crystal.DirectLattice", return_value=mock_lattice)
 
         c = Crystal(lattice_parameters, space_group)
-        for key in LATTICE_PARAMETER_KEYS:
+        for key in DirectLattice.lattice_parameter_keys:
             assert getattr(c, key) == CALCITE_DATA[key]
             assert isinstance(getattr(c, key), float)
 

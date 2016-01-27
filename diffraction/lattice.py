@@ -75,18 +75,18 @@ class AbstractLattice:
     unit_cell_volume: float
 
     """
-    LATTICE_PARAMETER_KEYS = None
+    lattice_parameter_keys = None
 
     def __init__(self, lattice_parameters):
         lattice_parameters = self.convert_parameters(lattice_parameters)
-        for key, value in zip(self.LATTICE_PARAMETER_KEYS, lattice_parameters):
+        for key, value in zip(self.lattice_parameter_keys, lattice_parameters):
             setattr(self, key, value)
 
     def convert_parameters(self, lattice_parameters):
         if len(lattice_parameters) < 6:
             raise(ValueError("Missing lattice parameter from input"))
         lattice_parameters_ = []
-        for key, value in zip(self.LATTICE_PARAMETER_KEYS, lattice_parameters):
+        for key, value in zip(self.lattice_parameter_keys, lattice_parameters):
             try:
                 lattice_parameters_.append(float(value))
             except ValueError:
@@ -109,7 +109,7 @@ class AbstractLattice:
         """
 
         lattice_parameters = []
-        for parameter in cls.LATTICE_PARAMETER_KEYS:
+        for parameter in cls.lattice_parameter_keys:
             try:
                 lattice_parameters.append(input_dict[parameter])
             except KeyError:
@@ -120,7 +120,7 @@ class AbstractLattice:
     @property
     def lattice_parameters(self):
         return tuple(getattr(self, name)
-                     for name in self.LATTICE_PARAMETER_KEYS)
+                     for name in self.lattice_parameter_keys)
 
     @property
     def metric(self):
@@ -170,7 +170,7 @@ class DirectLattice(AbstractLattice):
     unit_cell_volume: float
 
     """
-    LATTICE_PARAMETER_KEYS = ("a", "b", "c", "alpha", "beta", "gamma")
+    lattice_parameter_keys = ("a", "b", "c", "alpha", "beta", "gamma")
 
     @classmethod
     def from_cif(cls, filepath, data_block=None):
@@ -214,7 +214,7 @@ class DirectLattice(AbstractLattice):
 class ReciprocalLattice(AbstractLattice):
     """Class to asdoiapidjas
     """
-    LATTICE_PARAMETER_KEYS = ("a_star", "b_star", "c_star",
+    lattice_parameter_keys = ("a_star", "b_star", "c_star",
                               "alpha_star", "beta_star", "gamma_star")
 
     @classmethod

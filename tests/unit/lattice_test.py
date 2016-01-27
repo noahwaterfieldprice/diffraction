@@ -30,7 +30,7 @@ CALCITE_DIRECT_METRIC = array([[24.9001, -12.45005, 0],
 
 class FakeAbstractLattice(AbstractLattice):
     """Fake concrete AbstractLattice class for testing"""
-    LATTICE_PARAMETER_KEYS = ("k1", "k2", "k3", "k4", "k5", "k6")
+    lattice_parameter_keys = ("k1", "k2", "k3", "k4", "k5", "k6")
 
     @classmethod
     def from_cif(cls, filepath, data_block=None):
@@ -46,7 +46,7 @@ class TestCreatingAbstractLattice:
     def test_error_if_lattice_parameter_missing_from_input_list(self, mocker):
         lattice_parameters_missing_one = list(self.test_dict.values())[:5]
         mock = mocker.MagicMock()
-        mock.LATTICE_PARAMETER_KEYS = self.test_dict.keys()
+        mock.lattice_parameter_keys = self.test_dict.keys()
         mock.convert_parameters = self.cls.convert_parameters
 
         with pytest.raises(ValueError) as exception_info:
@@ -76,13 +76,13 @@ class TestCreatingAbstractLattice:
         invalid_lattice_parameters[position] = invalid_value
         mock = mocker.MagicMock()
         mock.convert_parameters = self.cls.convert_parameters
-        mock.LATTICE_PARAMETER_KEYS = tuple(self.test_dict.keys())
+        mock.lattice_parameter_keys = tuple(self.test_dict.keys())
 
         with pytest.raises(ValueError) as exception_info:
             mock.convert_parameters(mock, invalid_lattice_parameters)
         assert str(exception_info.value) == \
             "Invalid lattice parameter {}: {}".format(
-                mock.LATTICE_PARAMETER_KEYS[position], invalid_value)
+                mock.lattice_parameter_keys[position], invalid_value)
 
     def test_parameters_are_assigned_with_correct_type(self, mocker):
         lattice_parameters = self.test_dict.values()
@@ -148,14 +148,14 @@ class TestCreatingReciprocalLattice(TestCreatingAbstractLattice):
 class TestAccessingComputedProperties:
     def test_can_get_lattice_parameters_as_a_list(self, mocker):
         mock = mocker.MagicMock(**CALCITE_LATTICE)
-        mock.LATTICE_PARAMETER_KEYS = DirectLattice.LATTICE_PARAMETER_KEYS
+        mock.lattice_parameter_keys = DirectLattice.lattice_parameter_keys
         mock.lattice_parameters = DirectLattice.lattice_parameters
 
         assert mock.lattice_parameters.fget(mock) == tuple(CALCITE_LATTICE.values())
 
     def test_lattice_parameters_updated_if_lattice_parameter_changed(self, mocker):
         mock = mocker.MagicMock(**CALCITE_LATTICE)
-        mock.LATTICE_PARAMETER_KEYS = DirectLattice.LATTICE_PARAMETER_KEYS
+        mock.lattice_parameter_keys = DirectLattice.lattice_parameter_keys
         mock.lattice_parameters = DirectLattice.lattice_parameters
         expected_lattice_parameters = (10,) + tuple(CALCITE_LATTICE.values())[1:]
 
