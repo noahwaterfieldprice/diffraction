@@ -110,7 +110,7 @@ class TestCreatingCrystalFromMapping:
         assert c.sites == expected_sites
 
 
-class TestCreatingCrystalFromCIF:
+class TestCreatingCrystalFromCIF:  # TODO: add test to ensure load sites is called in constructor
     def test_lattice_parameters_and_space_group_are_assigned(self, mocker):
         mocker.patch("diffraction.crystal.load_data_block", return_value=CALCITE_CIF)
         mock_lattice = mocker.Mock(spec=DirectLattice)

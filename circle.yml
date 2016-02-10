@@ -19,5 +19,5 @@ test:
       - py.test --junitxml=$CIRCLE_TEST_REPORTS/report.xml --ignore=venv
     post:
       - coveralls
-      - coverage xml
-      - python-codacy-coverage -r coverage.xml
+      # - coverage xml
+      # - python-codacy-coverage -r coverage.xml

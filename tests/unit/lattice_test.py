@@ -6,7 +6,8 @@ import pytest
 
 from diffraction.cif.helpers import NUMERICAL_DATA_VALUE
 from diffraction.lattice import (AbstractLattice, DirectLattice, DirectLatticeVector,
-                                 metric_tensor, ReciprocalLattice)
+                                 to_radians, to_degrees,
+                                 metric_tensor, ReciprocalLattice, reciprocalise)
 
 CALCITE_LATTICE = OrderedDict(
     [("a", 4.99), ("b", 4.99), ("c", 17.002),
@@ -32,9 +33,32 @@ class FakeAbstractLattice(AbstractLattice):
     """Fake concrete AbstractLattice class for testing"""
     lattice_parameter_keys = ("k1", "k2", "k3", "k4", "k5", "k6")
 
-    @classmethod
-    def from_cif(cls, filepath, data_block=None):
-        pass
+
+class TestUtilityFunctions:
+
+    def test_converting_lattice_parameters_to_radians(self):
+        lattice_parameters_deg = [1, 2, 3, 90, 120, 45]
+        expected = (1, 2, 3, pi / 2, 2 * pi / 3, pi / 4)
+
+        lattice_parameters_rad = to_radians(lattice_parameters_deg)
+        assert_array_almost_equal(lattice_parameters_rad, expected)
+
+    def test_converting_lattice_parameters_to_degrees(self):
+        lattice_parameters_rad = [1, 2, 3, pi / 2, 2 * pi / 3, pi / 4]
+        expected = (1, 2, 3, 90, 120, 45)
+        lattice_parameters_deg = to_degrees(lattice_parameters_rad)
+        assert_array_almost_equal(lattice_parameters_deg, expected)
+
+    def test_calculating_metric_tensor(self):
+        lattice_parameters = CALCITE_LATTICE.values()
+        assert_array_almost_equal(metric_tensor(lattice_parameters), CALCITE_DIRECT_METRIC)
+
+    def test_transforming_to_dual_basis(self):
+        lattice_parameters = CALCITE_LATTICE.values()
+
+        reciprocal_lattice_parameters = reciprocalise(lattice_parameters)
+        assert_array_almost_equal(reciprocal_lattice_parameters,
+                                  tuple(CALCITE_RECIPROCAL_LATTICE.values()))
 
 
 class TestCreatingAbstractLattice:
@@ -106,13 +130,17 @@ class TestCreatingAbstractLattice:
             l.__class__.__name__,
             [float(parameter) for parameter in lattice_parameters])
 
+    def test_loading_from_cif(self):
+        with pytest.raises(NotImplementedError) as exception:
+            self.cls.from_cif("some/file/path.cif")
+
 
 class TestCreatingDirectLattice(TestCreatingAbstractLattice):
 
     cls = DirectLattice
     test_dict = CALCITE_LATTICE
 
-    def test_parameters_assigned_with_values_read_from_cif(self, mocker):
+    def test_loading_from_cif(self, mocker):
         load_data_block_mock = mocker.patch("diffraction.lattice.load_data_block",
                                             return_value="data_items")
         get_cif_data_mock = mocker.patch("diffraction.lattice.get_cif_data",
@@ -125,12 +153,24 @@ class TestCreatingDirectLattice(TestCreatingAbstractLattice):
         get_cif_data_mock.assert_called_with("data_items", *CALCITE_CIF.keys())
         assert_almost_equal(mock.call_args[0][0], tuple(self.test_dict.values()))
 
+    def test_creating_from_reciprocal_lattice(self, mocker):
+        mock = mocker.MagicMock()
+        mock.lattice_parameters = "reciprocal_lattice_parameters"
+        mock.direct = ReciprocalLattice.direct
+        m1 = mocker.patch("diffraction.lattice.reciprocalise",
+                          return_value="direct_lattice_parameters")
+        m2 = mocker.patch("diffraction.lattice.DirectLattice")
+
+        mock.direct(mock)
+        m1.assert_called_once_with("reciprocal_lattice_parameters")
+        m2.assert_called_once_with("direct_lattice_parameters")
+
 
 class TestCreatingReciprocalLattice(TestCreatingAbstractLattice):
     cls = ReciprocalLattice
     test_dict = CALCITE_RECIPROCAL_LATTICE
 
-    def test_parameters_assigned_with_values_read_from_cif(self, mocker):
+    def test_loading_from_cif(self, mocker):
         load_data_block_mock = mocker.patch("diffraction.lattice.load_data_block",
                                             return_value="data_items")
         get_cif_data_mock = mocker.patch("diffraction.lattice.get_cif_data",
@@ -143,6 +183,18 @@ class TestCreatingReciprocalLattice(TestCreatingAbstractLattice):
         get_cif_data_mock.assert_called_with("data_items", *CALCITE_CIF.keys())
         assert_almost_equal(mock.call_args[0][0], tuple(self.test_dict.values()),
                             decimal=6)
+
+    def test_creating_from_direct_lattice(self, mocker):
+        mock = mocker.MagicMock()
+        mock.lattice_parameters = "direct_lattice_parameters"
+        mock.reciprocal = DirectLattice.reciprocal
+        m1 = mocker.patch("diffraction.lattice.reciprocalise",
+                          return_value="reciprocal_lattice_parameters")
+        m2 = mocker.patch("diffraction.lattice.ReciprocalLattice")
+
+        mock.reciprocal(mock)
+        m1.assert_called_once_with("direct_lattice_parameters")
+        m2.assert_called_once_with("reciprocal_lattice_parameters")
 
 
 class TestAccessingComputedProperties:
@@ -161,10 +213,6 @@ class TestAccessingComputedProperties:
 
         mock.a = 10
         assert mock.lattice_parameters.fget(mock) == expected_lattice_parameters
-
-    def test_calculating_metric_tensor(self):
-        lattice_parameters = CALCITE_LATTICE.values()
-        assert_array_almost_equal(metric_tensor(lattice_parameters), CALCITE_DIRECT_METRIC)
 
     def test_lattice_metric_is_calculated_with_correct_input(self, mocker):
         lattice_parameters = tuple(CALCITE_LATTICE.values())

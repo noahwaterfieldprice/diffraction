@@ -32,7 +32,8 @@ import shlex
 # ones.
 extensions = [
     'sphinx.ext.autodoc',
-    'sphinx.ext.napoleon'
+    'sphinx.ext.napoleon',
+    'sphinx.ext.mathjax'
 ]
 
 napoleon_numpy_docstring = True
@@ -106,7 +107,7 @@ exclude_patterns = []
 #show_authors = False
 
 # The name of the Pygments (syntax highlighting) style to use.
-pygments_style = 'sphinx'
+pygments_style = 'colorful'
 
 # A list of ignored prefixes for module index sorting.
 #modindex_common_prefix = []

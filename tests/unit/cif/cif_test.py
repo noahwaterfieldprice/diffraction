@@ -8,6 +8,8 @@ from collections import OrderedDict
 from diffraction.cif.cif import (CIFParser, CIFValidator, CIFParseError, DataBlock,
                                  INLINE_DATA_ITEM, SEMICOLON_DATA_ITEM, strip_quotes)
 
+# TODO: add unit tests for load_cif and validate_cif
+
 
 class TestParsingFile:
     def test_datablock_class_abbreviates_raw_data_when_printed(self):
