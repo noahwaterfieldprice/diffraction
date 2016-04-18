@@ -14,12 +14,7 @@ class TestCreatingDirectLatticeFromSequence:
     def test_can_create_from_sequence(self):
         lattice = DirectLattice([4.99, 4.99, 17.002, 90, 90, 120])
 
-        assert lattice.a == 4.99
-        assert lattice.b == 4.99
-        assert lattice.c == 17.002
-        assert lattice.alpha == 90
-        assert lattice.beta == 90
-        assert lattice.gamma == 120
+        assert lattice.lattice_parameters == CALCITE_LATTICE_PARAMETERS
 
     def test_error_if_lattice_parameter_missing_from_sequence(self):
         lattice_parameters_missing_one = [4.99, 17.002, 90, 90, 120]
@@ -42,12 +37,7 @@ class TestCreatingDirectLatticeFromMapping:
                               "alpha": 90, "beta": 90, "gamma": 120}
         lattice = DirectLattice.from_dict(lattice_parameters)
 
-        assert lattice.a == 4.99
-        assert lattice.b == 4.99
-        assert lattice.c == 17.002
-        assert lattice.alpha == 90
-        assert lattice.beta == 90
-        assert lattice.gamma == 120
+        assert lattice.lattice_parameters == CALCITE_LATTICE_PARAMETERS
 
     def test_error_if_lattice_parameter_missing_from_dict(self):
         lattice_parameters = {"a": 4.99, "c": 17.002,
@@ -57,16 +47,11 @@ class TestCreatingDirectLatticeFromMapping:
         assert str(exception_info.value) == "Parameter: 'b' missing from input dictionary"
 
 
-class TestCreatingFromCIF:
+class TestCreatingDirectLatticeFromCIF:
     def test_can_create_crystal_from_single_datablock_cif(self):
         lattice = DirectLattice.from_cif("tests/functional/static/valid_cifs/calcite_icsd.cif")
 
-        assert lattice.a == 4.99
-        assert lattice.b == 4.99
-        assert lattice.c == 17.002
-        assert lattice.alpha == 90
-        assert lattice.beta == 90
-        assert lattice.gamma == 120
+        assert lattice.lattice_parameters == CALCITE_LATTICE_PARAMETERS
 
     def test_error_if_lattice_parameter_is_missing_from_cif(selfs):
         with pytest.raises(ValueError) as exception_info:
@@ -87,12 +72,8 @@ class TestCreatingFromCIF:
             "tests/functional/static/valid_cifs/multi_data_block.cif",
             data_block="data_CSD_CIF_ACAKOF")
 
-        assert CHFeNOS.a == 6.1250
-        assert CHFeNOS.b == 9.2460
-        assert CHFeNOS.c == 10.147
-        assert CHFeNOS.alpha == 77.16
-        assert CHFeNOS.beta == 83.44
-        assert CHFeNOS.gamma == 80.28
+        assert CHFeNOS.lattice_parameters == \
+            (6.1250, 9.2460, 10.147, 77.16, 83.44, 80.28)
 
 
 class TestDirectSpaceCalculations:
@@ -154,11 +135,7 @@ class TestDirectSpaceCalculations:
 
 class TestCreatingReciprocalLatticeFromSequence:
     def test_can_create_from_sequence(self):
-        lattice = ReciprocalLattice([0.34969, 0.34969, 0.06665, 90, 90, 60])
+        r_lattice_parameters = (0.34969, 0.34969, 0.06665, 90, 90, 60)
+        r_lattice = ReciprocalLattice(r_lattice_parameters)
 
-        assert lattice.a_star == 0.34969
-        assert lattice.b_star == 0.34969
-        assert lattice.c_star == 0.06665
-        assert lattice.alpha_star == 90
-        assert lattice.beta_star == 90
-        assert lattice.gamma_star == 60
+        assert r_lattice.lattice_parameters == r_lattice_parameters

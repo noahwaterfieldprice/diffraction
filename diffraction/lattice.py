@@ -1,6 +1,6 @@
 from functools import wraps
 
-from numpy import arccos, cos, radians, sin, sqrt
+from numpy import arccos, cos, sin, sqrt
 import numpy as np
 
 from .cif.helpers import CIF_NAMES, get_cif_data, load_data_block
@@ -173,7 +173,7 @@ class AbstractLattice:
         for parameter in cls.lattice_parameter_keys:
             try:
                 lattice_parameters.append(input_dict[parameter])
-            except KeyError:
+            except KeyError:  # TODO: Check OK - reports just 1st missing param
                 raise ValueError("Parameter: '{0}' missing from input "
                                  "dictionary".format(parameter))
         return cls(lattice_parameters)

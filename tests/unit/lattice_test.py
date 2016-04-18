@@ -198,7 +198,7 @@ class TestCreatingReciprocalLattice(TestCreatingAbstractLattice):
 
 
 class TestAccessingComputedProperties:
-    def test_can_get_lattice_parameters_as_a_list(self, mocker):
+    def test_can_get_lattice_parameters_as_a_tuple(self, mocker):
         mock = mocker.MagicMock(**CALCITE_LATTICE)
         mock.lattice_parameter_keys = DirectLattice.lattice_parameter_keys
         mock.lattice_parameters = DirectLattice.lattice_parameters

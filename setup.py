@@ -8,5 +8,5 @@ setup(
     author_email='noah.waterfieldprice@physics.ox.ac.uk',
     description='A package for simulating diffraction experiments'
                 'and performing crystallographic calculations.',
-    packages=['diffraction']
+    packages=['diffraction', 'diffraction.cif']
 )
