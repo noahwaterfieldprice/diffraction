@@ -11,20 +11,20 @@ class Site:
 
     Parameters
     ----------
-    element: str
+    ion: str
     position: seq
     precision: float, optional
 
     Attributes
     ----------
-    element: str
+    ion: str
     position: array_like
     precision: float
 
     """
 
-    def __init__(self, element, position, precision=1E-6):
-        self.element = element
+    def __init__(self, ion, position, precision=1E-6):
+        self.ion = ion
         self.position = position
         self.precision = precision
 
@@ -37,10 +37,10 @@ class Site:
         self._position = array(new_position)
 
     def __repr__(self):
-        return "{0}({1.element!r}, {1.position!r})".format(self.__class__.__name__, self)
+        return "{0}({1.ion!r}, {1.position!r})".format(self.__class__.__name__, self)
 
     def __eq__(self, other):
-        return (self.element == other.element and
+        return (self.ion == other.ion and
                 allclose(self.position, other.position, atol=self.precision))
 
 

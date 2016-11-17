@@ -61,8 +61,8 @@ class TestCreatingFromMapping:
                         "space_group": "R -3 c H", "sites": CALCITE_ATOMIC_SITES}
 
         calcite = Crystal.from_dict(crystal_info)
-        expected_sites = {name: Site(element, position)
-                          for name, (element, position) in CALCITE_ATOMIC_SITES.items()}
+        expected_sites = {name: Site(ion, position)
+                          for name, (ion, position) in CALCITE_ATOMIC_SITES.items()}
         assert calcite.sites == expected_sites
 
 
@@ -78,8 +78,8 @@ class TestCreatingFromCIF:
         assert calcite.gamma == 120
         assert calcite.space_group == "R -3 c H"
 
-        expected_sites = {name: Site(element, position)
-                          for name, (element, position) in CALCITE_ATOMIC_SITES.items()}
+        expected_sites = {name: Site(ion, position)
+                          for name, (ion, position) in CALCITE_ATOMIC_SITES.items()}
         assert calcite.sites == expected_sites
 
     def test_error_if_lattice_parameter_is_missing_from_cif(selfs):
@@ -119,13 +119,13 @@ class TestAddingAtomicSites:
         calcite.add_sites({"Ca1": CALCITE_ATOMIC_SITES["Ca1"]})
         calcite.add_sites({"C1": CALCITE_ATOMIC_SITES["C1"]})
         calcite.add_sites({"O1": CALCITE_ATOMIC_SITES["O1"]})
-        expected_sites = {name: Site(element, position)
-                          for name, (element, position) in CALCITE_ATOMIC_SITES.items()}
+        expected_sites = {name: Site(ion, position)
+                          for name, (ion, position) in CALCITE_ATOMIC_SITES.items()}
         assert calcite.sites == expected_sites
 
     def test_adding_multiple_sites_at_once(self):
         calcite = Crystal([4.99, 4.99, 17.002, 90, 90, 120], "R -3 c H")
         calcite.add_sites(CALCITE_ATOMIC_SITES)
-        expected_sites = {name: Site(element, position)
-                          for name, (element, position) in CALCITE_ATOMIC_SITES.items()}
+        expected_sites = {name: Site(ion, position)
+                          for name, (ion, position) in CALCITE_ATOMIC_SITES.items()}
         assert calcite.sites == expected_sites

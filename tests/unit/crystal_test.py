@@ -105,8 +105,8 @@ class TestCreatingCrystalFromMapping:
         calcite_data_with_sites["sites"] = CALCITE_ATOMIC_SITES
 
         c = Crystal.from_dict(calcite_data_with_sites)
-        expected_sites = {name: Site(element, position)
-                          for name, (element, position) in CALCITE_ATOMIC_SITES.items()}
+        expected_sites = {name: Site(ion, position)
+                          for name, (ion, position) in CALCITE_ATOMIC_SITES.items()}
         assert c.sites == expected_sites
 
 
@@ -129,8 +129,8 @@ class TestCreatingCrystalFromCIF:  # TODO: add test to ensure load sites is call
         mock.sites = {}
 
         mock.add_sites_from_cif(mock, "some/cif/file.cif")
-        expected_sites = {name: Site(element, position)
-                          for name, (element, position) in CALCITE_ATOMIC_SITES.items()}
+        expected_sites = {name: Site(ion, position)
+                          for name, (ion, position) in CALCITE_ATOMIC_SITES.items()}
         assert mock.sites == expected_sites
 
 
@@ -138,15 +138,15 @@ class TestAddingAndModifyingAtomicSites:
     def test_creating_atom(self):
         atom1 = Site("Ca2+", [0, 0, 0])
 
-        assert atom1.element == "Ca2+"
+        assert atom1.ion == "Ca2+"
         assert_array_almost_equal(atom1.position, array([0, 0, 0]))
         assert isinstance(atom1.position, ndarray)
 
     def test_atom_representation(self):
         atom1 = Site("Ca2+", [0, 0, 0])
 
-        assert repr(atom1) == "Site({0.element!r}, {0.position!r})".format(atom1)
-        assert str(atom1) == "Site({0.element!r}, {0.position!r})".format(atom1)
+        assert repr(atom1) == "Site({0.ion!r}, {0.position!r})".format(atom1)
+        assert str(atom1) == "Site({0.ion!r}, {0.position!r})".format(atom1)
 
     def test_atom_equivalence(self):
         atom_1 = Site("Ca2+", [0, 0, 0])
@@ -187,8 +187,8 @@ class TestAddingAndModifyingAtomicSites:
 
         mock.sites = {}
         mock.add_sites(mock, CALCITE_ATOMIC_SITES)
-        expected_sites = {name: Site(element, position)
-                          for name, (element, position) in CALCITE_ATOMIC_SITES.items()}
+        expected_sites = {name: Site(ion, position)
+                          for name, (ion, position) in CALCITE_ATOMIC_SITES.items()}
         assert mock.sites == expected_sites
 
     def test_modifying_atom_position(self, mocker):

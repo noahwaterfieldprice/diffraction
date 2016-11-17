@@ -77,7 +77,7 @@ class TestCreatingAbstractLattice:
             mock.convert_parameters(mock, lattice_parameters_missing_one)
         assert str(exception_info.value) == "Missing lattice parameter from input"
 
-    def test_error_if_parameter_missing_from_input_dict(self, mocker):
+    def test_error_if_parameter_missing_from_input_dict(self):
         for missing_parameter in self.test_dict.keys():
             dict_with_missing_parameter = self.test_dict.copy()
             del dict_with_missing_parameter[missing_parameter]

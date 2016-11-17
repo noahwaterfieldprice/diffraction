@@ -2,7 +2,7 @@ import pytest
 from numpy import array, sqrt
 from numpy.testing import assert_almost_equal, assert_array_almost_equal
 
-from diffraction import DirectLattice, DirectLatticeVector, ReciprocalLattice
+from diffraction import DirectLattice, DirectLatticeVector
 
 CALCITE_LATTICE_PARAMETERS = (4.99, 4.99, 17.002, 90.0, 90.0, 120.0)
 CALCITE_DIRECT_METRIC = array([[24.9001, -12.45005, 0],
@@ -12,23 +12,23 @@ CALCITE_DIRECT_METRIC = array([[24.9001, -12.45005, 0],
 
 class TestCreatingDirectLatticeFromSequence:
     def test_can_create_from_sequence(self):
-        lattice = DirectLattice([4.99, 4.99, 17.002, 90, 90, 120])
+        lattice = DirectLattice(CALCITE_LATTICE_PARAMETERS)
 
         assert lattice.lattice_parameters == CALCITE_LATTICE_PARAMETERS
 
     def test_error_if_lattice_parameter_missing_from_sequence(self):
-        lattice_parameters_missing_one = [4.99, 17.002, 90, 90, 120]
+        lattice_parameters_missing_one = CALCITE_LATTICE_PARAMETERS[:5]
 
         with pytest.raises(ValueError) as exception_info:
             DirectLattice(lattice_parameters_missing_one)
         assert str(exception_info.value) == "Missing lattice parameter from input"
 
     def test_error_if_invalid_lattice_parameter_given(self):
-        invalid_lattice_parameters = [4.99, 'abcdef', 17.002, 90, 90, 120]
+        invalid_lattice_parameters = CALCITE_LATTICE_PARAMETERS[:5] + ("abcdef",)
 
         with pytest.raises(ValueError) as exception_info:
             DirectLattice(invalid_lattice_parameters)
-        assert str(exception_info.value) == "Invalid lattice parameter b: abcdef"
+        assert str(exception_info.value) == "Invalid lattice parameter gamma: abcdef"
 
 
 class TestCreatingDirectLatticeFromMapping:
@@ -131,11 +131,3 @@ class TestDirectSpaceCalculations:
         assert_almost_equal(v2.angle(v1), 120)
         assert_almost_equal(v1.angle(v3), 90)
         assert_almost_equal(v1.angle(v4), 97.4528371)
-
-
-class TestCreatingReciprocalLatticeFromSequence:
-    def test_can_create_from_sequence(self):
-        r_lattice_parameters = (0.34969, 0.34969, 0.06665, 90, 90, 60)
-        r_lattice = ReciprocalLattice(r_lattice_parameters)
-
-        assert r_lattice.lattice_parameters == r_lattice_parameters
