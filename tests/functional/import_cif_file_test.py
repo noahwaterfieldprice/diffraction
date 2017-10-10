@@ -51,7 +51,7 @@ class TestCIFValidating:
 
     @pytest.mark.parametrize("filepath", glob.glob('tests/functional/static/valid_cifs/*'))
     def test_no_exception_and_return_true_with_valid_cif(self, filepath):
-        assert validate_cif(filepath) == True
+        assert validate_cif(filepath) is True
 
 
 class TestCIFReading:

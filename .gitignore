@@ -20,6 +20,7 @@ pytest_report.html
 .coverage
 .coverage.*
 htmlcov/
+assets/
 
 # documentation
 docs/build/

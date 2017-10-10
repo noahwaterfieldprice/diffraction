@@ -269,7 +269,7 @@ class TestCIFSyntaxExceptions:
                                                 valid_semicolon_field])
     def test_valid_syntax_raises_no_exception(self, valid_contents):
         v = CIFValidator("\n".join(valid_contents))
-        assert v.validate() == True
+        assert v.validate() is True
 
     def test_warning_if_file_is_empty(self):
         # test when file is empty
