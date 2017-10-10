@@ -1,7 +1,6 @@
 machine:
   python:
-    version: 3.5.0
-
+    version: 3.6.2
 general:
   artifacts:
     - "htmlcov/*"
@@ -17,7 +16,6 @@ dependencies:
 test:
     override:
       - py.test --junitxml=$CIRCLE_TEST_REPORTS/report.xml --ignore=venv
+      - coverage xml && python-codacy-coverage -r coverage.xml
     post:
       - coveralls
-      # - coverage xml
-      # - python-codacy-coverage -r coverage.xml
