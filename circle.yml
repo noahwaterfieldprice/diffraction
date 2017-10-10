@@ -17,3 +17,5 @@ test:
     override:
       - py.test --junitxml=$CIRCLE_TEST_REPORTS/report.xml --ignore=venv
       - coverage xml && python-codacy-coverage -r coverage.xml
+    post:
+      - coveralls
