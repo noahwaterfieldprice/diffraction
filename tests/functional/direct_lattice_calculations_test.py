@@ -2,12 +2,13 @@ import pytest
 from numpy import array, sqrt
 from numpy.testing import assert_almost_equal, assert_array_almost_equal
 
-from diffraction import DirectLattice, DirectLatticeVector
+from diffraction import DirectLattice, DirectLatticeVector, ReciprocalLattice
 
 CALCITE_LATTICE_PARAMETERS = (4.99, 4.99, 17.002, 90.0, 90.0, 120.0)
 CALCITE_DIRECT_METRIC = array([[24.9001, -12.45005, 0],
                                [-12.45005, 24.9001, 0],
                                [0, 0, 289.068004]])
+CALCITE_RECIPROCAL_LATTICE_PARAMETERS = (0.2314, 0.2314, 0.0588, 90, 90, 60)
 
 
 class TestCreatingDirectLatticeFromSequence:
@@ -74,6 +75,16 @@ class TestCreatingDirectLatticeFromCIF:
 
         assert CHFeNOS.lattice_parameters == \
             (6.1250, 9.2460, 10.147, 77.16, 83.44, 80.28)
+
+
+class TestCreatingDirectLatticeFromReciprocalLattice:
+    def test_can_create_direct_lattice_from_reciprocal_lattice(self):
+        reciprocal_lattice = ReciprocalLattice(CALCITE_RECIPROCAL_LATTICE_PARAMETERS)
+        direct_lattice = reciprocal_lattice.direct()
+
+        assert isinstance(direct_lattice, DirectLattice)
+        assert_almost_equal(direct_lattice.lattice_parameters,
+                            CALCITE_LATTICE_PARAMETERS, decimal=2)
 
 
 class TestDirectSpaceCalculations:

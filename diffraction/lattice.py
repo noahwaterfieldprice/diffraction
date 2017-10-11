@@ -5,7 +5,8 @@ import numpy as np
 
 from .cif.helpers import CIF_NAMES, get_cif_data, load_data_block
 
-__all__ = ["DirectLattice", "DirectLatticeVector", "ReciprocalLattice"]
+__all__ = ["DirectLattice", "DirectLatticeVector", "ReciprocalLattice",
+           "ReciprocalLatticeVector"]
 
 
 def to_radians(lattice_parameters):
@@ -173,7 +174,7 @@ class AbstractLattice:
         for parameter in cls.lattice_parameter_keys:
             try:
                 lattice_parameters.append(input_dict[parameter])
-            except KeyError:  # TODO: Check OK - reports just 1st missing param
+            except KeyError:  # TODO: Is OK that reports just 1st missing para?
                 raise ValueError("Parameter: '{0}' missing from input "
                                  "dictionary".format(parameter))
         return cls(lattice_parameters)
@@ -237,7 +238,7 @@ class DirectLattice(AbstractLattice):
 
     @classmethod
     def from_cif(cls, filepath, data_block=None):
-        """Create an DirectLattice using a :term:`CIF` as input.
+        """Create a DirectLattice using a :term:`CIF` as input.
 
         Parameters
         ----------
@@ -333,8 +334,8 @@ class ReciprocalLattice(AbstractLattice):
         reciprocal_lps = reciprocalise(lattice_parameters)
         return cls(reciprocal_lps)
 
-    # def vector(self, hkl):
-    #     return ReciprocalLatticeVector(hkl, self)
+    def vector(self, hkl):
+        return ReciprocalLatticeVector(hkl, self)
 
     def direct(self):
         direct_lattice_parameters = reciprocalise(self.lattice_parameters)
@@ -352,13 +353,13 @@ def check_lattice(operation):
     return wrapper
 
 
-class DirectLatticeVector(np.ndarray):
+class DirectLatticeVector(np.ndarray):  # TODO: Finish docstrings
     """Class to represent a direct lattice vector
 
     Parameters
     ----------
     uvw: array_like
-        The u, v
+        The u, v, w values of the direct lattice vector.
     lattice: DirectLattice
         The direct lattice the vector is associated with.
 
@@ -372,11 +373,11 @@ class DirectLatticeVector(np.ndarray):
     norm:
         Calculate the norm of the vector.
     inner:
-        Calculate the inner product of the vector with another lattice
-        vector.
+        Calculate the inner product of the vector with another direct
+        lattice vector.
     angle:
-        Calculate the angle between the vector and another lattice
-        vector.
+        Calculate the angle between the vector and another direct
+        lattice vector.
 
     """
 
@@ -414,7 +415,7 @@ class DirectLatticeVector(np.ndarray):
         return np.sqrt(self.dot(self.lattice.metric).dot(self))
 
     def inner(self, other):
-        """Calculate the inner product between the vector and another
+        """Calculate the inner product between the vector and another direct
         lattice vector
 
         Parameters
@@ -431,3 +432,36 @@ class DirectLatticeVector(np.ndarray):
     def angle(self, other):
         u, v = self, other
         return np.degrees(np.arccos(u.inner(v) / (u.norm() * v.norm())))
+
+
+class ReciprocalLatticeVector(DirectLatticeVector):  # TODO: Finish docstrings
+    """Class to represent a direct lattice vector
+
+    Parameters
+    ----------
+    hkl: array_like
+        The h, k, l values of the reciprocal lattice vector.
+    lattice: ReciprocalLattice
+        The reciprocal lattice the vector is associated with.
+
+    Attributes
+    ----------
+    lattice: ReciprocalLattice
+        The reciprocal lattice the vector is associated with.
+
+    Methods
+    -------
+    norm:
+        Calculate the norm of the vector.
+    inner:
+        Calculate the inner product of the vector with another reciprocal
+        lattice vector.
+    angle:
+        Calculate the angle between the vector and another reciprocal
+        lattice vector.
+
+    """
+    def __new__(cls, hkl, lattice):
+        vector = np.asarray(hkl).view(cls)
+        vector.lattice = lattice
+        return vector

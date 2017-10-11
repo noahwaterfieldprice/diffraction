@@ -44,7 +44,7 @@ class Site:
                 allclose(self.position, other.position, atol=self.precision))
 
 
-class Crystal:  # TODO: Finish docstring and update glossary
+class Crystal:  # TODO: Finish docstring and update glossary. lattparams_rad?
     """Class to represent Crystal
 
     Parameters
