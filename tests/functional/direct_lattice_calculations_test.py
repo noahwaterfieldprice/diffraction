@@ -49,7 +49,7 @@ class TestCreatingDirectLatticeFromMapping:
 
 
 class TestCreatingDirectLatticeFromCIF:
-    def test_can_create_crystal_from_single_datablock_cif(self):
+    def test_can_create_direct_lattice_from_single_datablock_cif(self):
         lattice = DirectLattice.from_cif("tests/functional/static/valid_cifs/calcite_icsd.cif")
 
         assert lattice.lattice_parameters == CALCITE_LATTICE_PARAMETERS

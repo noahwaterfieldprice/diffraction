@@ -48,6 +48,40 @@ class TestCreatingReciprocalLatticeFromMapping:
         assert str(exception_info.value) == "Parameter: 'b_star' missing from input dictionary"
 
 
+class TestCreatingReciprocalLatticeFromCIF:
+    def test_can_create_reciprocal_lattice_from_single_datablock_cif(self):
+        lattice = ReciprocalLattice.from_cif(
+            "tests/functional/static/valid_cifs/calcite_icsd.cif")
+
+        assert_almost_equal(lattice.lattice_parameters,
+                            CALCITE_RECIPROCAL_LATTICE_PARAMETERS, decimal=4)
+
+    def test_error_if_lattice_parameter_is_missing_from_cif(selfs):
+        with pytest.raises(ValueError) as exception_info:
+            ReciprocalLattice.from_cif("tests/functional/static/invalid_cifs/"
+                                       "calcite_icsd_missing_lattice_parameter.cif")
+
+        assert str(exception_info.value) == \
+            "Parameter: 'cell_length_b' missing from input CIF"
+
+    def test_error_datablock_not_given_for_multi_data_block_cif(self):
+        with pytest.raises(TypeError) as exception_info:
+            ReciprocalLattice.from_cif(
+                "tests/functional/static/valid_cifs/multi_data_block.cif")
+        assert str(exception_info.value) == \
+            ("__init__() missing keyword argument: 'data_block'. "
+             "Required when input CIF has multiple data blocks.")
+
+    def test_can_create_direct_lattice_from_multi_data_block_cif(self):
+        CHFeNOS = ReciprocalLattice.from_cif(
+            "tests/functional/static/valid_cifs/multi_data_block.cif",
+            data_block="data_CSD_CIF_ACAKOF")
+
+        assert_almost_equal(CHFeNOS.lattice_parameters,
+                            [0.1662, 0.1122, 0.1014, 101.9615, 94.5792, 98.5165],
+                            decimal=4)
+
+
 class TestCreatingReciprocalLatticeFromDirectLattice:
     def test_can_create_reciprocal_lattice_from_direct_lattice(self):
         direct_lattice = DirectLattice(CALCITE_LATTICE_PARAMETERS)
