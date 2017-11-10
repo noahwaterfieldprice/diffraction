@@ -1,5 +1,5 @@
 import pytest
-from numpy import array, sqrt
+from numpy import array, pi, sqrt
 from numpy.testing import assert_almost_equal, assert_array_almost_equal
 
 from diffraction import (DirectLattice, DirectLatticeVector,
@@ -9,7 +9,7 @@ CALCITE_LATTICE_PARAMETERS = (4.99, 4.99, 17.002, 90.0, 90.0, 120.0)
 CALCITE_DIRECT_METRIC = array([[24.9001, -12.45005, 0],
                                [-12.45005, 24.9001, 0],
                                [0, 0, 289.068004]])
-CALCITE_RECIPROCAL_LATTICE_PARAMETERS = (0.2314, 0.2314, 0.0588, 90, 90, 60)
+CALCITE_RECIPROCAL_LATTICE_PARAMETERS = (1.4539, 1.4539, 0.3696, 90, 90, 60)
 
 
 class TestCreatingDirectLatticeFromSequence:
@@ -152,10 +152,10 @@ class TestDirectSpaceCalculations:
         v1_reciprocal = ReciprocalLatticeVector([1, 0, 0], reciprocal_lattice)
         v2_reciprocal = ReciprocalLatticeVector([1, 4, 2], reciprocal_lattice)
 
-        assert_almost_equal(v1_direct.inner(v1_reciprocal), 1)
-        assert_almost_equal(v2_direct.inner(v2_reciprocal), 21)
-        assert_almost_equal(v1_direct.inner(v2_reciprocal), 1)
-        assert_almost_equal(v2_direct.inner(v1_reciprocal), 1)
+        assert_almost_equal(v1_direct.inner(v1_reciprocal), 2 * pi)
+        assert_almost_equal(v2_direct.inner(v2_reciprocal), 42 * pi)
+        assert_almost_equal(v1_direct.inner(v2_reciprocal), 2 * pi)
+        assert_almost_equal(v2_direct.inner(v1_reciprocal), 2 * pi)
 
     def test_error_if_calculating_inner_product_with_different_lattices(self):
         direct_lattice1 = DirectLattice(CALCITE_RECIPROCAL_LATTICE_PARAMETERS)

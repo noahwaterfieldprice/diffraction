@@ -1,14 +1,15 @@
-from numpy import array, sqrt
+from numpy import array, pi, sqrt
 from numpy.testing import assert_array_almost_equal, assert_almost_equal
 import pytest
 
 from diffraction import (DirectLattice, DirectLatticeVector,
                          ReciprocalLatticeVector, ReciprocalLattice)
 
-CALCITE_RECIPROCAL_LATTICE_PARAMETERS = (0.2314, 0.2314, 0.0588, 90, 90, 60)
-CALCITE_RECIPROCAL_METRIC_TENSOR = array([[0.053545, 0.026773, 0.],
-                                          [0.026773, 0.053545, 0.],
-                                          [0., 0.,  0.003457]])
+CALCITE_RECIPROCAL_LATTICE_PARAMETERS = (1.4539, 1.4539, 0.3696, 90, 90, 60)
+CALCITE_RECIPROCAL_METRIC = array([[2.1138, 1.0569, 0],
+                                   [1.0569, 2.1138, 0],
+                                   [0, 0, 0.1366]])
+
 CALCITE_LATTICE_PARAMETERS = (4.99, 4.99, 17.002, 90.0, 90.0, 120.0)
 
 
@@ -35,14 +36,14 @@ class TestCreatingReciprocalLatticeFromSequence:
 
 class TestCreatingReciprocalLatticeFromMapping:
     def test_can_create_reciprocal_lattice_from_dictionary(self):
-        lattice_parameters = {"a_star": 0.2314, "b_star": 0.2314, "c_star": 0.0588,
+        lattice_parameters = {"a_star": 1.4539, "b_star": 1.4539, "c_star": 0.3696,
                               "alpha_star": 90, "beta_star": 90, "gamma_star": 60}
         lattice = ReciprocalLattice.from_dict(lattice_parameters)
 
         assert lattice.lattice_parameters == CALCITE_RECIPROCAL_LATTICE_PARAMETERS
 
     def test_error_if_lattice_parameter_missing_from_dict(self):
-        lattice_parameters = {"a_star": 0.2314, "c_star": 0.0588,
+        lattice_parameters = {"a_star": 1.4539, "c_star": 0.3696,
                               "alpha_star": 90, "beta_star": 90, "gamma_star": 60}
         with pytest.raises(ValueError) as exception_info:
             ReciprocalLattice.from_dict(lattice_parameters)
@@ -79,7 +80,7 @@ class TestCreatingReciprocalLatticeFromCIF:
             data_block="data_CSD_CIF_ACAKOF")
 
         assert_almost_equal(CHFeNOS.lattice_parameters,
-                            [0.1662, 0.1122, 0.1014, 101.9615, 94.5792, 98.5165],
+                            [1.0441, 0.7048, 0.6371, 101.9615, 94.5792, 98.5165],
                             decimal=4)
 
 
@@ -90,7 +91,8 @@ class TestCreatingReciprocalLatticeFromDirectLattice:
 
         assert isinstance(reciprocal_lattice, ReciprocalLattice)
         assert_almost_equal(reciprocal_lattice.lattice_parameters,
-                            CALCITE_RECIPROCAL_LATTICE_PARAMETERS, decimal=4)
+                            CALCITE_RECIPROCAL_LATTICE_PARAMETERS,
+                            decimal=4)
 
 
 class TestReciprocalSpaceCalculations:
@@ -102,7 +104,8 @@ class TestReciprocalSpaceCalculations:
     def test_calculating_reciprocal_metric_tensor(self):
         lattice = ReciprocalLattice(CALCITE_RECIPROCAL_LATTICE_PARAMETERS)
 
-        assert_array_almost_equal(lattice.metric, CALCITE_RECIPROCAL_METRIC_TENSOR)
+        assert_array_almost_equal(lattice.metric, CALCITE_RECIPROCAL_METRIC,
+                                  decimal=4)
 
     def test_calculating_unit_cell_volume(self):
         lattice = ReciprocalLattice(CALCITE_RECIPROCAL_LATTICE_PARAMETERS)
@@ -122,8 +125,8 @@ class TestReciprocalSpaceCalculations:
         v1 = ReciprocalLatticeVector([1, 1, 0], lattice)
         v2 = ReciprocalLatticeVector([1, 2, 3], lattice)
 
-        assert_almost_equal(v1.norm(), 0.4008, decimal=4)
-        assert_almost_equal(v2.norm(), 0.6372, decimal=4)
+        assert_almost_equal(v1.norm(), 2.5182, decimal=4)
+        assert_almost_equal(v2.norm(), 4.0033, decimal=4)
 
     def test_calculating_inner_product(self):
         lattice = ReciprocalLattice(CALCITE_RECIPROCAL_LATTICE_PARAMETERS)
@@ -132,10 +135,10 @@ class TestReciprocalSpaceCalculations:
         v3 = ReciprocalLatticeVector([0, 0, 1], lattice)
         v4 = ReciprocalLatticeVector([1, 4, 2], lattice)
 
-        assert_almost_equal(v1.inner(v2), 0.0268, decimal=4)
-        assert_almost_equal(v2.inner(v1), 0.0268, decimal=4)
+        assert_almost_equal(v1.inner(v2), 1.0569, decimal=4)
+        assert_almost_equal(v2.inner(v1), 1.0569, decimal=4)
         assert_almost_equal(v1.inner(v3), 0)
-        assert_almost_equal(v1.inner(v4), 0.1606, decimal=4)
+        assert_almost_equal(v1.inner(v4), 6.3414, decimal=4)
 
     def test_calculating_angle_between_two_vectors(self):
         lattice = ReciprocalLattice(CALCITE_RECIPROCAL_LATTICE_PARAMETERS)
@@ -157,10 +160,10 @@ class TestReciprocalSpaceCalculations:
         v1_reciprocal = ReciprocalLatticeVector([1, 0, 0], reciprocal_lattice)
         v2_reciprocal = ReciprocalLatticeVector([1, 4, 2], reciprocal_lattice)
 
-        assert_almost_equal(v1_reciprocal.inner(v1_direct), 1)
-        assert_almost_equal(v2_reciprocal.inner(v2_direct), 21)
-        assert_almost_equal(v1_reciprocal.inner(v2_direct), 1)
-        assert_almost_equal(v2_reciprocal.inner(v1_direct), 1)
+        assert_almost_equal(v1_reciprocal.inner(v1_direct), 2 * pi)
+        assert_almost_equal(v2_reciprocal.inner(v2_direct), 42 * pi)
+        assert_almost_equal(v1_reciprocal.inner(v2_direct), 2 * pi)
+        assert_almost_equal(v2_reciprocal.inner(v1_direct), 2 * pi)
 
     def test_calculating_angle_with_direct_lattice_vector(self):
         direct_lattice = DirectLattice(CALCITE_LATTICE_PARAMETERS)

@@ -9,7 +9,7 @@ __all__ = ["DirectLattice", "DirectLatticeVector", "ReciprocalLattice",
            "ReciprocalLatticeVector"]
 
 
-def to_radians(lattice_parameters):
+def _to_radians(lattice_parameters):
     """Convert angles in :term:`lattice parameters` from degrees to
     radians.
 
@@ -30,7 +30,7 @@ def to_radians(lattice_parameters):
     return lengths + angles_in_radians
 
 
-def to_degrees(lattice_parameters):
+def _to_degrees(lattice_parameters):
     """Convert angles in :term:`lattice parameters` from radians to
     degrees.
 
@@ -65,7 +65,7 @@ def metric_tensor(lattice_parameters):
     array_like:
         The metric tensor of the lattice.
     """
-    a, b, c, al, be, ga = to_radians(lattice_parameters)
+    a, b, c, al, be, ga = _to_radians(lattice_parameters)
     tensor = np.around([[a ** 2, a * b * cos(ga), a * c * cos(be)],
                         [a * b * cos(ga), b ** 2, b * c * cos(al)],
                         [a * c * cos(be), b * c * cos(al), c ** 2]],
@@ -74,10 +74,10 @@ def metric_tensor(lattice_parameters):
 
 
 def reciprocalise(lattice_parameters):  # TODO: fix docstring, factor of 2pi?
-    """Transform the lattice parameters to those of the dual basis.
+    """Transform the lattice parameters to those of the reciprocal lattice.
 
     Transforms the lattice parameters of the given lattice to those of
-    the dual basis. i.e. converts direct lattice parameters to those
+    the reciprocal lattice. i.e. converts direct lattice parameters to those
     of the reciprocal lattice and vice versa.
 
     Parameters
@@ -92,17 +92,17 @@ def reciprocalise(lattice_parameters):  # TODO: fix docstring, factor of 2pi?
         The lattice parameters of the +++ASDOIAJFOIas
 
     """
-    a, b, c, al, be, ga = to_radians(lattice_parameters)
+    a, b, c, al, be, ga = _to_radians(lattice_parameters)
     cell_volume = sqrt(np.linalg.det(metric_tensor(lattice_parameters)))
 
-    a_ = b * c * sin(al) / cell_volume
-    b_ = a * c * sin(be) / cell_volume
-    c_ = a * b * sin(ga) / cell_volume
+    a_ = 2 * np.pi * b * c * sin(al) / cell_volume
+    b_ = 2 * np.pi * a * c * sin(be) / cell_volume
+    c_ = 2 * np.pi * a * b * sin(ga) / cell_volume
     alpha_ = arccos((cos(be) * cos(ga) - cos(al)) / (sin(be) * sin(ga)))
     beta_ = arccos((cos(al) * cos(ga) - cos(be)) / (sin(al) * sin(ga)))
     gamma_ = arccos((cos(al) * cos(be) - cos(ga)) / (sin(al) * sin(be)))
 
-    return to_degrees((a_, b_, c_, alpha_, beta_, gamma_))
+    return _to_degrees((a_, b_, c_, alpha_, beta_, gamma_))
 
 
 class AbstractLattice:
@@ -430,12 +430,15 @@ class DirectLatticeVector(np.ndarray):  # TODO: Finish docstrings
         """
         #  TODO: is there any way to do this apart from type-checking?
         if type(other) is ReciprocalLatticeVector:
-            if not np.allclose(self.lattice.metric,
-                               np.linalg.inv(other.lattice.metric), rtol=1e-2):
+            if not np.allclose(
+                self.lattice.metric,
+                np.linalg.inv(other.lattice.metric / (2 * np.pi) ** 2),
+                rtol=1e-2):
+
                 raise TypeError("{0} and {1} lattices must be reciprocally "
                                 "related.".format(self.__class__.__name__,
                                                   other.__class__.__name__))
-            return self.dot(other)
+            return 2 * np.pi * self.dot(other)
 
         if self.lattice != other.lattice:
             raise TypeError("lattice must be the same for both "
@@ -497,12 +500,15 @@ class ReciprocalLatticeVector(DirectLatticeVector):  # TODO: Finish docstrings
         """
         #  TODO: is there any way to do this apart from type-checking?
         if type(other) is DirectLatticeVector:
-            if not np.allclose(self.lattice.metric,
-                               np.linalg.inv(other.lattice.metric), atol=1e-2):
+            if not np.allclose(
+                self.lattice.metric,
+                np.linalg.inv(other.lattice.metric) * (2 * np.pi) ** 2,
+                rtol=1e-2):
+
                 raise TypeError("{0} and {1} lattices must be reciprocally "
                                 "related.".format(self.__class__.__name__,
                                                   other.__class__.__name__))
-            return self.dot(other)
+            return 2 * np.pi * self.dot(other)
 
         if self.lattice != other.lattice:
             raise TypeError("lattice must be the same for both "
