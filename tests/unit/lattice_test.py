@@ -5,10 +5,11 @@ from numpy.testing import assert_almost_equal, assert_array_almost_equal
 import pytest
 
 from diffraction.cif.helpers import NUMERICAL_DATA_VALUE
-from diffraction.lattice import (AbstractLattice, DirectLattice, DirectLatticeVector,
+from diffraction.lattice import (AbstractLattice, DirectLattice,
+                                 DirectLatticeVector,
                                  to_radians, to_degrees, metric_tensor,
-                                 ReciprocalLattice, ReciprocalLatticeVector, reciprocalise)
-
+                                 ReciprocalLattice, ReciprocalLatticeVector,
+                                 reciprocalise)
 
 CALCITE_CIF = OrderedDict([("cell_length_a", "4.9900(2)"),
                            ("cell_length_b", "4.9900(2)"),
@@ -33,7 +34,7 @@ CALCITE_RECIPROCAL_LATTICE = OrderedDict(
 
 CALCITE_RECIPROCAL_METRIC = array([[0.053545, 0.026773, 0.],
                                    [0.026773, 0.053545, 0.],
-                                   [0., 0.,  0.003457]])
+                                   [0., 0., 0.003457]])
 
 CALCITE_RECIPROCAL_CELL_VOLUME = 0.0027264
 
@@ -44,7 +45,6 @@ class FakeAbstractLattice(AbstractLattice):
 
 
 class TestUtilityFunctions:
-
     def test_converting_lattice_parameters_to_radians(self):
         lattice_parameters_deg = [1, 2, 3, 90, 120, 45]
         expected = (1, 2, 3, pi / 2, 2 * pi / 3, pi / 4)
@@ -60,7 +60,8 @@ class TestUtilityFunctions:
 
     def test_calculating_metric_tensor(self):
         lattice_parameters = CALCITE_LATTICE.values()
-        assert_array_almost_equal(metric_tensor(lattice_parameters), CALCITE_DIRECT_METRIC)
+        assert_array_almost_equal(metric_tensor(lattice_parameters),
+                                  CALCITE_DIRECT_METRIC)
 
     def test_transforming_to_dual_basis(self):
         lattice_parameters = CALCITE_LATTICE.values()
@@ -71,7 +72,6 @@ class TestUtilityFunctions:
 
 
 class TestCreatingAbstractLattice:
-
     cls = FakeAbstractLattice
     test_dict = OrderedDict([("k1", 2), ("k2", 5), ("k3", 10),
                              ("k4", 90), ("k5", 90), ("k6", 120)])
@@ -84,7 +84,8 @@ class TestCreatingAbstractLattice:
 
         with pytest.raises(ValueError) as exception_info:
             mock.convert_parameters(mock, lattice_parameters_missing_one)
-        assert str(exception_info.value) == "Missing lattice parameter from input"
+        assert str(
+            exception_info.value) == "Missing lattice parameter from input"
 
     def test_error_if_parameter_missing_from_input_dict(self):
         for missing_parameter in self.test_dict.keys():
@@ -94,7 +95,8 @@ class TestCreatingAbstractLattice:
             with pytest.raises(ValueError) as exception_info:
                 self.cls.from_dict(dict_with_missing_parameter)
             assert str(exception_info.value) == \
-                "Parameter: '{}' missing from input dictionary".format(missing_parameter)
+                "Parameter: '{}' missing from input dictionary".format(
+                    missing_parameter)
 
     def test_parameters_are_assigned_with_values_read_from_dict(self, mocker):
         mock = mocker.patch("diffraction.lattice.AbstractLattice.__init__",
@@ -104,7 +106,8 @@ class TestCreatingAbstractLattice:
 
     @pytest.mark.parametrize("invalid_value", ["abc", "123@%£", "1232.433.21"])
     @pytest.mark.parametrize("position", range(6))
-    def test_error_if_invalid_lattice_parameter_given(self, invalid_value, position, mocker):
+    def test_error_if_invalid_lattice_parameter_given(self, invalid_value,
+                                                      position, mocker):
         invalid_lattice_parameters = list(self.test_dict.values())
         invalid_lattice_parameters[position] = invalid_value
         mock = mocker.MagicMock()
@@ -145,22 +148,25 @@ class TestCreatingAbstractLattice:
 
 
 class TestCreatingDirectLattice(TestCreatingAbstractLattice):
-
     cls = DirectLattice
     test_dict = CALCITE_LATTICE
 
     def test_loading_from_cif(self, mocker):
-        load_data_block_mock = mocker.patch("diffraction.lattice.load_data_block",
-                                            return_value="data_items")
+        load_data_block_mock = mocker.patch(
+            "diffraction.lattice.load_data_block",
+            return_value="data_items")
         get_cif_data_mock = mocker.patch("diffraction.lattice.get_cif_data",
-                                         return_value=list(self.test_dict.values()))
+                                         return_value=list(
+                                             self.test_dict.values()))
         mock = mocker.patch("diffraction.lattice.AbstractLattice.__init__",
                             return_value=None)
 
         self.cls.from_cif("some/single/data/block/cif")
-        load_data_block_mock.assert_called_with("some/single/data/block/cif", None)
+        load_data_block_mock.assert_called_with("some/single/data/block/cif",
+                                                None)
         get_cif_data_mock.assert_called_with("data_items", *CALCITE_CIF.keys())
-        assert_almost_equal(mock.call_args[0][0], tuple(self.test_dict.values()))
+        assert_almost_equal(mock.call_args[0][0],
+                            tuple(self.test_dict.values()))
 
     def test_creating_from_reciprocal_lattice(self, mocker):
         mock = mocker.MagicMock()
@@ -180,17 +186,21 @@ class TestCreatingReciprocalLattice(TestCreatingAbstractLattice):
     test_dict = CALCITE_RECIPROCAL_LATTICE
 
     def test_loading_from_cif(self, mocker):
-        load_data_block_mock = mocker.patch("diffraction.lattice.load_data_block",
-                                            return_value="data_items")
+        load_data_block_mock = mocker.patch(
+            "diffraction.lattice.load_data_block",
+            return_value="data_items")
         get_cif_data_mock = mocker.patch("diffraction.lattice.get_cif_data",
-                                         return_value=list(CALCITE_LATTICE.values()))
+                                         return_value=list(
+                                             CALCITE_LATTICE.values()))
         mock = mocker.patch("diffraction.lattice.AbstractLattice.__init__",
                             return_value=None)
 
         self.cls.from_cif("some/single/data/block/cif")
-        load_data_block_mock.assert_called_with("some/single/data/block/cif", None)
+        load_data_block_mock.assert_called_with("some/single/data/block/cif",
+                                                None)
         get_cif_data_mock.assert_called_with("data_items", *CALCITE_CIF.keys())
-        assert_almost_equal(mock.call_args[0][0], tuple(self.test_dict.values()),
+        assert_almost_equal(mock.call_args[0][0],
+                            tuple(self.test_dict.values()),
                             decimal=6)
 
     def test_creating_from_direct_lattice(self, mocker):
@@ -212,7 +222,8 @@ class TestAccessingComputedProperties:
     @pytest.mark.parametrize("lattice, lattice_class", [
         (CALCITE_LATTICE, DirectLattice),
         (CALCITE_RECIPROCAL_LATTICE, ReciprocalLattice)])
-    def test_can_get_lattice_parameters_as_a_tuple(self, mocker, lattice, lattice_class):
+    def test_can_get_lattice_parameters_as_a_tuple(self, mocker, lattice,
+                                                   lattice_class):
         mock = mocker.MagicMock(**lattice)
         mock.lattice_parameter_keys = lattice_class.lattice_parameter_keys
         mock.lattice_parameters = lattice_class.lattice_parameters
@@ -222,20 +233,26 @@ class TestAccessingComputedProperties:
     @pytest.mark.parametrize("lattice, lattice_class, parameter", [
         (CALCITE_LATTICE, DirectLattice, 'a'),
         (CALCITE_RECIPROCAL_LATTICE, ReciprocalLattice, 'a_star')])
-    def test_lattice_parameters_updated_if_lattice_parameter_changed(self, mocker, lattice,
-                                                                     lattice_class, parameter):
+    def test_lattice_parameters_updated_if_lattice_parameter_changed(self,
+                                                                     mocker,
+                                                                     lattice,
+                                                                     lattice_class,
+                                                                     parameter):
         mock = mocker.MagicMock(**lattice)
         mock.lattice_parameter_keys = lattice_class.lattice_parameter_keys
         mock.lattice_parameters = lattice_class.lattice_parameters
         expected_lattice_parameters = (10,) + tuple(lattice.values())[1:]
 
         setattr(mock, parameter, 10)
-        assert mock.lattice_parameters.fget(mock) == expected_lattice_parameters
+        assert mock.lattice_parameters.fget(
+            mock) == expected_lattice_parameters
 
     @pytest.mark.parametrize("lattice, lattice_class", [
         (CALCITE_LATTICE, DirectLattice),
         (CALCITE_RECIPROCAL_LATTICE, ReciprocalLattice)])
-    def test_lattice_metric_is_calculated_with_correct_input(self, mocker, lattice, lattice_class):
+    def test_lattice_metric_is_calculated_with_correct_input(self, mocker,
+                                                             lattice,
+                                                             lattice_class):
         lattice_parameters = tuple(lattice.values())
         mock = mocker.MagicMock(lattice_parameters=lattice_parameters)
         m = mocker.patch("diffraction.lattice.metric_tensor")
@@ -249,7 +266,8 @@ class TestAccessingComputedProperties:
          CALCITE_DIRECT_METRIC, CALCITE_DIRECT_CELL_VOLUME),
         (CALCITE_RECIPROCAL_LATTICE, ReciprocalLattice,
          CALCITE_RECIPROCAL_METRIC, CALCITE_RECIPROCAL_CELL_VOLUME)])
-    def test_unit_cell_volume_is_calculated_correctly(self, mocker, lattice, lattice_class,
+    def test_unit_cell_volume_is_calculated_correctly(self, mocker, lattice,
+                                                      lattice_class,
                                                       metric, cell_volume):
         mock = mocker.MagicMock(**lattice)
         mock.unit_cell_volume = lattice_class.unit_cell_volume
@@ -274,54 +292,57 @@ class TestDirectLatticeVectorCreationAndMagicMethods:
         lattice = mocker.MagicMock()
         lattice.vector = self.lattice_cls.vector
 
-        vector_1 = self.cls([1, 2, 3], lattice)
-        vector_2 = lattice.vector(lattice, [1, 2, 3])
-        assert vector_1 == vector_2
+        v1 = self.cls([1, 2, 3], lattice)
+        v2 = lattice.vector(lattice, [1, 2, 3])
+        assert v1 == v2
 
     def test_lattice_attribute_persists_when_new_array_created(self, mocker):
         lattice = mocker.MagicMock()
 
-        vector_1 = self.cls([1, 0, 0], lattice)
-        vector_2 = 2 * vector_1
-        vector_3 = vector_1.copy()
-        assert vector_2.lattice == lattice
-        assert vector_3.lattice == lattice
+        v1 = self.cls([1, 0, 0], lattice)
+        v2 = 2 * v1
+        v3 = v1.copy()
+        assert v2.lattice == lattice
+        assert v3.lattice == lattice
 
     def test_direct_lattice_vector_equivalence(self, mocker):
         lattice_1 = mocker.MagicMock()
         lattice_2 = mocker.MagicMock()
-        vector_1 = self.cls([1, 0, 0], lattice_1)
-        vector_2 = self.cls([1, 0, 0], lattice_1)
-        vector_3 = self.cls([1, 0, 0], lattice_2)
-        vector_4 = self.cls([0, 1, 0], lattice_1)
+        v1 = self.cls([1, 0, 0], lattice_1)
+        v2 = self.cls([1, 0, 0], lattice_1)
+        v3 = self.cls([1, 0, 0], lattice_2)
+        v4 = self.cls([0, 1, 0], lattice_1)
 
-        assert vector_1 == vector_2
-        assert vector_1 != vector_3
-        assert vector_1 != vector_4
+        assert v1 == v2
+        assert v1 != v3
+        assert v1 != v4
 
     def test_adding_and_subtracting_direct_lattice_vectors(self, mocker):
         lattice = mocker.MagicMock()
-        vector_1 = self.cls([1, 0, 0], lattice)
-        vector_2 = self.cls([0, 2, 3], lattice)
-        vector_3 = self.cls([1, 2, 3], lattice)
+        v1 = self.cls([1, 0, 0], lattice)
+        v2 = self.cls([0, 2, 3], lattice)
+        v3 = self.cls([1, 2, 3], lattice)
 
-        assert vector_1 + vector_2 == vector_3
-        assert vector_3 - vector_2 == vector_1
+        assert v1 + v2 == v3
+        assert v3 - v2 == v1
 
-    def test_error_if_adding_or_subtracting_with_different_lattices(self, mocker):
+    def test_error_if_adding_or_subtracting_with_different_lattices(self,
+                                                                    mocker):
         lattice_1 = mocker.MagicMock()
         lattice_2 = mocker.MagicMock()
-        vector_1 = self.cls([1, 0, 0], lattice_1)
-        vector_2 = self.cls([0, 2, 3], lattice_2)
+        v1 = self.cls([1, 0, 0], lattice_1)
+        v2 = self.cls([0, 2, 3], lattice_2)
 
         with pytest.raises(TypeError) as exception_info:
-            vector_1 + vector_2
+            v1 + v2
         assert str(exception_info.value) == "lattice must be the same " \
-                                            "for both {:s}s".format(self.cls_name)
+                                            "for both {:s}s".format(
+            self.cls_name)
         with pytest.raises(TypeError) as exception_info:
-            vector_1 - vector_2
+            v1 - v2
         assert str(exception_info.value) == "lattice must be the same " \
-                                            "for both {:s}s".format(self.cls_name)
+                                            "for both {:s}s".format(
+            self.cls_name)
 
 
 class TestReciprocalLatticeVectorCreationAndMagicMethods(
@@ -329,40 +350,148 @@ class TestReciprocalLatticeVectorCreationAndMagicMethods(
     lattice_cls = ReciprocalLattice
     cls = ReciprocalLatticeVector
     cls_name = "ReciprocalLatticeVector"
-    pass
 
 
 class TestDirectLatticeVectorCalculations:
     def test_calculating_norm_of_direct_lattice_vector(self, mocker):
         lattice = mocker.MagicMock(metric=CALCITE_DIRECT_METRIC)
-        vector_1 = DirectLatticeVector([1, 1, 0], lattice)
-        vector_2 = DirectLatticeVector([1, 2, 3], lattice)
+        v1 = DirectLatticeVector([1, 1, 0], lattice)
+        v2 = DirectLatticeVector([1, 2, 3], lattice)
 
-        assert_almost_equal(vector_1.norm(), 4.99)
-        assert_almost_equal(vector_2.norm(), 51.7330874)
+        assert_almost_equal(v1.norm(), 4.99)
+        assert_almost_equal(v2.norm(), 51.7330874)
+
+    def test_error_if_calculating_inner_product_or_angle_with_different_lattices(self, mocker):
+        lattice_1 = mocker.MagicMock()
+        lattice_2 = mocker.MagicMock()
+        v1 = ReciprocalLatticeVector([1, 0, 0], lattice_1)
+        v2 = ReciprocalLatticeVector([0, 2, 3], lattice_2)
+
+        with pytest.raises(TypeError) as exception_info:
+            v1.inner(v2)
+        assert str(exception_info.value) == "lattice must be the same " \
+                                            "for both ReciprocalLatticeVectors"
+        with pytest.raises(TypeError) as exception_info:
+            v1.angle(v2)
+        assert str(exception_info.value) == "lattice must be the same " \
+                                            "for both ReciprocalLatticeVectors"
 
     @pytest.mark.parametrize("uvw,result", [
         ([0, 1, 0], 12.45005),
         ([0, 0, 1], 289.068004),
         ([1, -1, 0], 0,),
-        ([1, 2, 3], 904.554162)
-    ])
+        ([1, 2, 3], 904.554162)])
     def test_calculating_inner_product_of_vectors(self, mocker, uvw, result):
         lattice = mocker.MagicMock(metric=CALCITE_DIRECT_METRIC)
-        vector_1 = DirectLatticeVector([1, 1, 1], lattice)
-        vector_2 = DirectLatticeVector(uvw, lattice)
+        v1 = DirectLatticeVector([1, 1, 1], lattice)
+        v2 = DirectLatticeVector(uvw, lattice)
 
-        assert_almost_equal(vector_1.inner(vector_2), result)
+        assert_almost_equal(v1.inner(v2), result)
 
     @pytest.mark.parametrize("uvw,result", [
         ([0, 1, 0], 81.90538705),
         ([0, 0, 1], 16.3566939),
         ([1, -1, 0], 90),
-        ([1, 2, 3], 9.324336578)
-    ])
+        ([1, 2, 3], 9.324336578)])
     def test_calculating_angle_between_two_vectors(self, mocker, uvw, result):
         lattice = mocker.MagicMock(metric=CALCITE_DIRECT_METRIC)
-        vector_1 = DirectLatticeVector([1, 1, 1], lattice)
-        vector_2 = DirectLatticeVector(uvw, lattice)
+        v1 = DirectLatticeVector([1, 1, 1], lattice)
+        v2 = DirectLatticeVector(uvw, lattice)
 
-        assert_almost_equal(vector_1.angle(vector_2), result)
+        assert_almost_equal(v1.angle(v2), result)
+
+
+class TestReciprocalLatticeVectorCalculations:
+    def test_calculating_norm_of_reciprocal_lattice_vector(self, mocker):
+        lattice = mocker.MagicMock(metric=CALCITE_RECIPROCAL_METRIC)
+        v1 = ReciprocalLatticeVector([1, 1, 0], lattice)
+        v2 = ReciprocalLatticeVector([1, 2, 3], lattice)
+
+        assert_almost_equal(v1.norm(), 0.4007942)
+        assert_almost_equal(v2.norm(), 0.6371264)
+
+    def test_error_if_calculating_inner_product_or_angle_with_different_lattices(self, mocker):
+        lattice_1 = mocker.MagicMock()
+        lattice_2 = mocker.MagicMock()
+        v1 = ReciprocalLatticeVector([1, 0, 0], lattice_1)
+        v2 = ReciprocalLatticeVector([0, 2, 3], lattice_2)
+
+        with pytest.raises(TypeError) as exception_info:
+            v1.inner(v2)
+        assert str(exception_info.value) == "lattice must be the same " \
+                                            "for both ReciprocalLatticeVectors"
+        with pytest.raises(TypeError) as exception_info:
+            v1.angle(v2)
+        assert str(exception_info.value) == "lattice must be the same " \
+                                            "for both ReciprocalLatticeVectors"
+
+    @pytest.mark.parametrize("hkl,result", [
+        ([0, 1, 0], 0.080318),
+        ([0, 0, 1], 0.003457),
+        ([1, -1, 0], 0,),
+        ([1, 2, 3], 0.251325)])
+    def test_calculating_inner_product_of_vectors(self, mocker, hkl, result):
+        lattice = mocker.MagicMock(metric=CALCITE_RECIPROCAL_METRIC)
+        v1 = ReciprocalLatticeVector([1, 1, 1], lattice)
+        v2 = ReciprocalLatticeVector(hkl, lattice)
+
+        assert_almost_equal(v1.inner(v2), result)
+
+    @pytest.mark.parametrize("hkl,result", [
+        ([0, 1, 0], 31.0344919),
+        ([0, 0, 1], 81.6542741),
+        ([1, -1, 0], 90),
+        ([1, 2, 3], 13.1470534)])
+    def test_calculating_angle_between_two_vectors(self, mocker, hkl, result):
+        lattice = mocker.MagicMock(metric=CALCITE_RECIPROCAL_METRIC)
+        v1 = ReciprocalLatticeVector([1, 1, 1], lattice)
+        v2 = ReciprocalLatticeVector(hkl, lattice)
+
+        assert_almost_equal(v1.angle(v2), result)
+
+
+class TestDirectAndReciprocalLatticeVectorCalculations:
+    def test_error_if_calculating_inner_product_or_angle_with_unreciprocal_lattices(self, mocker):
+        direct_lattice = mocker.MagicMock(metric=CALCITE_DIRECT_METRIC)
+        reciprocal_lattice = mocker.MagicMock(metric=CALCITE_RECIPROCAL_METRIC * 1.02)
+        direct_vector = DirectLatticeVector([1, 0, 0], direct_lattice)
+        reciprocal_vector = ReciprocalLatticeVector([0, 2, 3], reciprocal_lattice)
+
+        with pytest.raises(TypeError) as exception_info:
+            direct_vector.inner(reciprocal_vector)
+        assert str(exception_info.value) == "DirectLatticeVector and ReciprocalLatticeVector" \
+                                            " lattices must be reciprocally related."
+        with pytest.raises(TypeError) as exception_info:
+            direct_vector.angle(reciprocal_vector)
+        assert str(exception_info.value) == "DirectLatticeVector and ReciprocalLatticeVector" \
+                                            " lattices must be reciprocally related."
+
+    @pytest.mark.parametrize("uvw,hkl,result", [
+        ([1, 0, 0], [0, 0, 1], 0),
+        ([1, 0, 0], [1, 0, 0], 1),
+        ([1, -1, 0], [1, 2, 3],  -1),
+        ([1, 2, 3], [0, 0, 1], 3)])
+    def test_calculating_inner_product_of_direct_and_reciprocal_lattice_vectors(
+            self, mocker, uvw, hkl, result):
+        direct_lattice = mocker.MagicMock(metric=CALCITE_DIRECT_METRIC)
+        reciprocal_lattice = mocker.MagicMock(metric=CALCITE_RECIPROCAL_METRIC)
+        direct_vector = DirectLatticeVector(uvw, direct_lattice)
+        reciprocal_vector = ReciprocalLatticeVector(hkl, reciprocal_lattice)
+
+        assert_almost_equal(direct_vector.inner(reciprocal_vector), result)
+        assert_almost_equal(reciprocal_vector.inner(direct_vector), result)
+
+    @pytest.mark.parametrize("uvw,hkl,result", [
+        ([1, 0, 0], [0, 0, 1], 90),
+        ([1, 0, 0], [1, 0, 0], 30),
+        ([1, -1, 0], [0, 0, 1], 90),
+        ([1, 2, 3], [0, 0, 1], 9.5)])
+    def test_calculating_angle_between_direct_and_reciprocal_lattice_vectors(
+            self, mocker, uvw, hkl, result):
+        direct_lattice = mocker.MagicMock(metric=CALCITE_DIRECT_METRIC)
+        reciprocal_lattice = mocker.MagicMock(metric=CALCITE_RECIPROCAL_METRIC)
+        direct_vector = DirectLatticeVector(uvw, direct_lattice)
+        reciprocal_vector = ReciprocalLatticeVector(hkl, reciprocal_lattice)
+
+        assert_almost_equal(direct_vector.angle(reciprocal_vector), result, decimal=2)
+        assert_almost_equal(reciprocal_vector.angle(direct_vector), result, decimal=2)

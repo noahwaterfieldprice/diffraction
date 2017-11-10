@@ -73,7 +73,7 @@ def metric_tensor(lattice_parameters):
     return tensor
 
 
-def reciprocalise(lattice_parameters):  # TODO: fix docstring
+def reciprocalise(lattice_parameters):  # TODO: fix docstring, factor of 2pi?
     """Transform the lattice parameters to those of the dual basis.
 
     Transforms the lattice parameters of the given lattice to those of
@@ -350,6 +350,7 @@ def check_lattice(operation):
                             "{0}s".format(self.__class__.__name__))
         else:
             return operation(self, other)
+
     return wrapper
 
 
@@ -359,7 +360,7 @@ class DirectLatticeVector(np.ndarray):  # TODO: Finish docstrings
     Parameters
     ----------
     uvw: array_like
-        The u, v, w values of the direct lattice vector.
+        The u, v, w components of the direct lattice vector.
     lattice: DirectLattice
         The direct lattice the vector is associated with.
 
@@ -427,6 +428,19 @@ class DirectLatticeVector(np.ndarray):  # TODO: Finish docstrings
         -------
 
         """
+        #  TODO: is there any way to do this apart from type-checking?
+        if type(other) is ReciprocalLatticeVector:
+            if not np.allclose(self.lattice.metric,
+                               np.linalg.inv(other.lattice.metric), rtol=1e-2):
+                raise TypeError("{0} and {1} lattices must be reciprocally "
+                                "related.".format(self.__class__.__name__,
+                                                  other.__class__.__name__))
+            return self.dot(other)
+
+        if self.lattice != other.lattice:
+            raise TypeError("lattice must be the same for both "
+                            "{0}s".format(self.__class__.__name__))
+
         return self.dot(self.lattice.metric).dot(other)
 
     def angle(self, other):
@@ -440,7 +454,7 @@ class ReciprocalLatticeVector(DirectLatticeVector):  # TODO: Finish docstrings
     Parameters
     ----------
     hkl: array_like
-        The h, k, l values of the reciprocal lattice vector.
+        The h, k, l components of the reciprocal lattice vector.
     lattice: ReciprocalLattice
         The reciprocal lattice the vector is associated with.
 
@@ -465,3 +479,32 @@ class ReciprocalLatticeVector(DirectLatticeVector):  # TODO: Finish docstrings
         vector = np.asarray(hkl).view(cls)
         vector.lattice = lattice
         return vector
+
+    # TODO: add copies of functions so docstrings aren't inherited using super
+
+    def inner(self, other):
+        """Calculate the inner product between the vector and another direct
+        lattice vector
+
+        Parameters
+        ----------
+        other:
+            The
+
+        Returns
+        -------
+
+        """
+        #  TODO: is there any way to do this apart from type-checking?
+        if type(other) is DirectLatticeVector:
+            if not np.allclose(self.lattice.metric,
+                               np.linalg.inv(other.lattice.metric), atol=1e-2):
+                raise TypeError("{0} and {1} lattices must be reciprocally "
+                                "related.".format(self.__class__.__name__,
+                                                  other.__class__.__name__))
+            return self.dot(other)
+
+        if self.lattice != other.lattice:
+            raise TypeError("lattice must be the same for both "
+                            "{0}s".format(self.__class__.__name__))
+        return self.dot(self.lattice.metric).dot(other)

@@ -2,7 +2,8 @@ import pytest
 from numpy import array, sqrt
 from numpy.testing import assert_almost_equal, assert_array_almost_equal
 
-from diffraction import DirectLattice, DirectLatticeVector, ReciprocalLattice
+from diffraction import (DirectLattice, DirectLatticeVector,
+                         ReciprocalLattice, ReciprocalLatticeVector)
 
 CALCITE_LATTICE_PARAMETERS = (4.99, 4.99, 17.002, 90.0, 90.0, 120.0)
 CALCITE_DIRECT_METRIC = array([[24.9001, -12.45005, 0],
@@ -142,3 +143,37 @@ class TestDirectSpaceCalculations:
         assert_almost_equal(v2.angle(v1), 120)
         assert_almost_equal(v1.angle(v3), 90)
         assert_almost_equal(v1.angle(v4), 97.4528371)
+
+    def test_calculating_inner_product_with_reciprocal_lattice_vector(self):
+        direct_lattice = DirectLattice(CALCITE_LATTICE_PARAMETERS)
+        reciprocal_lattice = direct_lattice.reciprocal()
+        v1_direct = DirectLatticeVector([1, 0, 0], direct_lattice)
+        v2_direct = DirectLatticeVector([1, 4, 2], direct_lattice)
+        v1_reciprocal = ReciprocalLatticeVector([1, 0, 0], reciprocal_lattice)
+        v2_reciprocal = ReciprocalLatticeVector([1, 4, 2], reciprocal_lattice)
+
+        assert_almost_equal(v1_direct.inner(v1_reciprocal), 1)
+        assert_almost_equal(v2_direct.inner(v2_reciprocal), 21)
+        assert_almost_equal(v1_direct.inner(v2_reciprocal), 1)
+        assert_almost_equal(v2_direct.inner(v1_reciprocal), 1)
+
+    def test_error_if_calculating_inner_product_with_different_lattices(self):
+        direct_lattice1 = DirectLattice(CALCITE_RECIPROCAL_LATTICE_PARAMETERS)
+        direct_lattice2 = DirectLattice([0.1, 0.2, 0.3, 90, 90, 120])
+        v1_direct = DirectLatticeVector([1, 0, 0], direct_lattice1)
+        v2_direct = DirectLatticeVector([1, 0, 0], direct_lattice2)
+
+        with pytest.raises(TypeError) as exception_info:
+            v1_direct.inner(v2_direct)
+
+        assert str(exception_info.value) == "lattice must be the same " \
+                                            "for both DirectLatticeVectors"
+
+        reciprocal_lattice2 = direct_lattice2.reciprocal()
+        v2_reciprocal = ReciprocalLatticeVector([1, 0, 0], reciprocal_lattice2)
+
+        with pytest.raises(TypeError) as exception_info:
+            v1_direct.inner(v2_reciprocal)
+
+        assert str(exception_info.value) == "DirectLatticeVector and ReciprocalLatticeVector" \
+                                            " lattices must be reciprocally related."
