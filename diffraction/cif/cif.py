@@ -126,8 +126,8 @@ def validate_cif(filepath):
 
     Returns
     -------
-    bool
-         Return ``True`` if file syntax is valid
+    bool:
+         Return ``True`` if file syntax is valid.
 
     Raises
     ------

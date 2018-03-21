@@ -62,7 +62,7 @@ def metric_tensor(lattice_parameters):
 
     Returns
     -------
-    array_like:
+    ndarray:
         The metric tensor of the lattice.
     """
     a, b, c, al, be, ga = _to_radians(lattice_parameters)
@@ -146,7 +146,7 @@ class AbstractLattice:
 
     def convert_parameters(self, lattice_parameters):
         if len(lattice_parameters) < 6:
-            raise(ValueError("Missing lattice parameter from input"))
+            raise (ValueError("Missing lattice parameter from input"))
         lattice_parameters_ = []
         for key, value in zip(self.lattice_parameter_keys, lattice_parameters):
             try:
@@ -263,7 +263,8 @@ class DirectLattice(AbstractLattice):
         """
 
         data_items = load_data_block(filepath, data_block)
-        data_names = [CIF_NAMES[key] for key in "a b c alpha beta gamma".split()]
+        data_names = [CIF_NAMES[key] for key in
+                      "a b c alpha beta gamma".split()]
         lattice_parameters = get_cif_data(data_items, *data_names)
         return cls(lattice_parameters)
 
@@ -329,7 +330,8 @@ class ReciprocalLattice(AbstractLattice):
         """
 
         data_items = load_data_block(filepath, data_block)
-        data_names = [CIF_NAMES[key] for key in "a b c alpha beta gamma".split()]
+        data_names = [CIF_NAMES[key] for key in
+                      "a b c alpha beta gamma".split()]
         lattice_parameters = get_cif_data(data_items, *data_names)
         reciprocal_lps = reciprocalise(lattice_parameters)
         return cls(reciprocal_lps)
@@ -431,10 +433,9 @@ class DirectLatticeVector(np.ndarray):  # TODO: Finish docstrings
         #  TODO: is there any way to do this apart from type-checking?
         if type(other) is ReciprocalLatticeVector:
             if not np.allclose(
-                self.lattice.metric,
-                np.linalg.inv(other.lattice.metric / (2 * np.pi) ** 2),
-                rtol=1e-2):
-
+                    self.lattice.metric,
+                    np.linalg.inv(other.lattice.metric / (2 * np.pi) ** 2),
+                    rtol=1e-2):
                 raise TypeError("{0} and {1} lattices must be reciprocally "
                                 "related.".format(self.__class__.__name__,
                                                   other.__class__.__name__))
@@ -478,6 +479,7 @@ class ReciprocalLatticeVector(DirectLatticeVector):  # TODO: Finish docstrings
         lattice vector.
 
     """
+
     def __new__(cls, hkl, lattice):
         vector = np.asarray(hkl).view(cls)
         vector.lattice = lattice
@@ -501,10 +503,9 @@ class ReciprocalLatticeVector(DirectLatticeVector):  # TODO: Finish docstrings
         #  TODO: is there any way to do this apart from type-checking?
         if type(other) is DirectLatticeVector:
             if not np.allclose(
-                self.lattice.metric,
-                np.linalg.inv(other.lattice.metric) * (2 * np.pi) ** 2,
-                rtol=1e-2):
-
+                    self.lattice.metric,
+                    np.linalg.inv(other.lattice.metric) * (2 * np.pi) ** 2,
+                    rtol=1e-2):
                 raise TypeError("{0} and {1} lattices must be reciprocally "
                                 "related.".format(self.__class__.__name__,
                                                   other.__class__.__name__))
