@@ -10,6 +10,7 @@ dependencies:
   pre:
     - pip install -e .
   override:
+    - pip install pipenv
     - pipenv lock
     - pipenv install --dev
 
