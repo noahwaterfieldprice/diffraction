@@ -28,7 +28,7 @@
             "-y,z,x",
             "y,z,-x"
         ],
-        "matrices": [
+        "matrix": [
             [
                 [
                     1,

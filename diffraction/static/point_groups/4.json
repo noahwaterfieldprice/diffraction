@@ -6,7 +6,7 @@
             "x,y,z",
             "x,-y,z"
         ],
-        "matrices": [
+        "matrix": [
             [
                 [
                     1,

@@ -52,7 +52,7 @@
             "z,-y,-x",
             "z,y,x"
         ],
-        "matrices": [
+        "matrix": [
             [
                 [
                     1,

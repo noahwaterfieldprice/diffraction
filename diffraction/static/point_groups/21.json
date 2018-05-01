@@ -10,7 +10,7 @@
             "y,-x+y,z",
             "x-y,x,z"
         ],
-        "matrices": [
+        "matrix": [
             [
                 [
                     1,

@@ -172,31 +172,28 @@ class TestAddingAndModifyingAtomicSites:
 
     def test_adding_single_sites(self, mocker):
         mock = mocker.MagicMock()
-        mock.add_sites = Crystal.add_sites
         mock.sites = {}
 
-        mock.add_sites(mock, {"Ca1": ["Ca2+", [0, 0, 0]]})
+        Crystal.add_sites(mock, {"Ca1": ["Ca2+", [0, 0, 0]]})
         assert mock.sites == {"Ca1": Site("Ca2+", [0, 0, 0])}
-        mock.add_sites(mock, {"C1": ["C4+", [0, 0, 0.25]]})
+        Crystal.add_sites(mock, {"C1": ["C4+", [0, 0, 0.25]]})
         assert mock.sites == {"Ca1": Site("Ca2+", [0, 0, 0]),
                               "C1": Site("C4+", [0, 0, 0.25])}
 
     def test_adding_multiple_sites(self, mocker):
         mock = mocker.MagicMock()
-        mock.add_sites = Crystal.add_sites
 
         mock.sites = {}
-        mock.add_sites(mock, CALCITE_ATOMIC_SITES)
+        Crystal.add_sites(mock, CALCITE_ATOMIC_SITES)
         expected_sites = {name: Site(ion, position)
                           for name, (ion, position) in CALCITE_ATOMIC_SITES.items()}
         assert mock.sites == expected_sites
 
     def test_modifying_atom_position(self, mocker):
         mock = mocker.MagicMock()
-        mock.add_sites = Crystal.add_sites
 
         mock.sites = {}
-        mock.add_sites(mock, CALCITE_ATOMIC_SITES)
+        Crystal.add_sites(mock, CALCITE_ATOMIC_SITES)
         mock.sites["Ca1"].position = [0, 0, 0.5]
         assert_array_equal(mock.sites["Ca1"].position, array([0, 0, 0.5]))
         assert isinstance(mock.sites["Ca1"].position, ndarray)

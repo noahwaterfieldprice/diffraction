@@ -81,10 +81,9 @@ class TestCreatingAbstractLattice:
         lattice_parameters_missing_one = list(self.test_dict.values())[:5]
         mock = mocker.MagicMock()
         mock.lattice_parameter_keys = self.test_dict.keys()
-        mock.convert_parameters = self.cls.convert_parameters
 
         with pytest.raises(ValueError) as exception_info:
-            mock.convert_parameters(mock, lattice_parameters_missing_one)
+            self.cls.convert_parameters(mock, lattice_parameters_missing_one)
         assert str(
             exception_info.value) == "Missing lattice parameter from input"
 
@@ -102,7 +101,7 @@ class TestCreatingAbstractLattice:
     def test_parameters_are_assigned_with_values_read_from_dict(self, mocker):
         mock = mocker.patch("diffraction.lattice.AbstractLattice.__init__",
                             return_value=None)
-        c = self.cls.from_dict(self.test_dict)
+        self.cls.from_dict(self.test_dict)
         mock.assert_called_once_with(list(self.test_dict.values()))
 
     @pytest.mark.parametrize("invalid_value", ["abc", "123@%£", "1232.433.21"])
@@ -112,35 +111,34 @@ class TestCreatingAbstractLattice:
         invalid_lattice_parameters = list(self.test_dict.values())
         invalid_lattice_parameters[position] = invalid_value
         mock = mocker.MagicMock()
-        mock.convert_parameters = self.cls.convert_parameters
         mock.lattice_parameter_keys = tuple(self.test_dict.keys())
 
         with pytest.raises(ValueError) as exception_info:
-            mock.convert_parameters(mock, invalid_lattice_parameters)
+            self.cls.convert_parameters(mock, invalid_lattice_parameters)
         assert str(exception_info.value) == \
             "Invalid lattice parameter {}: {}".format(
                 mock.lattice_parameter_keys[position], invalid_value)
 
     def test_parameters_are_assigned_with_correct_type(self, mocker):
         lattice_parameters = self.test_dict.values()
-        l = self.cls(lattice_parameters)
+        lattice = self.cls(lattice_parameters)
         mocker.patch("diffraction.lattice.AbstractLattice.convert_parameters",
                      return_value=self.test_dict.values())
 
         # test lattice parameters are assigned as floats
         for parameter, value in self.test_dict.items():
-            assert getattr(l, parameter) == value
-            assert isinstance(getattr(l, parameter), float)
+            assert getattr(lattice, parameter) == value
+            assert isinstance(getattr(lattice, parameter), float)
 
     def test_string_representation_of_lattice(self):
         lattice_parameters = self.test_dict.values()
-        l = self.cls(lattice_parameters)
+        lattice = self.cls(lattice_parameters)
 
-        assert repr(l) == "{0}({1})".format(
-            l.__class__.__name__,
+        assert repr(lattice) == "{0}({1})".format(
+            lattice.__class__.__name__,
             [float(parameter) for parameter in lattice_parameters])
-        assert str(l) == "{0}({1})".format(
-            l.__class__.__name__,
+        assert str(lattice) == "{0}({1})".format(
+            lattice.__class__.__name__,
             [float(parameter) for parameter in lattice_parameters])
 
     def test_loading_from_cif(self):
@@ -172,12 +170,11 @@ class TestCreatingDirectLattice(TestCreatingAbstractLattice):
     def test_creating_from_reciprocal_lattice(self, mocker):
         mock = mocker.MagicMock()
         mock.lattice_parameters = "reciprocal_lattice_parameters"
-        mock.direct = ReciprocalLattice.direct
         m1 = mocker.patch("diffraction.lattice.reciprocalise",
                           return_value="direct_lattice_parameters")
         m2 = mocker.patch("diffraction.lattice.DirectLattice")
 
-        mock.direct(mock)
+        ReciprocalLattice.direct(mock)
         m1.assert_called_once_with("reciprocal_lattice_parameters")
         m2.assert_called_once_with("direct_lattice_parameters")
 
@@ -207,12 +204,11 @@ class TestCreatingReciprocalLattice(TestCreatingAbstractLattice):
     def test_creating_from_direct_lattice(self, mocker):
         mock = mocker.MagicMock()
         mock.lattice_parameters = "direct_lattice_parameters"
-        mock.reciprocal = DirectLattice.reciprocal
         m1 = mocker.patch("diffraction.lattice.reciprocalise",
                           return_value="reciprocal_lattice_parameters")
         m2 = mocker.patch("diffraction.lattice.ReciprocalLattice")
 
-        mock.reciprocal(mock)
+        DirectLattice.reciprocal(mock)
         m1.assert_called_once_with("direct_lattice_parameters")
         m2.assert_called_once_with("reciprocal_lattice_parameters")
 
@@ -234,11 +230,8 @@ class TestAccessingComputedProperties:
     @pytest.mark.parametrize("lattice, lattice_class, parameter", [
         (CALCITE_LATTICE, DirectLattice, 'a'),
         (CALCITE_RECIPROCAL_LATTICE, ReciprocalLattice, 'a_star')])
-    def test_lattice_parameters_updated_if_lattice_parameter_changed(self,
-                                                                     mocker,
-                                                                     lattice,
-                                                                     lattice_class,
-                                                                     parameter):
+    def test_lattice_parameters_updated_if_lattice_parameter_changed(
+            self, mocker, lattice, lattice_class, parameter):
         mock = mocker.MagicMock(**lattice)
         mock.lattice_parameter_keys = lattice_class.lattice_parameter_keys
         mock.lattice_parameters = lattice_class.lattice_parameters
@@ -274,7 +267,8 @@ class TestAccessingComputedProperties:
         mock.unit_cell_volume = lattice_class.unit_cell_volume
         mock.metric = metric
 
-        assert_almost_equal(mock.unit_cell_volume.fget(mock), cell_volume, decimal=4)
+        assert_almost_equal(mock.unit_cell_volume.fget(mock),
+                            cell_volume, decimal=4)
 
 
 class TestDirectLatticeVectorCreationAndMagicMethods:
@@ -291,10 +285,9 @@ class TestDirectLatticeVectorCreationAndMagicMethods:
 
     def test_creating_lattice_vector_from_lattice(self, mocker):
         lattice = mocker.MagicMock()
-        lattice.vector = self.lattice_cls.vector
 
         v1 = self.cls([1, 2, 3], lattice)
-        v2 = lattice.vector(lattice, [1, 2, 3])
+        v2 = self.lattice_cls.vector(lattice, [1, 2, 3])
         assert v1 == v2
 
     def test_lattice_attribute_persists_when_new_array_created(self, mocker):

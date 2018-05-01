@@ -20,7 +20,7 @@
             "-y,-x,z",
             "y,x,z"
         ],
-        "matrices": [
+        "matrix": [
             [
                 [
                     1,

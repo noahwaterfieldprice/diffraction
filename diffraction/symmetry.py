@@ -29,38 +29,39 @@ class PointGroup:  # TODO: write a better docstring
         point group.
     number: int
         An integer from 1 to 32 denoting the point group.
-    operations: dict
+    operators: dict
         A dictionary containing all the symmetry elements of the point
-        group with keys "xyz", "matrices", and "ita" corresponding to
+        group with keys "xyz", "matrix", and "ita" corresponding to
         the x,y,z, matrix and international representations of the
-        symmetry operations in the point group.
-
+        symmetry operators in the point group. The x,y,z and
+        international representations are stored as strings and the
+        matrix representation is stored as a 3x3 list.
 
     Examples
     --------
     >>> from diffraction import PointGroup
     >>> point_group = PointGroup("4/m")
-    >>> point_group.operatons["xyz"][]
-
-    >>> calcite.gamma
-    120.0
-    >>> calcite.space_group
-    'R -3 c H'
+    >>> point_group.operators["xyz"][:4]
+    ['x,y,z', '-x,-y,z', '-y,x,z', 'y,-x,z']
+    >>> point_group.operators["matrix"][2]
+    [[0, -1, 0], [1, 0, 0], [0, 0, 1]]
+    >>> calcite.operators["ita"][4]
+    '4- 0,0,z'
     """
     def __init__(self, symbol=None, number=None):
         if symbol is None and number is None:
             raise ValueError("Either the point group symbol or point group "
                              "number must be given.")
-        self._load_point_group_operations(symbol, number)
+        self._load_point_group_operators(symbol, number)
 
-    def _load_point_group_operations(self, symbol, number):
+    def _load_point_group_operators(self, symbol, number):
         if symbol is not None:
             number = POINT_GROUP_NUMBERS[symbol]
 
         json_string = pkg_resources.resource_string(
             __name__, "static/point_groups/{}.json".format(number))
         point_group_data = json.loads(json_string)
-
+        # TODO: is this update a bit too general?
         self.__dict__.update(point_group_data)
 
     def __repr__(self):
