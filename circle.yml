@@ -1,6 +1,6 @@
 machine:
   python:
-    version: 3.5.0
+    version: 3.6.0
 general:
   artifacts:
     - "htmlcov/*"
@@ -10,12 +10,12 @@ dependencies:
   pre:
     - pip install -e .
   override:
-    - pip install -r requirements.txt
-    - pip install -r requirements-dev.txt
+    - pipenv lock
+    - pipenv install --dev
 
 test:
     override:
-      - py.test --junitxml=$CIRCLE_TEST_REPORTS/report.xml --ignore=venv
-      - coverage xml && python-codacy-coverage -r coverage.xml
+      - pipenv run py.test --junitxml=$CIRCLE_TEST_REPORTS/report.xml --ignore=venv
+      - pipenv run coverage xml && python-codacy-coverage -r coverage.xml
     post:
-      - coveralls
+      - pipenv run coveralls

@@ -1,0 +1,50 @@
+{
+    "number": 3,
+    "symbol": "2) [Unique axes b]</h2><br><center><a href=\"nph-point_genpos?w2do=gens&num=3&what=\">Show the generators</a><br><br><a href=\"/cgi-bin/rep/programs/sam/point.py?sg=3&num=3\">Click here to get more detailed information about this point group</a></center><br><center><table border=5 cellpadding=10> <tr>   <td align=\"center\" rowspan=\"2\" bgcolor=\"#bbbbbb\"><b>No.</b></td>   <td align=\"center\" rowspan=\"2\" bgcolor=\"#bbbbbb\"><b>(x,y,z) form</b></td>   <td align=\"center\" rowspan=\"2\" bgcolor=\"#bbbbbb\"><b>Matrix form</b></td>   <td colspan=\"2\" align=\"center\" bgcolor=\"#bbbbbb\"><b>Symmetry operation</b></td></tr><tr>  <td align=\"center\" bgcolor=\"#bbbbbb\"><b>ITA</b></td>  <td align=\"center\" bgcolor=\"#bbbbbb\"><b>Seitz <a href=\"/html/cryst/help_pop-up/seitz_symbol_point3d.html\" target=\"_blank\" onClick=\"window.open(this.href, this.target, 'width=700,height=750'); return false;\"><img src=\"/html/gif/icono_ayuda.gif\" width=\"15\" height=\"15\"></a></b></td></tr><tr><td align=\"center\" bgcolor=\"#F2F2F2\">1</td><td align=\"center\">x,y,z</td><td align=\"center\" bgcolor=\"#F2F2F2\"><table bgcolor=\"#f2f2f2\" border=0 cellpadding=2 cellspacing=0><tr><td><img src=\"/html/gif/paropen.png\" alt=\"(\"></td><td><pre>  1  0  0  \n  0  1  0  \n  0  0  1  </pre></td><td><img src=\"/html/gif/parclose.png\" alt=\")\"></td></tr>\n</table></td><td align=\"center\">1   </td><td align=\"center\"> 1 </td></tr><tr><td align=\"center\" bgcolor=\"#F2F2F2\">2</td><td align=\"center\">-x,y,-z</td><td align=\"center\" bgcolor=\"#F2F2F2\"><table bgcolor=\"#f2f2f2\" border=0 cellpadding=2 cellspacing=0><tr><td><img src=\"/html/gif/paropen.png\" alt=\"(\"></td><td><pre> -1  0  0  \n  0  1  0  \n  0  0 -1  </pre></td><td><img src=\"/html/gif/parclose.png\" alt=\")\"></td></tr>\n</table></td><td align=\"center\">2  0,y,0 </td><td align=\"center\"> 2<sub>010</sub> </td></tr></table><br><center><a href=nph-point_genpos?num=3&what=c&w2do=>[Unique axes c]</a></center><br>\n<br>\n<table bgcolor=\"#dddddd\" width=\"100%\">\n  <tr>\n    <td align=\"left\">\n      <small>\n       <a href=\"http://www.cryst.ehu.es\">Bilbao Crystallographic Server</a><br>\n           http://www.cryst.ehu.es\n      </small>\n    </td>\n    <td align=\"right\" rowspan=\"2\"> \n      <small>\n        For comments, please mail to<br>\n        <a href=\"mailto:administrador.bcs@ehu.eus\">administrador.bcs@ehu.eus</a>\n      </small>\n    </td>\n  </tr>\n</table>\n\n</body>\n</html>",
+    "operators": {
+        "xyz": [
+            "x,y,z",
+            "-x,y,-z"
+        ],
+        "matrices": [
+            [
+                [
+                    1,
+                    0,
+                    0
+                ],
+                [
+                    0,
+                    1,
+                    0
+                ],
+                [
+                    0,
+                    0,
+                    1
+                ]
+            ],
+            [
+                [
+                    -1,
+                    0,
+                    0
+                ],
+                [
+                    0,
+                    1,
+                    0
+                ],
+                [
+                    0,
+                    0,
+                    -1
+                ]
+            ]
+        ],
+        "ita": [
+            "1",
+            "2 0,y,0"
+        ]
+    }
+}

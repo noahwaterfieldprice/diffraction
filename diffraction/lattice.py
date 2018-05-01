@@ -203,7 +203,7 @@ class AbstractLattice:
 
 
 class DirectLattice(AbstractLattice):
-    """Class to represent a Direct Lattice
+    """Class to represent a direct lattice
 
     Parameters
     ----------
@@ -277,7 +277,7 @@ class DirectLattice(AbstractLattice):
 
 
 class ReciprocalLattice(AbstractLattice):
-    """Class to represent a ReciprocalLattice
+    """Class to represent a reciprocal lattice
 
     Attributes
     ----------
