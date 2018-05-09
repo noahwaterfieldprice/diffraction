@@ -1,7 +1,11 @@
-from numpy import array, allclose
+from typing import Any, Dict, Sequence
+
+import numpy as np
 
 from .cif.helpers import CIF_NAMES, get_cif_data, load_data_block
 from .lattice import DirectLattice
+
+LatticeParameters, Position = Sequence[float], Sequence[float]
 
 __all__ = ["Crystal", "Site"]
 
@@ -11,9 +15,15 @@ class Site:
 
     Parameters
     ----------
-    ion: str
-    position: seq
-    precision: float, optional
+    ion
+        A string denoting ion at the site, e.g. 'Fe3+', 'O2-'
+    position
+        A sequence of the form (x, y, z) denoting position of the site
+        with x, y, z given in :term:`fractional coordinates`.
+    precision
+        A number representing the precision with which the site is
+        positioned. This is used when deciding if the position of two
+        sites are the same.
 
     Attributes
     ----------
@@ -23,25 +33,30 @@ class Site:
 
     """
 
-    def __init__(self, ion, position, precision=1E-6):
+    def __init__(self,
+                 ion: str,
+                 position: Position,
+                 precision: float = 1E-6
+                 ) -> None:
         self.ion = ion
         self.position = position
         self.precision = precision
 
     @property
-    def position(self):
+    def position(self) -> np.ndarray:
         return self._position
 
     @position.setter
-    def position(self, new_position):
-        self._position = array(new_position)
+    def position(self, new_position: Position) -> None:
+        self._position = np.array(new_position)
 
-    def __repr__(self):
-        return "{0}({1.ion!r}, {1.position!r})".format(self.__class__.__name__, self)
+    def __repr__(self) -> str:
+        return "{0}({1.ion!r}, {1.position!r})".format(
+            self.__class__.__name__, self)
 
-    def __eq__(self, other):
-        return (self.ion == other.ion and
-                allclose(self.position, other.position, atol=self.precision))
+    def __eq__(self, other: "Site") -> bool:
+        return (self.ion == other.ion and np.allclose(
+            self.position, other.position, atol=self.precision))
 
 
 class Crystal:  # TODO: Finish docstring and update glossary. lattparams_rad?
@@ -99,7 +114,7 @@ class Crystal:  # TODO: Finish docstring and update glossary. lattparams_rad?
         self.sites = {}
 
     @classmethod
-    def from_dict(cls, input_dict):
+    def from_dict(cls, input_dict: Dict[str, float]) -> "Crystal":
         """Create a Crystal using a dictionary as input
 
         Raises
@@ -139,7 +154,11 @@ class Crystal:  # TODO: Finish docstring and update glossary. lattparams_rad?
         return crystal
 
     @classmethod
-    def from_cif(cls, filepath, data_block=None, load_sites=True):
+    def from_cif(cls,
+                 filepath: str,
+                 data_block: str = None,
+                 load_sites: bool = True
+                 ) -> "Crystal":
         """Create a Crystal using a CIF as input
 
         Parameters
@@ -184,19 +203,19 @@ class Crystal:  # TODO: Finish docstring and update glossary. lattparams_rad?
             crystal.add_sites_from_cif(filepath, data_block)
         return crystal
 
-    def __repr__(self):
+    def __repr__(self) -> str:
         repr_string = ("{0}([{1.a!r}, {1.b!r}, {1.c!r}, "
                        "{1.alpha!r}, {1.beta!r}, {1.gamma!r}], "
                        "{1.space_group!r})")
         return repr_string.format(self.__class__.__name__, self)
 
-    def __str__(self):
-        return repr(self)
-
-    def __getattr__(self, name):  # TODO: Only delegate access for certain variables
+    def __getattr__(self, name: str) -> Any:  # TODO: Only delegate access for certain variables
         return getattr(self.lattice, name)
 
-    def add_sites_from_cif(self, filepath, data_block=None):
+    def add_sites_from_cif(self,
+                           filepath: str,
+                           data_block: str = None
+                           ) -> None:
         data_items = load_data_block(filepath, data_block)
         atomic_site_data = get_cif_data(data_items,
                                         "atom_site_label",
@@ -207,7 +226,7 @@ class Crystal:  # TODO: Finish docstring and update glossary. lattparams_rad?
         for label, element, *position in zip(*atomic_site_data):
             self.sites[label] = Site(element, position)
 
-    def add_sites(self, atoms):  # TODO: Finish docstring
+    def add_sites(self, atoms: Dict[str, Position]) -> None:  # TODO: Finish docstring
         """Add atomic site to crystal
 
         Parameters

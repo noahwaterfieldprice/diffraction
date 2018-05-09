@@ -83,7 +83,7 @@ class TestCreatingAbstractLattice:
         mock.lattice_parameter_keys = self.test_dict.keys()
 
         with pytest.raises(ValueError) as exception_info:
-            self.cls.convert_parameters(mock, lattice_parameters_missing_one)
+            self.cls.check_lattice_parameters(mock, lattice_parameters_missing_one)
         assert str(
             exception_info.value) == "Missing lattice parameter from input"
 
@@ -114,7 +114,7 @@ class TestCreatingAbstractLattice:
         mock.lattice_parameter_keys = tuple(self.test_dict.keys())
 
         with pytest.raises(ValueError) as exception_info:
-            self.cls.convert_parameters(mock, invalid_lattice_parameters)
+            self.cls.check_lattice_parameters(mock, invalid_lattice_parameters)
         assert str(exception_info.value) == \
             "Invalid lattice parameter {}: {}".format(
                 mock.lattice_parameter_keys[position], invalid_value)
@@ -122,7 +122,7 @@ class TestCreatingAbstractLattice:
     def test_parameters_are_assigned_with_correct_type(self, mocker):
         lattice_parameters = self.test_dict.values()
         lattice = self.cls(lattice_parameters)
-        mocker.patch("diffraction.lattice.AbstractLattice.convert_parameters",
+        mocker.patch("diffraction.lattice.AbstractLattice.check_lattice_parameters",
                      return_value=self.test_dict.values())
 
         # test lattice parameters are assigned as floats

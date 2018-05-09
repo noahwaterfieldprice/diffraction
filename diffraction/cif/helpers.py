@@ -1,5 +1,5 @@
-from collections import Iterable
 import re
+from typing import Dict, List, Union
 
 from .cif import load_cif
 
@@ -100,7 +100,7 @@ CIF_NAMES = {
 NUMERICAL_DATA_VALUE = re.compile("(-?\d+\.?\d*)(?:\(\d+\))?$")
 
 
-def load_data_block(filepath, data_block=None):
+def load_data_block(filepath: str, data_block: str = None):
     """Extract the :term:`data items` of a specific :term:`data
     block` from a :term:`CIF`.
 
@@ -123,7 +123,9 @@ def load_data_block(filepath, data_block=None):
     return data
 
 
-def get_cif_data(data_items, *data_names):
+def get_cif_data(data_items: Dict[str, Union[str, List[str]]],
+                 *data_names: str
+                 ) -> List[Union[str, List[str]]]:
     """Retrieve a list of :term:`data values` from dictionary of raw
     :term:`CIF` :term:`data items` given an arbitrary number of
     :term:`data names`.
@@ -147,7 +149,9 @@ def get_cif_data(data_items, *data_names):
     return data
 
 
-def cif_numerical(data_name, data_value):
+def cif_numerical(data_name: str,
+                  data_value: Union[str, List[str]]
+                  ) -> Union[float, List[float]]:
     """Extract numerical :term:`data value` from raw :term:`CIF` data
 
     The numerical data value is matched to the pattern #.#(#), where #

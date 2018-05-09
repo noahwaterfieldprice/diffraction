@@ -1,6 +1,10 @@
 import json
 import pkg_resources
+from typing import Dict, List, Tuple, Union
+
 __all__ = ["PointGroup"]
+
+Matrix = List[List[int]]
 
 POINT_GROUP_NUMBERS = {
     '1': 1, '-1': 2, '2': 3, 'm': 4, '2/m': 5, '222': 6, 'mm2': 7, 'mmm': 8,
@@ -45,24 +49,34 @@ class PointGroup:  # TODO: write a better docstring
     ['x,y,z', '-x,-y,z', '-y,x,z', 'y,-x,z']
     >>> point_group.operators["matrix"][2]
     [[0, -1, 0], [1, 0, 0], [0, 0, 1]]
-    >>> calcite.operators["ita"][4]
+    >>> point_group.operators["ita"][4]
     '4- 0,0,z'
     """
-    def __init__(self, symbol=None, number=None):
+
+    def __init__(self, symbol: str = None, number: int = None):
         if symbol is None and number is None:
             raise ValueError("Either the point group symbol or point group "
                              "number must be given.")
-        self._load_point_group_operators(symbol, number)
+        self.symbol, self.number, self.operators = \
+            self._load_point_group_data(symbol, number)
 
-    def _load_point_group_operators(self, symbol, number):
+    @staticmethod
+    def _load_point_group_data(
+        symbol: str = None,
+        number: int = None
+    ) -> Tuple[str, int, Dict[str, Union[List[str], List[Matrix]]]]:
+        """Load the point group symbol, name and operators from file."""
         if symbol is not None:
             number = POINT_GROUP_NUMBERS[symbol]
 
         json_string = pkg_resources.resource_string(
             __name__, "static/point_groups/{}.json".format(number))
         point_group_data = json.loads(json_string)
-        # TODO: is this update a bit too general?
-        self.__dict__.update(point_group_data)
 
-    def __repr__(self):
+        symbol, number, operators = (point_group_data["symbol"],
+                                     point_group_data["number"],
+                                     point_group_data["operators"])
+        return symbol, number, operators
+
+    def __repr__(self) -> str:
         return "{0}(\"{1}\")".format(self.__class__.__name__, self.symbol)
