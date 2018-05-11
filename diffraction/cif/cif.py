@@ -25,14 +25,16 @@ CIFParseError:
 
 import collections
 import re
-from typing import Optional, Match, Pattern
+from typing import Dict, List, Pattern, Union
 import warnings
 
 
 __all__ = ["load_cif", "validate_cif", "CIFParseError"]
 
+DataItem = Union[str, List[str]]
 
-def load_cif(filepath: str):
+
+def load_cif(filepath: str) -> Dict[str, Dict[str, DataItem]]:
     """Extract and return :term:`data items` from a :term:`CIF`.
 
     The input CIF is read and split by :term:`data block`. The
@@ -53,7 +55,7 @@ def load_cif(filepath: str):
 
     Parameters
     ----------
-    filepath: str
+    filepath
         Filepath to the input :term:`CIF`.
 
     Returns
@@ -113,7 +115,7 @@ def load_cif(filepath: str):
                 for data_block in p.data_blocks)
 
 
-def validate_cif(filepath: str):
+def validate_cif(filepath: str) -> bool:
     """Validate :term:`CIF` syntax
 
     The CIF is scanned and checked for syntax errors. If one is found
@@ -178,7 +180,7 @@ INLINE_DATA_ITEM = re.compile(
     "(?:^|\n){0.pattern}[^\S\n]+{1.pattern}".format(DATA_NAME, DATA_VALUE))
 
 
-def strip_quotes(data_value: str):
+def strip_quotes(data_value: str) -> str:
     """Strip the ending quotes from a :term:`data value`"""
     return DATA_VALUE_QUOTES.match(data_value).group(1)
 
@@ -416,7 +418,7 @@ class CIFValidator:
         raise CIFParseError('{} on line {}: "{}"'.format(
             message, line_number, line))
 
-    def validate(self) -> Optional[bool]:
+    def validate(self) -> bool:
         """Validate the :term:`CIF` line by line.
 
         Perform context sensitive, line by line, scan through the CIF
@@ -477,7 +479,7 @@ class CIFValidator:
             else:
                 break
 
-    def _get_loop_data_names(self) -> None:
+    def _get_loop_data_names(self) -> List[str]:
         """ Extract :term:`data names` from a :term:`loop`
 
         Collect and return a the list of data names declared at the
@@ -497,7 +499,8 @@ class CIFValidator:
             if COMMENT_OR_BLANK.match(self.current_line):
                 self._next_line()
             elif DATA_NAME.match(self.current_line):
-                loop_data_names.append(DATA_NAME.match(self.current_line))
+                loop_data_names.append(
+                    DATA_NAME.match(self.current_line).group())
                 self._next_line()
             else:
                 break
@@ -570,9 +573,12 @@ class CIFValidator:
         of current or following lines. (Top level context meaning not
         inside a :term:`loop` or :term:`semicolon text field`.)
         """
-        return (COMMENT_OR_BLANK.match(self.current_line) or
-                INLINE_DATA_ITEM.match(self.current_line) or
-                DATA_BLOCK_HEADER.match(self.current_line))
+        is_comment_or_blank = bool(COMMENT_OR_BLANK.match(self.current_line))
+        is_inline_data_item = bool(INLINE_DATA_ITEM.match(self.current_line))
+        is_data_block_header = bool(DATA_BLOCK_HEADER.match(self.current_line))
+
+        return (is_comment_or_blank or is_inline_data_item or
+                is_data_block_header)
 
     def _is_loop_data_values(self) -> bool:
         """Check if valid :term:`data value` in a :term:`loop` context."""

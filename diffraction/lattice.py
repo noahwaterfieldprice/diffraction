@@ -74,6 +74,7 @@ DirectLatticeVector([ 1, 0,  1])
 29.999999999516355
 """
 
+import abc
 from functools import wraps
 import math
 from typing import Callable, Dict, Optional, Sequence, Tuple, Union
@@ -171,7 +172,7 @@ def reciprocalise(lattice_parameters: LatticeParameters) -> LatticeParameters:
     tuple:
         The lattice parameters of the lattice reciprocally related to
         the input lattice, with the angles in units of degrees.
-    """  # TODO: fix docstring, factor of 2pi?
+    """
     a, b, c, al, be, ga = _to_radians(lattice_parameters)
     cell_volume = np.sqrt(np.linalg.det(metric_tensor(lattice_parameters)))
     pi, sin, cos, arccos = math.pi, math.sin, math.cos, math.acos
@@ -186,14 +187,14 @@ def reciprocalise(lattice_parameters: LatticeParameters) -> LatticeParameters:
     return _to_degrees((a_, b_, c_, alpha_, beta_, gamma_))
 
 
-class AbstractLattice:
+class Lattice(abc.ABC):
     """Abstract base class for lattice objects.
 
     Parameters
     ----------
-    lattice_parameters: seq of float
+    lattice_parameters
         The :term:`lattice parameters` of the lattice declared in the
-        order [*a*, *b*, *c*, *alpha*, *beta*, *gamma*]
+        order [*a*, *b*, *c*, *alpha*, *beta*, *gamma*].
 
     Attributes
     ----------
@@ -205,7 +206,7 @@ class AbstractLattice:
         describing the angles of the :term:`unit cell` in degrees.
     lattice_parameters: tuple of float
         The :term:`lattice parameters` in the form
-        (*a*, *b*, *c*, *alpha*, *beta*, *gamma*)
+        (*a*, *b*, *c*, *alpha*, *beta*, *gamma*) ]
         with angles in degrees.
     metric: ndarray
         The :term:`metric tensor` of the direct basis.
@@ -252,6 +253,7 @@ class AbstractLattice:
         return lattice_parameters_
 
     @classmethod
+    @abc.abstractmethod
     def from_cif(cls,
                  filepath: str,
                  data_block: Optional[str] = None
@@ -293,14 +295,16 @@ class AbstractLattice:
     def __repr__(self) -> str:
         repr_string = ("{0}([{1!r}, {2!r}, {3!r}, "
                        "{4!r}, {5!r}, {6!r}])")
+        rounded_lattice_parameters = [round(parameter, 4) for parameter
+                                      in self.lattice_parameters]
         return repr_string.format(self.__class__.__name__,
-                                  *self.lattice_parameters)
+                                  *rounded_lattice_parameters)
 
     def __str__(self) -> str:
         return repr(self)
 
 
-class DirectLattice(AbstractLattice):
+class DirectLattice(Lattice):
     """Class to represent a direct lattice
 
     Parameters
@@ -401,7 +405,7 @@ class DirectLattice(AbstractLattice):
         return ReciprocalLattice(reciprocal_lattice_parameters)
 
 
-class ReciprocalLattice(AbstractLattice):
+class ReciprocalLattice(Lattice):
     """Class to represent a reciprocal lattice
 
     Attributes
@@ -465,9 +469,25 @@ class ReciprocalLattice(AbstractLattice):
         return cls(reciprocal_lps)
 
     def vector(self, hkl: Sequence[float]) -> "ReciprocalLatticeVector":
+        """Return a reciprocal lattice vector defined on this
+        reciprocal lattice.
+
+        Parameters
+        ----------
+        hkl:
+            The indices of the reciprocal lattice vector, given as a
+            sequence.
+
+        Returns
+        -------
+        ReciprocalLatticeVector:
+            A reciprocal lattice vector with the given indices, defined
+            on this reciprocal lattice.
+        """
         return ReciprocalLatticeVector(hkl, self)
 
     def direct(self) -> "DirectLattice":
+        """Return the corresponding direct lattice object."""
         direct_lattice_parameters = reciprocalise(self.lattice_parameters)
         return DirectLattice(direct_lattice_parameters)
 
@@ -484,7 +504,7 @@ def check_lattice(operation: Callable) -> Callable:
     return wrapper
 
 
-class DirectLatticeVector(np.ndarray):  # TODO: Is this a good idea?
+class DirectLatticeVector(np.ndarray):
     """Class to represent a direct lattice vector
 
     Parameters
@@ -512,6 +532,7 @@ class DirectLatticeVector(np.ndarray):  # TODO: Is this a good idea?
 
     """  # TODO: finish docstring
     # TODO: implement __repr__ + tests
+
     def __new__(cls,
                 uvw: Sequence,
                 lattice: DirectLattice
@@ -536,6 +557,13 @@ class DirectLatticeVector(np.ndarray):  # TODO: Is this a good idea?
     @check_lattice
     def __sub__(self, other: "DirectLatticeVector") -> "DirectLatticeVector":
         return np.ndarray.__sub__(self, other)
+
+    def __repr__(self) -> str:
+        return "{0}({1}, {2})".format(
+            self.__class__.__name__, list(self), self.lattice)
+
+    def __str__(self) -> str:
+        return "{0}({1})".format(self.__class__.__name__, list(self))
 
     def norm(self) -> float:
         """Calculate the norm (or magnitude) of the vector
@@ -580,7 +608,7 @@ class DirectLatticeVector(np.ndarray):  # TODO: Is this a good idea?
 
     def angle(self, other: "DirectLatticeVector") -> float:
         u, v = self, other
-        return np.degrees(np.arccos(u.inner(v) / (u.norm() * v.norm())))
+        return math.degrees(math.acos(u.inner(v) / (u.norm() * v.norm())))
 
 
 class ReciprocalLatticeVector(DirectLatticeVector):  # TODO: Finish docstrings

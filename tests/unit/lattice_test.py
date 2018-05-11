@@ -5,8 +5,7 @@ from numpy.testing import assert_almost_equal, assert_array_almost_equal
 import pytest
 
 from diffraction.cif.helpers import NUMERICAL_DATA_VALUE
-from diffraction.lattice import (AbstractLattice, DirectLattice,
-                                 DirectLatticeVector,
+from diffraction.lattice import (Lattice, DirectLattice, DirectLatticeVector,
                                  _to_radians, _to_degrees, metric_tensor,
                                  ReciprocalLattice, ReciprocalLatticeVector,
                                  reciprocalise)
@@ -39,9 +38,13 @@ CALCITE_RECIPROCAL_METRIC = array([[2.1138, 1.0569, 0],
 CALCITE_RECIPROCAL_CELL_VOLUME = 0.6766
 
 
-class FakeAbstractLattice(AbstractLattice):
+class FakeAbstractLattice(Lattice):
     """Fake concrete AbstractLattice class for testing"""
     lattice_parameter_keys = ("k1", "k2", "k3", "k4", "k5", "k6")
+
+    @classmethod
+    def from_cif(cls, filepath, data_block=None):
+        super().from_cif(filepath, data_block)
 
 
 class TestUtilityFunctions:
@@ -99,7 +102,7 @@ class TestCreatingAbstractLattice:
                     missing_parameter)
 
     def test_parameters_are_assigned_with_values_read_from_dict(self, mocker):
-        mock = mocker.patch("diffraction.lattice.AbstractLattice.__init__",
+        mock = mocker.patch("diffraction.lattice.Lattice.__init__",
                             return_value=None)
         self.cls.from_dict(self.test_dict)
         mock.assert_called_once_with(list(self.test_dict.values()))
@@ -122,7 +125,7 @@ class TestCreatingAbstractLattice:
     def test_parameters_are_assigned_with_correct_type(self, mocker):
         lattice_parameters = self.test_dict.values()
         lattice = self.cls(lattice_parameters)
-        mocker.patch("diffraction.lattice.AbstractLattice.check_lattice_parameters",
+        mocker.patch("diffraction.lattice.Lattice.check_lattice_parameters",
                      return_value=self.test_dict.values())
 
         # test lattice parameters are assigned as floats
@@ -157,7 +160,7 @@ class TestCreatingDirectLattice(TestCreatingAbstractLattice):
         get_cif_data_mock = mocker.patch("diffraction.lattice.get_cif_data",
                                          return_value=list(
                                              self.test_dict.values()))
-        mock = mocker.patch("diffraction.lattice.AbstractLattice.__init__",
+        mock = mocker.patch("diffraction.lattice.Lattice.__init__",
                             return_value=None)
 
         self.cls.from_cif("some/single/data/block/cif")
@@ -190,7 +193,7 @@ class TestCreatingReciprocalLattice(TestCreatingAbstractLattice):
         get_cif_data_mock = mocker.patch("diffraction.lattice.get_cif_data",
                                          return_value=list(
                                              CALCITE_LATTICE.values()))
-        mock = mocker.patch("diffraction.lattice.AbstractLattice.__init__",
+        mock = mocker.patch("diffraction.lattice.Lattice.__init__",
                             return_value=None)
 
         self.cls.from_cif("some/single/data/block/cif")
@@ -274,13 +277,11 @@ class TestAccessingComputedProperties:
 class TestDirectLatticeVectorCreationAndMagicMethods:
     lattice_cls = DirectLattice
     cls = DirectLatticeVector
-    cls_name = 'DirectLatticeVector'
 
     def test_creating_lattice_vector_directly(self, mocker):
         lattice = mocker.MagicMock()
 
         vector = self.cls([1, 0, 0], lattice)
-        assert issubclass(self.cls, ndarray)
         assert vector.lattice == lattice
 
     def test_creating_lattice_vector_from_lattice(self, mocker):
@@ -329,21 +330,29 @@ class TestDirectLatticeVectorCreationAndMagicMethods:
 
         with pytest.raises(TypeError) as exception_info:
             v1 + v2
-        assert str(exception_info.value) == "lattice must be the same " \
-                                            "for both {:s}s".format(
-            self.cls_name)
+        assert str(exception_info.value) == (
+            "lattice must be the same for both {:s}s".format(self.cls.__name__))
         with pytest.raises(TypeError) as exception_info:
             v1 - v2
-        assert str(exception_info.value) == "lattice must be the same " \
-                                            "for both {:s}s".format(
-            self.cls_name)
+        assert str(exception_info.value) == (
+            "lattice must be the same for both {:s}s".format(self.cls.__name__))
+
+    def test_string_representation_of_lattice_vectors(self, mocker):
+        lattice = mocker.MagicMock()
+
+        components = [1, 2, 3]
+        v1 = self.cls([1, 2, 3], lattice)
+
+        assert repr(v1) == "{0}({1}, {2})".format(
+            self.cls.__name__, components, lattice)
+        assert str(v1) == "{0}({1})".format(
+            self.cls.__name__, components)
 
 
 class TestReciprocalLatticeVectorCreationAndMagicMethods(
         TestDirectLatticeVectorCreationAndMagicMethods):
     lattice_cls = ReciprocalLattice
     cls = ReciprocalLatticeVector
-    cls_name = "ReciprocalLatticeVector"
 
 
 class TestDirectLatticeVectorCalculations:
