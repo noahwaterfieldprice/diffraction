@@ -43,7 +43,7 @@ The corresponding reciprocal lattice object can be constructed.
 >>> calcite_reciprocal_lattice = calcite_lattice.reciprocal()
 >>> calcite_reciprocal_lattice.b_star
 1.4539473861596934
->>> calcite_recpirocal_lattice.gamma_star
+>>> calcite_reciprocal_lattice.gamma_star
 60.00000000000002
 
 Lattice vector calculations can be done in both direct space...

@@ -82,7 +82,7 @@ class TestCreatingFromCIF:
                           for name, (ion, position) in CALCITE_ATOMIC_SITES.items()}
         assert calcite.sites == expected_sites
 
-    def test_error_if_lattice_parameter_is_missing_from_cif(selfs):
+    def test_error_if_lattice_parameter_is_missing_from_cif(self):
         with pytest.raises(ValueError) as exception_info:
             Crystal.from_cif(
                 "tests/functional/static/invalid_cifs/calcite_icsd_missing_lattice_parameter.cif")

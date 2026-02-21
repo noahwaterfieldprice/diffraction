@@ -58,7 +58,7 @@ class TestCreatingReciprocalLatticeFromCIF:
         assert_almost_equal(lattice.lattice_parameters,
                             CALCITE_RECIPROCAL_LATTICE_PARAMETERS, decimal=4)
 
-    def test_error_if_lattice_parameter_is_missing_from_cif(selfs):
+    def test_error_if_lattice_parameter_is_missing_from_cif(self):
         with pytest.raises(ValueError) as exception_info:
             ReciprocalLattice.from_cif("tests/functional/static/invalid_cifs/"
                                        "calcite_icsd_missing_lattice_parameter.cif")
