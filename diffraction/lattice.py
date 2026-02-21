@@ -530,8 +530,7 @@ class DirectLatticeVector(np.ndarray):
         Calculate the angle between the vector and another direct
         lattice vector.
 
-    """  # TODO: finish docstring
-    # TODO: implement __repr__ + tests
+    """
 
     def __new__(cls,
                 uvw: Sequence,
@@ -577,17 +576,21 @@ class DirectLatticeVector(np.ndarray):
         return np.sqrt(self.dot(self.lattice.metric).dot(self))
 
     def inner(self, other: "DirectLatticeVector") -> float:
-        """Calculate the inner product between the vector and another direct
-        lattice vector
+        """Calculate the inner product between two lattice vectors.
+
+        If ``other`` is a `ReciprocalLatticeVector` whose lattice is
+        reciprocally related to ``self.lattice``, the cross-space inner
+        product (scaled by 2*pi) is returned.
 
         Parameters
         ----------
-        other:
-            The
+        other: DirectLatticeVector or ReciprocalLatticeVector
+            The other lattice vector.
 
         Returns
         -------
-
+        float
+            The inner product of the two vectors.
         """
         #  TODO: is there any way to do this apart from type-checking?
         if type(other) is ReciprocalLatticeVector:
@@ -611,8 +614,8 @@ class DirectLatticeVector(np.ndarray):
         return math.degrees(math.acos(u.inner(v) / (u.norm() * v.norm())))
 
 
-class ReciprocalLatticeVector(DirectLatticeVector):  # TODO: Finish docstrings
-    """Class to represent a direct lattice vector
+class ReciprocalLatticeVector(DirectLatticeVector):
+    """Class to represent a reciprocal lattice vector.
 
     Parameters
     ----------
@@ -652,17 +655,21 @@ class ReciprocalLatticeVector(DirectLatticeVector):  # TODO: Finish docstrings
     def inner(self,
               other: Union["DirectLatticeVector", "ReciprocalLatticeVector"]
               ) -> float:
-        """Calculate the inner product between the vector and another direct
-        lattice vector
+        """Calculate the inner product between two lattice vectors.
+
+        If ``other`` is a `DirectLatticeVector` whose lattice is
+        reciprocally related to ``self.lattice``, the cross-space inner
+        product (scaled by 2*pi) is returned.
 
         Parameters
         ----------
-        other:
-            The
+        other: DirectLatticeVector or ReciprocalLatticeVector
+            The other lattice vector.
 
         Returns
         -------
-
+        float
+            The inner product of the two vectors.
         """
         #  TODO: is there any way to do this apart from type-checking?
         if type(other) is DirectLatticeVector:

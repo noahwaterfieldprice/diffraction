@@ -59,42 +59,31 @@ class Site:
             self.position, other.position, atol=self.precision))
 
 
-class Crystal:  # TODO: Finish docstring and update glossary. lattparams_rad?
-    """Class to represent Crystal
+class Crystal:
+    """Represents a crystal structure with lattice parameters and atomic sites.
+
+    A ``Crystal`` wraps a `DirectLattice` with a space group and a set
+    of atomic `Site` positions in fractional coordinates. Lattice
+    parameter attributes (``a``, ``b``, ``c``, etc.) are delegated to
+    the underlying `DirectLattice`.
 
     Parameters
     ----------
     lattice_parameters: seq of float
         The lattice parameters of the crystal declared in the order
-        [*a*, *b*, *c*, *alpha*, *beta*, *gamma*]
+        [*a*, *b*, *c*, *alpha*, *beta*, *gamma*], with angles in
+        degrees.
     space_group: str
-        The :term:`space group` of the crystal structure.
+        The Hermann-Mauguin symbol of the space group.
 
     Attributes
     ----------
-    a, b, c: float
-        The *a*, *b* and *c* lattice parameters describing the
-        dimensions of the :term:`unit cell`.
-    alpha, beta, gamma: float
-        The *alpha*, *beta* and *gamma* lattice parameters describing
-        the angles of the :term:`unit cell`.
-    atoms: dict
-    lattice_parameters: tuple of float
-        The :term:`lattice parameters` in the form
-        (*a*, *b*, *c*, *alpha*, *beta*, *gamma*)
-        with angles in degrees.
-    lattice_parameters_rad: tuple of float
-        The lattice parameters in the form
-        (*a*, *b*, *c*, *alpha*, *beta*, *gamma*)
-        with angles in radians.
-    direct_metric: array_like
-        The :term:`metric tensor` of the direct basis.
-    unit_cell_volume: float
+    lattice: DirectLattice
+        The direct lattice of the crystal.
     space_group: str
-        The :term:`space group` of the crystal structure.
-
-    Notes
-    -----
+        The Hermann-Mauguin symbol of the space group.
+    sites: dict
+        A dictionary of atomic sites keyed by label.
 
     Examples
     --------
@@ -226,14 +215,15 @@ class Crystal:  # TODO: Finish docstring and update glossary. lattparams_rad?
         for label, element, *position in zip(*atomic_site_data):
             self.sites[label] = Site(element, position)
 
-    def add_sites(self, atoms: Dict[str, Position]) -> None:  # TODO: Finish docstring
-        """Add atomic site to crystal
+    def add_sites(self, atoms: Dict[str, Position]) -> None:
+        """Add multiple atomic sites to the crystal.
 
         Parameters
         ----------
         atoms: dict
-            A dictionary of atomic positions
-
+            A mapping of ``{label: (element, position)}`` where
+            *element* is a string and *position* is a sequence of
+            three fractional coordinates.
         """
         for name, (element, position) in atoms.items():
             self.sites[name] = Site(element, position)

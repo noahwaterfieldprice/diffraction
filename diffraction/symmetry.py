@@ -15,7 +15,7 @@ POINT_GROUP_NUMBERS = {
 }
 
 
-class PointGroup:  # TODO: write a better docstring
+class PointGroup:
     """Class to represent a 3D crystallographic point group.
 
     Parameters
