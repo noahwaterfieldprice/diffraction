@@ -1,6 +1,5 @@
 [run]
 omit =
-    setup.py
     tests/*
     example_libraries/*
 
