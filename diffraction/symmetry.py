@@ -1,5 +1,5 @@
 import json
-import pkg_resources
+from importlib import resources
 from typing import Dict, List, Tuple, Union
 
 __all__ = ["PointGroup"]
@@ -69,9 +69,9 @@ class PointGroup:  # TODO: write a better docstring
         if symbol is not None:
             number = POINT_GROUP_NUMBERS[symbol]
 
-        json_string = pkg_resources.resource_string(
-            __name__, "static/point_groups/{}.json".format(number))
-        point_group_data = json.loads(json_string)
+        data_file = (resources.files("diffraction")
+                     / "static" / "point_groups" / "{}.json".format(number))
+        point_group_data = json.loads(data_file.read_text())
 
         symbol, number, operators = (point_group_data["symbol"],
                                      point_group_data["number"],

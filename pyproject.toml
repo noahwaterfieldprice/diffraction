@@ -1,0 +1,16 @@
+[build-system]
+requires = ["setuptools"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "diffraction"
+version = "0.1"
+description = "A package for simulating diffraction experiments and performing crystallographic calculations."
+requires-python = ">=3.13"
+dependencies = ["numpy"]
+
+[project.optional-dependencies]
+dev = ["pytest", "pytest-mock", "pytest-cov", "pytest-html"]
+
+[tool.setuptools.packages.find]
+include = ["diffraction*"]
