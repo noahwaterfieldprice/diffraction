@@ -1,8 +1,17 @@
+"""CIF data extraction helpers and name mappings.
+
+Provide utility functions for retrieving typed data from parsed CIF
+dictionaries, and define the lookup tables that map between diffraction
+object attribute names and CIF data names.
+"""
+
 import re
 
 from .cif import load_cif
 
-# CIF data names corresponding to numerical parameters
+# CIF data names whose values should be parsed as floating-point numbers.
+# The parser stores all raw values as strings; functions in this module
+# strip uncertainty suffixes (e.g. "3.456(7)" -> 3.456) before converting.
 NUMERICAL_DATA_NAMES = (  # TODO: strip down to only data names used
     "atom_site_fract_x",
     "atom_site_fract_y",
@@ -44,7 +53,7 @@ NUMERICAL_DATA_NAMES = (  # TODO: strip down to only data names used
     "symmetry_equiv_pos_site_id",
 )
 
-# CIF data names corresponding to textual parameters
+# CIF data names whose values are returned as raw strings without conversion.
 TEXTUAL_DATA_NAMES = (
     "atom_site_aniso_label",
     "atom_site_calc_flag",
@@ -81,7 +90,9 @@ TEXTUAL_DATA_NAMES = (
     "symmetry_space_group_name_Hall",
 )
 
-# Map between diffraction object parameters and CIF data names
+# Mapping from diffraction object parameter names to CIF data names.
+# Used by lattice and crystal constructors to look up CIF values by
+# the standard attribute name (e.g. 'a' -> 'cell_length_a').
 CIF_NAMES = {
     "a": "cell_length_a",
     "b": "cell_length_b",
@@ -96,14 +107,24 @@ NUMERICAL_DATA_VALUE = re.compile(r"(-?\d+\.?\d*)(?:\(\d+\))?$")
 
 
 def load_data_block(filepath: str, data_block: str | None = None):
-    """Extract the :term:`data items` of a specific :term:`data
-    block` from a :term:`CIF`.
+    """Extract data items from a specific data block in a CIF file.
 
-    For a CIF with with only a single data block, the data items of
-    that data block are returned automatically. For a multiple data
-    block CIF, the data items of the data block given by `data_block`
-    (specified by :term:`data block header`) are returned as a
-    dictionary. An exception is raised if the data block is not given.
+    For a CIF with a single data block, return its data items directly.
+    For a multi-block CIF, return the data items of the block identified
+    by ``data_block``.
+
+    Args:
+        filepath: Path to the CIF file.
+        data_block: Data block header string (e.g. ``'data_calcite'``),
+            required when the CIF contains more than one data block.
+
+    Returns:
+        Dictionary mapping data name strings to their extracted values
+        (str for scalar items, list[str] for loop items).
+
+    Raises:
+        TypeError: If the CIF has multiple data blocks but ``data_block``
+            is not provided.
     """
     cif = load_cif(filepath)
     if len(cif) == 1:
@@ -122,15 +143,27 @@ def load_data_block(filepath: str, data_block: str | None = None):
 def get_cif_data(
     data_items: dict[str, str | list[str]], *data_names: str
 ) -> list[str | list[str]]:
-    """Retrieve a list of :term:`data values` from dictionary of raw
-    :term:`CIF` :term:`data items` given an arbitrary number of
-    :term:`data names`.
+    """Retrieve data values from a parsed CIF data items dictionary.
 
-    Any numerical data values are converted to numerical strings i.e.
-    the errors are stripped off. Raises a ValueError if input data does
-    not contain any requested data items.
+    Look up each requested data name in ``data_items`` and return the
+    values in the same order. Numerical data names (those in
+    ``NUMERICAL_DATA_NAMES``) have their uncertainty suffixes stripped
+    and are converted to float.
 
+    Args:
+        data_items: Dictionary mapping CIF data name strings to their
+            extracted values (str or list[str]).
+        *data_names: One or more CIF data name strings to retrieve.
 
+    Returns:
+        List of data values in the same order as ``data_names``. Each
+        value is a float or list[float] for numerical data names, and a
+        str or list[str] for textual data names.
+
+    Raises:
+        ValueError: If any requested data name is not present in
+            ``data_items``.
+        ValueError: If a numerical data value cannot be parsed as a float.
     """
     data = []
     for data_name in data_names:
@@ -147,15 +180,23 @@ def get_cif_data(
 
 
 def cif_numerical(data_name: str, data_value: str | list[str]) -> float | list[float]:
-    """Extract numerical :term:`data value` from raw :term:`CIF` data
+    """Parse a numerical CIF data value, stripping any uncertainty suffix.
 
-    The numerical data value is matched to the pattern #.#(#), where #
-    signifies one or more digits and the decimal points and error are
-    optional. If present, the error is stripped off and the remaining
-    string is converted to a float and returned.
+    Match the value against the pattern ``#.#(#)`` where the decimal point
+    and parenthesised uncertainty are optional. Strip the uncertainty and
+    return the numeric part as a float. If ``data_value`` is a list,
+    apply the conversion element-wise.
 
-    If the numerical data value is a list then each data value in the
-    list is converted and the converted list is returned.
+    Args:
+        data_name: CIF data name, used only in the error message.
+        data_value: Raw CIF value string, or a list of such strings.
+
+    Returns:
+        Float value (or list of floats) with uncertainty suffix removed.
+
+    Raises:
+        ValueError: If the value does not match the expected numeric
+            pattern or cannot be converted to float.
     """
     if isinstance(data_value, list):
         data_value = [

@@ -1,3 +1,11 @@
+"""Crystallographic point group symmetry.
+
+Represent the 32 crystallographic point groups using the PointGroup class.
+Each group is identified by its Hermann-Mauguin symbol or an integer from
+1 to 32. Symmetry operator data (xyz notation, matrix form, ITA notation)
+are loaded from bundled JSON files under ``static/point_groups/``.
+"""
+
 import json
 from importlib import resources
 
@@ -42,41 +50,44 @@ POINT_GROUP_NUMBERS = {
 
 
 class PointGroup:
-    """Class to represent a 3D crystallographic point group.
+    """One of the 32 three-dimensional crystallographic point groups.
 
-    Parameters
-    ----------
-    symbol: str
-        The international (or Hermann-Mauguin) symbol denoting the
-        point group.
-    number: int
-        An integer from 1 to 32 denoting the point group.
+    Load the symmetry operators for the specified point group from a bundled
+    JSON data file. The group may be specified by Hermann-Mauguin symbol or
+    by its ITA number (1-32).
 
-    Attributes
-    ----------
-    symbol: str
-        The Hermann-Mauguin (or international) symbol denoting the
-        point group.
-    number: int
-        An integer from 1 to 32 denoting the point group.
-    operators: dict
-        A dictionary containing all the symmetry elements of the point
-        group with keys "xyz", "matrix", and "ita" corresponding to
-        the x,y,z, matrix and international representations of the
-        symmetry operators in the point group. The x,y,z and
-        international representations are stored as strings and the
-        matrix representation is stored as a 3x3 list.
+    Args:
+        symbol: Hermann-Mauguin symbol of the point group, e.g. ``'4/m'``.
+            Mutually exclusive with ``number``; at least one must be given.
+        number: Integer from 1 to 32 identifying the point group. Mutually
+            exclusive with ``symbol``; at least one must be given.
 
-    Examples
-    --------
-    >>> from diffraction import PointGroup
-    >>> point_group = PointGroup("4/m")
-    >>> point_group.operators["xyz"][:4]
-    ['x,y,z', '-x,-y,z', '-y,x,z', 'y,-x,z']
-    >>> point_group.operators["matrix"][2]
-    [[0, -1, 0], [1, 0, 0], [0, 0, 1]]
-    >>> point_group.operators["ita"][4]
-    '4- 0,0,z'
+    Attributes:
+        symbol: Hermann-Mauguin symbol of the point group.
+        number: Integer from 1 to 32 identifying the point group.
+        operators: Dictionary of symmetry operators with three keys:
+            ``'xyz'`` (list of coordinate-triplet strings),
+            ``'matrix'`` (list of 3x3 integer matrices), and
+            ``'ita'`` (list of ITA notation strings).
+
+    Raises:
+        ValueError: If neither ``symbol`` nor ``number`` is provided.
+
+    Examples:
+        Create a point group by Hermann-Mauguin symbol and inspect operators:
+
+        >>> from diffraction import PointGroup
+        >>> pg = PointGroup("4/m")
+        >>> pg.operators["xyz"][:4]
+        ['x,y,z', '-x,-y,z', '-y,x,z', 'y,-x,z']
+        >>> pg.operators["matrix"][2]
+        [[0, -1, 0], [1, 0, 0], [0, 0, 1]]
+
+        Create the same group by number:
+
+        >>> pg2 = PointGroup(number=11)
+        >>> pg2.symbol
+        '4/m'
     """
 
     def __init__(self, symbol: str | None = None, number: int | None = None):
@@ -92,7 +103,7 @@ class PointGroup:
     def _load_point_group_data(
         symbol: str | None = None, number: int | None = None
     ) -> tuple[str, int, dict[str, list[str] | list[Matrix]]]:
-        """Load the point group symbol, name and operators from file."""
+        """Load point group symbol, number, and operators from a JSON data file."""
         if symbol is not None:
             number = POINT_GROUP_NUMBERS[symbol]
 
