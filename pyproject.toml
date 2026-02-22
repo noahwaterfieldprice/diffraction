@@ -33,3 +33,29 @@ addopts = [
     "--verbose",
 ]
 norecursedirs = ["example_libraries"]
+
+[tool.ruff]
+line-length = 88
+
+[tool.ruff.lint]
+select = [
+    "E",    # pycodestyle errors
+    "W",    # pycodestyle warnings
+    "F",    # pyflakes
+    "C",    # mccabe complexity
+    "I",    # isort
+    "UP",   # pyupgrade (modernise syntax)
+    "B",    # flake8-bugbear
+    "SIM",  # flake8-simplify
+    "RUF",  # Ruff-specific rules
+    "PTH",  # prefer pathlib over os.path
+    "A",    # flake8-builtins (catches shadowing of builtins)
+]
+
+[tool.ruff.lint.isort]
+known-first-party = ["diffraction"]
+
+[tool.ruff.lint.per-file-ignores]
+"tests/**/*.py" = [
+    "E501",    # line too long (test assertions and parameterize data)
+]

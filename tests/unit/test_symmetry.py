@@ -3,40 +3,47 @@ import pytest
 from diffraction import PointGroup
 
 TEST_POINT_GROUP = {
-    "number": 2, "symbol": "-1",
-    "operators": {"xyz": ["x,y,z", "-x,-y,-z"],
-                  "matrix": [[[1, 0, 0], [0, 1, 0], [0, 0, 1]],
-                             [[-1, 0, 0], [0, -1, 0], [0, 0, -1]]],
-                  "ita": ["1", "-1 0,0,0"]}
+    "number": 2,
+    "symbol": "-1",
+    "operators": {
+        "xyz": ["x,y,z", "-x,-y,-z"],
+        "matrix": [
+            [[1, 0, 0], [0, 1, 0], [0, 0, 1]],
+            [[-1, 0, 0], [0, -1, 0], [0, 0, -1]],
+        ],
+        "ita": ["1", "-1 0,0,0"],
+    },
 }
 
 
 class TestCreatingPointGroups:
     def test_error_if_neither_symbol_nor_number_is_given(self):
         with pytest.raises(ValueError) as exception:
-            point_group = PointGroup()
-        assert str(exception.value) == ("Either the point group symbol or "
-                                        "point group number must be given.")
+            PointGroup()
+        assert str(exception.value) == (
+            "Either the point group symbol or point group number must be given."
+        )
 
     def test_operations_loaded_from_correct_file_for_given_symbol(self, mocker):
-        json_mock = mocker.patch("diffraction.symmetry.json.loads",
-                                 return_value=TEST_POINT_GROUP)
+        json_mock = mocker.patch(
+            "diffraction.symmetry.json.loads", return_value=TEST_POINT_GROUP
+        )
 
         PointGroup._load_point_group_data("-6m2", None)
         call_args = json_mock.call_args[0][0]
         assert '"number": 26' in call_args
 
     def test_operations_loaded_from_correct_file_for_given_number(self, mocker):
-        json_mock = mocker.patch("diffraction.symmetry.json.loads",
-                                 return_value=TEST_POINT_GROUP)
+        json_mock = mocker.patch(
+            "diffraction.symmetry.json.loads", return_value=TEST_POINT_GROUP
+        )
 
         PointGroup._load_point_group_data(None, 26)
         call_args = json_mock.call_args[0][0]
         assert '"number": 26' in call_args
 
     def test_point_attributes_are_loaded_correctly(self, mocker):
-        mocker.patch("diffraction.symmetry.json.loads",
-                     return_value=TEST_POINT_GROUP)
+        mocker.patch("diffraction.symmetry.json.loads", return_value=TEST_POINT_GROUP)
 
         symbol, number, operators = PointGroup._load_point_group_data("-1", None)
         assert number == TEST_POINT_GROUP["number"]
@@ -49,5 +56,5 @@ class TestCreatingPointGroups:
         point_group_mock.__str__ = PointGroup.__str__
         point_group_mock.__class__.__name__ = "PointGroup"
 
-        assert repr(point_group_mock) == "PointGroup(\"6/mmm\")"
-        assert str(point_group_mock) == "PointGroup(\"6/mmm\")"
+        assert repr(point_group_mock) == 'PointGroup("6/mmm")'
+        assert str(point_group_mock) == 'PointGroup("6/mmm")'

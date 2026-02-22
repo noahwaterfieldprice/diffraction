@@ -1,17 +1,43 @@
 import json
 from importlib import resources
-from typing import Dict, List, Tuple, Union
 
 __all__ = ["PointGroup"]
 
-Matrix = List[List[int]]
+Matrix = list[list[int]]
 
 POINT_GROUP_NUMBERS = {
-    '1': 1, '-1': 2, '2': 3, 'm': 4, '2/m': 5, '222': 6, 'mm2': 7, 'mmm': 8,
-    '4': 9, '-4': 10, '4/m': 11, '422': 12, '4mm': 13, '-42': 14, '4/mmm': 15,
-    '3': 16, '-3': 17, '32': 18, '3m': 19, '-3m': 20, '6': 21, '-6': 22,
-    '6/m': 23, '622': 24, '6mm': 25, '-6m2': 26, '6/mmm': 27, '23': 28,
-    'm-3': 29, '432': 30, '-43': 31, 'm-3m': 32
+    "1": 1,
+    "-1": 2,
+    "2": 3,
+    "m": 4,
+    "2/m": 5,
+    "222": 6,
+    "mm2": 7,
+    "mmm": 8,
+    "4": 9,
+    "-4": 10,
+    "4/m": 11,
+    "422": 12,
+    "4mm": 13,
+    "-42": 14,
+    "4/mmm": 15,
+    "3": 16,
+    "-3": 17,
+    "32": 18,
+    "3m": 19,
+    "-3m": 20,
+    "6": 21,
+    "-6": 22,
+    "6/m": 23,
+    "622": 24,
+    "6mm": 25,
+    "-6m2": 26,
+    "6/mmm": 27,
+    "23": 28,
+    "m-3": 29,
+    "432": 30,
+    "-43": 31,
+    "m-3m": 32,
 }
 
 
@@ -21,7 +47,7 @@ class PointGroup:
     Parameters
     ----------
     symbol: str
-        The international (or Hermann–Mauguin) symbol denoting the
+        The international (or Hermann-Mauguin) symbol denoting the
         point group.
     number: int
         An integer from 1 to 32 denoting the point group.
@@ -29,7 +55,7 @@ class PointGroup:
     Attributes
     ----------
     symbol: str
-        The Hermann–Mauguin (or international) symbol denoting the
+        The Hermann-Mauguin (or international) symbol denoting the
         point group.
     number: int
         An integer from 1 to 32 denoting the point group.
@@ -53,30 +79,37 @@ class PointGroup:
     '4- 0,0,z'
     """
 
-    def __init__(self, symbol: str = None, number: int = None):
+    def __init__(self, symbol: str | None = None, number: int | None = None):
         if symbol is None and number is None:
-            raise ValueError("Either the point group symbol or point group "
-                             "number must be given.")
-        self.symbol, self.number, self.operators = \
-            self._load_point_group_data(symbol, number)
+            raise ValueError(
+                "Either the point group symbol or point group number must be given."
+            )
+        self.symbol, self.number, self.operators = self._load_point_group_data(
+            symbol, number
+        )
 
     @staticmethod
     def _load_point_group_data(
-        symbol: str = None,
-        number: int = None
-    ) -> Tuple[str, int, Dict[str, Union[List[str], List[Matrix]]]]:
+        symbol: str | None = None, number: int | None = None
+    ) -> tuple[str, int, dict[str, list[str] | list[Matrix]]]:
         """Load the point group symbol, name and operators from file."""
         if symbol is not None:
             number = POINT_GROUP_NUMBERS[symbol]
 
-        data_file = (resources.files("diffraction")
-                     / "static" / "point_groups" / "{}.json".format(number))
+        data_file = (
+            resources.files("diffraction")
+            / "static"
+            / "point_groups"
+            / f"{number}.json"
+        )
         point_group_data = json.loads(data_file.read_text())
 
-        symbol, number, operators = (point_group_data["symbol"],
-                                     point_group_data["number"],
-                                     point_group_data["operators"])
+        symbol, number, operators = (
+            point_group_data["symbol"],
+            point_group_data["number"],
+            point_group_data["operators"],
+        )
         return symbol, number, operators
 
     def __repr__(self) -> str:
-        return "{0}(\"{1}\")".format(self.__class__.__name__, self.symbol)
+        return f'{self.__class__.__name__}("{self.symbol}")'

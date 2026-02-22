@@ -25,16 +25,16 @@ CIFParseError:
 
 import collections
 import re
-from typing import Dict, List, Pattern, Union
 import warnings
+from pathlib import Path
+from re import Pattern
+
+__all__ = ["CIFParseError", "load_cif", "validate_cif"]
+
+DataItem = str | list[str]
 
 
-__all__ = ["load_cif", "validate_cif", "CIFParseError"]
-
-DataItem = Union[str, List[str]]
-
-
-def load_cif(filepath: str) -> Dict[str, Dict[str, DataItem]]:
+def load_cif(filepath: str) -> dict[str, dict[str, DataItem]]:
     """Extract and return :term:`data items` from a :term:`CIF`.
 
     The input CIF is read and split by :term:`data block`. The
@@ -106,13 +106,18 @@ def load_cif(filepath: str) -> Dict[str, Dict[str, DataItem]]:
     dict_keys(['data_calcite', 'data_aragonite', 'data_vaterite'])
     """
 
-    if not filepath.lower().endswith('.cif'):
-        warnings.warn(("No .cif file extension detected. Assuming the filetype"
-                       "is CIF and continuing."), UserWarning)
+    if not filepath.lower().endswith(".cif"):
+        warnings.warn(
+            (
+                "No .cif file extension detected. Assuming the filetype"
+                "is CIF and continuing."
+            ),
+            UserWarning,
+            stacklevel=2,
+        )
     p = CIFParser(filepath)
     p.parse()
-    return dict((data_block.header, data_block.data_items)
-                for data_block in p.data_blocks)
+    return {data_block.header: data_block.data_items for data_block in p.data_blocks}
 
 
 def validate_cif(filepath: str) -> bool:
@@ -155,29 +160,37 @@ def validate_cif(filepath: str) -> bool:
     CIFParseError: Missing inline data name on line 3: "some_lone_data_value"
     """
 
-    if not filepath.lower().endswith('.cif'):
-        warnings.warn(("No .cif file extension detected. Assuming the filetype"
-                       "is CIF and continuing."), UserWarning)
-    with open(filepath, "r") as cif_file:
+    if not filepath.lower().endswith(".cif"):
+        warnings.warn(
+            (
+                "No .cif file extension detected. Assuming the filetype"
+                "is CIF and continuing."
+            ),
+            UserWarning,
+            stacklevel=2,
+        )
+    with Path(filepath).open() as cif_file:
         raw_data = cif_file.read()
     v = CIFValidator(raw_data)
     return v.validate()
 
 
 # Regular expressions used for parsing.
-COMMENT_OR_BLANK = re.compile("\w*#.*|\s+$|^$")
-DATA_BLOCK_HEADER = re.compile("(?:^|\n)(data_\S*)\s*", re.IGNORECASE)
-LOOP = re.compile("(?:^|\n)loop_\s*", re.IGNORECASE)
-DATA_NAME = re.compile("\s*_(\S+)")
-DATA_NAME_START_LINE = re.compile("(?:^|\n)\s*_(\S+)")
-DATA_VALUE = re.compile("\s*(\'[^\']+\'|\"[^\"]+\"|[^\s_#][^\s\'\"]*)")
+COMMENT_OR_BLANK = re.compile(r"\w*#.*|\s+$|^$")
+DATA_BLOCK_HEADER = re.compile("(?:^|\n)(data_\\S*)\\s*", re.IGNORECASE)
+LOOP = re.compile("(?:^|\n)loop_\\s*", re.IGNORECASE)
+DATA_NAME = re.compile(r"\s*_(\S+)")
+DATA_NAME_START_LINE = re.compile("(?:^|\n)\\s*_(\\S+)")
+DATA_VALUE = re.compile("\\s*('[^']+'|\"[^\"]+\"|[^\\s_#][^\\s'\"]*)")
 
-DATA_VALUE_QUOTES = re.compile("^[\"\']?(.*?)[\"\']?$", re.DOTALL)
+DATA_VALUE_QUOTES = re.compile("^[\"']?(.*?)[\"']?$", re.DOTALL)
 TEXT_FIELD = re.compile("[^_][^;]+")
 SEMICOLON_DATA_ITEM = re.compile(
-    "(?:^|\n){0.pattern}\n;\n((?:.(?<!\n;))*)\n;".format(DATA_NAME), re.DOTALL)
+    f"(?:^|\n){DATA_NAME.pattern}\n;\n((?:.(?<!\n;))*)\n;", re.DOTALL
+)
 INLINE_DATA_ITEM = re.compile(
-    "(?:^|\n){0.pattern}[^\S\n]+{1.pattern}".format(DATA_NAME, DATA_VALUE))
+    f"(?:^|\n){DATA_NAME.pattern}[^\\S\n]+{DATA_VALUE.pattern}"
+)
 
 
 def strip_quotes(data_value: str) -> str:
@@ -211,6 +224,7 @@ class DataBlock:
             as :term:`data name`: :term:`data value` pairs.
 
     """
+
     def __init__(self, header: str, raw_data: str) -> None:
         self.header = header
         self.raw_data = raw_data
@@ -259,24 +273,25 @@ class DataBlock:
             data_names = DATA_NAME_START_LINE.findall(loop)
             for data_name in data_names:
                 self.data_items[data_name] = []
-            data_value_lines = loop.split("\n")[len(data_names):]
+            data_value_lines = loop.split("\n")[len(data_names) :]
             for line in data_value_lines:
                 data_values = DATA_VALUE.findall(line)
-                for data_name, data_value in zip(data_names, data_values):
+                # zip with strict=False: data_values may be shorter than
+                # data_names when a line has fewer values (partial loop rows
+                # are skipped intentionally by this parser design)
+                for data_name, data_value in zip(data_names, data_values, strict=False):
                     self.data_items[data_name].append(strip_quotes(data_value))
 
     def __repr__(self) -> str:
         """Representation of DataBlock, abbreviating raw data"""
         if len(self.raw_data) > 18:
-            raw_data = "{:.15s}...".format(self.raw_data)
+            raw_data = f"{self.raw_data:.15s}..."
         else:
             raw_data = self.raw_data
-        return "DataBlock({!r}, {!r}, {!r})".format(
-            self.header, raw_data, self.data_items)
+        return f"DataBlock({self.header!r}, {raw_data!r}, {self.data_items!r})"
 
     def __eq__(self, other: "DataBlock") -> bool:
-        return (self.header == other.header and
-                self.data_items == other.data_items)
+        return self.header == other.header and self.data_items == other.data_items
 
 
 class CIFParser:
@@ -310,7 +325,7 @@ class CIFParser:
     """
 
     def __init__(self, filepath: str) -> None:
-        with open(filepath, "r") as cif:
+        with Path(filepath).open() as cif:
             self.raw_data = cif.read()
         validator = CIFValidator(self.raw_data)
         validator.validate()
@@ -329,7 +344,8 @@ class CIFParser:
         self.data_blocks = []
         data_blocks = DATA_BLOCK_HEADER.split(self.raw_data)[1:]
         headers, blocks = data_blocks[::2], data_blocks[1::2]
-        for header, data in zip(headers, blocks):
+        # headers and blocks always come in pairs from the regex split
+        for header, data in zip(headers, blocks, strict=True):
             self.data_blocks.append(DataBlock(header, data))
 
     def parse(self) -> None:
@@ -394,6 +410,7 @@ class CIFValidator:
         * Unclosed semicolon :term:`semicolon text field`
 
     """
+
     def __init__(self, raw_data: str) -> None:
         """Initialises the :class:`CIFValidator` instance.
 
@@ -403,20 +420,21 @@ class CIFValidator:
         is empty.
         """
         if not raw_data or raw_data.isspace():
-            warnings.warn("File is empty.")
+            warnings.warn("File is empty.", stacklevel=2)
         self.lines = (line for line in raw_data.split("\n"))
         self.current_line = next(self.lines)
         self.line_number = 1
 
-    def error(self,
-              message: str = None,
-              line_number: int = None,
-              line: str = None) -> None:
+    def error(
+        self,
+        message: str | None = None,
+        line_number: int | None = None,
+        line: str | None = None,
+    ) -> None:
         """Raise error message reporting the line number and line contents."""
         if line_number is None:
             line_number, line = self.line_number, self.current_line
-        raise CIFParseError('{} on line {}: "{}"'.format(
-            message, line_number, line))
+        raise CIFParseError(f'{message} on line {line_number}: "{line}"')
 
     def validate(self) -> bool:
         """Validate the :term:`CIF` line by line.
@@ -479,8 +497,8 @@ class CIFValidator:
             else:
                 break
 
-    def _get_loop_data_names(self) -> List[str]:
-        """ Extract :term:`data names` from a :term:`loop`
+    def _get_loop_data_names(self) -> list[str]:
+        """Extract :term:`data names` from a :term:`loop`
 
         Collect and return a the list of data names declared at the
         beginning of a loop. The first line containing anything but a
@@ -499,8 +517,7 @@ class CIFValidator:
             if COMMENT_OR_BLANK.match(self.current_line):
                 self._next_line()
             elif DATA_NAME.match(self.current_line):
-                loop_data_names.append(
-                    DATA_NAME.match(self.current_line).group())
+                loop_data_names.append(DATA_NAME.match(self.current_line).group())
                 self._next_line()
             else:
                 break
@@ -526,14 +543,12 @@ class CIFValidator:
             self._next_line()
         # check if final line of file
         except StopIteration:
-            self.error("Invalid inline data value",
-                       err_line_number, err_line)
+            self.error("Invalid inline data value", err_line_number, err_line)
         # check if part of semicolon data item
         if self.current_line.startswith(";"):
             self._validate_semicolon_data_item()
         else:
-            self.error("Invalid inline data value",
-                       err_line_number, err_line)
+            self.error("Invalid inline data value", err_line_number, err_line)
 
     def _validate_semicolon_data_item(self) -> None:
         """Validates :term:`semicolon data item`.
@@ -551,8 +566,9 @@ class CIFValidator:
         # then error occurred on previous line.
         previous_lines = collections.deque(maxlen=2)
         while True:
-            if (COMMENT_OR_BLANK.match(self.current_line) or
-                    TEXT_FIELD.match(self.current_line)):
+            if COMMENT_OR_BLANK.match(self.current_line) or TEXT_FIELD.match(
+                self.current_line
+            ):
                 previous_lines.append((self.line_number, self.current_line))
                 try:
                     self._next_line()
@@ -562,8 +578,7 @@ class CIFValidator:
             else:
                 break
         if not self.current_line.startswith(";"):
-            self.error("Unclosed semicolon text field",
-                       *previous_lines[1])
+            self.error("Unclosed semicolon text field", *previous_lines[1])
         self._next_line()
 
     def _is_valid_single_line(self) -> bool:
@@ -577,11 +592,12 @@ class CIFValidator:
         is_inline_data_item = bool(INLINE_DATA_ITEM.match(self.current_line))
         is_data_block_header = bool(DATA_BLOCK_HEADER.match(self.current_line))
 
-        return (is_comment_or_blank or is_inline_data_item or
-                is_data_block_header)
+        return is_comment_or_blank or is_inline_data_item or is_data_block_header
 
     def _is_loop_data_values(self) -> bool:
         """Check if valid :term:`data value` in a :term:`loop` context."""
-        return (DATA_VALUE.match(self.current_line) and not
-                LOOP.match(self.current_line) and not
-                DATA_BLOCK_HEADER.match(self.current_line))
+        return (
+            DATA_VALUE.match(self.current_line)
+            and not LOOP.match(self.current_line)
+            and not DATA_BLOCK_HEADER.match(self.current_line)
+        )

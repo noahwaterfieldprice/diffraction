@@ -1,8 +1,9 @@
-import glob
+from pathlib import Path
+from typing import ClassVar
 
 import pytest
 
-from diffraction import load_cif, validate_cif, CIFParseError
+from diffraction import CIFParseError, load_cif, validate_cif
 from diffraction.cif.cif import CIFParser
 
 
@@ -29,29 +30,34 @@ class TestFileLoading:
 
 
 class TestCIFValidating:
-    invalid_files = [
+    invalid_files: ClassVar[list[str]] = [
         "calcite_icsd_missing_data_name_in_loop.cif",
         "calcite_icsd_missing_data_value_in_loop.cif",
         "calcite_icsd_missing_data_name_inline.cif",
         "calcite_icsd_missing_data_value_inline.cif",
     ]
-    error_messages = [
+    error_messages: ClassVar[list[str]] = [
         'Unmatched data values to data names in loop on line 81: "Ca2+ 2"',
         'Unmatched data values to data names in loop on line 77: "36"',
         'Missing inline data name on line 29: " 4.9900(2)"',
         'Invalid inline data value on line 28: "_cell_length_a"',
     ]
 
-    @pytest.mark.parametrize("filename, error_message", zip(invalid_files, error_messages))
+    @pytest.mark.parametrize(
+        "filename, error_message", zip(invalid_files, error_messages, strict=True)
+    )
     def test_exception_with_invalid_cif(self, filename, error_message):
         filepath = "tests/functional/static/invalid_cifs/" + filename
         with pytest.raises(CIFParseError) as exception_info:
             validate_cif(filepath)
         assert str(exception_info.value) == error_message
 
-    @pytest.mark.parametrize("filepath", glob.glob('tests/functional/static/valid_cifs/*'))
+    @pytest.mark.parametrize(
+        "filepath",
+        sorted(Path("tests/functional/static/valid_cifs").glob("*")),
+    )
     def test_no_exception_and_return_true_with_valid_cif(self, filepath):
-        assert validate_cif(filepath) is True
+        assert validate_cif(str(filepath)) is True
 
 
 class TestCIFReading:
@@ -60,7 +66,7 @@ class TestCIFReading:
         p.parse()
 
         # basic checks that correct number of data items were caught
-        assert p.data_blocks[0].header == 'data_VESTA_phase_1'
+        assert p.data_blocks[0].header == "data_VESTA_phase_1"
         assert len(p.data_blocks) == 1
         data_items = p.data_blocks[0].data_items
         assert len(data_items) == 25
@@ -91,8 +97,11 @@ class TestCIFReading:
         assert ids == [str(i) for i in range(1, 37)]
         assert data_items["atom_site_label"] == ["Ca1", "C1", "O1"]
         assert data_items["atom_site_aniso_U_22"] == ["0.01775(90)"]
-        assert data_items["publ_author_name"] == \
-            ["Chessin, H.", "Hamilton, W.C.", "Post, B."]
+        assert data_items["publ_author_name"] == [
+            "Chessin, H.",
+            "Hamilton, W.C.",
+            "Post, B.",
+        ]
 
         # check a few inline data items
         assert data_items["cell_length_a"] == "4.9900(2)"
@@ -115,17 +124,31 @@ class TestCIFReading:
         # check loops operated correctly
         assert len(data_items_1["atom_site_label"]) == 119
         assert len(data_items_2["atom_site_label"]) == 69
-        assert data_items_1["atom_type_radius_bond"] == \
-            ["0.68", "0.23", "1.35", "0.68", "1.02"]
-        assert data_items_2["atom_type_radius_bond"] == \
-            ["0.68", "0.23", "1.21", "0.64", "1.40", "1.02"]
+        assert data_items_1["atom_type_radius_bond"] == [
+            "0.68",
+            "0.23",
+            "1.35",
+            "0.68",
+            "1.02",
+        ]
+        assert data_items_2["atom_type_radius_bond"] == [
+            "0.68",
+            "0.23",
+            "1.21",
+            "0.64",
+            "1.40",
+            "1.02",
+        ]
 
         # check semicolon text fields assigned correctly
-        assert data_items_1["refine_special_details"] == \
-            "One of the water molecules is disordered over two sites."
-        assert data_items_2["chemical_name_systematic"] == \
-            ("tris(bis(Ethylenedithio)tetrathiafulvalene) \n"
-             "2,5-difluoro-1,4-bis(iodoethynyl)benzene bromide")
+        assert (
+            data_items_1["refine_special_details"]
+            == "One of the water molecules is disordered over two sites."
+        )
+        assert data_items_2["chemical_name_systematic"] == (
+            "tris(bis(Ethylenedithio)tetrathiafulvalene) \n"
+            "2,5-difluoro-1,4-bis(iodoethynyl)benzene bromide"
+        )
 
         # check a few inline data items
         assert data_items_1["journal_year"] == "2001"

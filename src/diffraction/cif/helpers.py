@@ -1,5 +1,4 @@
 import re
-from typing import Dict, List, Union
 
 from .cif import load_cif
 
@@ -79,7 +78,7 @@ TEXTUAL_DATA_NAMES = (
     "symmetry_cell_setting",
     "symmetry_equiv_pos_as_xyz",
     "symmetry_space_group_name_H-M",
-    "symmetry_space_group_name_Hall"
+    "symmetry_space_group_name_Hall",
 )
 
 # Map between diffraction object parameters and CIF data names
@@ -90,13 +89,13 @@ CIF_NAMES = {
     "alpha": "cell_angle_alpha",
     "beta": "cell_angle_beta",
     "gamma": "cell_angle_gamma",
-    "space_group": "symmetry_space_group_name_H-M"
+    "space_group": "symmetry_space_group_name_H-M",
 }
 
-NUMERICAL_DATA_VALUE = re.compile("(-?\d+\.?\d*)(?:\(\d+\))?$")
+NUMERICAL_DATA_VALUE = re.compile(r"(-?\d+\.?\d*)(?:\(\d+\))?$")
 
 
-def load_data_block(filepath: str, data_block: str = None):
+def load_data_block(filepath: str, data_block: str | None = None):
     """Extract the :term:`data items` of a specific :term:`data
     block` from a :term:`CIF`.
 
@@ -108,20 +107,21 @@ def load_data_block(filepath: str, data_block: str = None):
     """
     cif = load_cif(filepath)
     if len(cif) == 1:
-        (_, data), = cif.items()
+        ((_, data),) = cif.items()
     else:
         if data_block is None:
             raise TypeError(
                 "__init__() missing keyword argument: 'data_block'. "
-                "Required when input CIF has multiple data blocks.")
+                "Required when input CIF has multiple data blocks."
+            )
         else:
             data = cif[data_block]
     return data
 
 
-def get_cif_data(data_items: Dict[str, Union[str, List[str]]],
-                 *data_names: str
-                 ) -> List[Union[str, List[str]]]:
+def get_cif_data(
+    data_items: dict[str, str | list[str]], *data_names: str
+) -> list[str | list[str]]:
     """Retrieve a list of :term:`data values` from dictionary of raw
     :term:`CIF` :term:`data items` given an arbitrary number of
     :term:`data names`.
@@ -136,18 +136,17 @@ def get_cif_data(data_items: Dict[str, Union[str, List[str]]],
     for data_name in data_names:
         try:
             data_value = data_items[data_name]
-        except KeyError:
-            raise ValueError("Parameter: '{0}' missing from input CIF".format(
-                data_name))
+        except KeyError as exc:
+            raise ValueError(
+                f"Parameter: '{data_name}' missing from input CIF"
+            ) from exc
         if data_name in NUMERICAL_DATA_NAMES:
             data_value = cif_numerical(data_name, data_value)
         data.append(data_value)
     return data
 
 
-def cif_numerical(data_name: str,
-                  data_value: Union[str, List[str]]
-                  ) -> Union[float, List[float]]:
+def cif_numerical(data_name: str, data_value: str | list[str]) -> float | list[float]:
     """Extract numerical :term:`data value` from raw :term:`CIF` data
 
     The numerical data value is matched to the pattern #.#(#), where #
@@ -159,13 +158,16 @@ def cif_numerical(data_name: str,
     list is converted and the converted list is returned.
     """
     if isinstance(data_value, list):
-        data_value = [cif_numerical(data_name, data_value_element)
-                      for data_value_element in data_value]
+        data_value = [
+            cif_numerical(data_name, data_value_element)
+            for data_value_element in data_value
+        ]
     else:
         try:
             match = NUMERICAL_DATA_VALUE.match(data_value)
             data_value = float(match.group(1))
-        except (AttributeError, ValueError):
-            raise ValueError("Invalid numerical value in input "
-                             "CIF {0}: {1}".format(data_name, data_value))
+        except (AttributeError, ValueError) as exc:
+            raise ValueError(
+                f"Invalid numerical value in input CIF {data_name}: {data_value}"
+            ) from exc
     return data_value

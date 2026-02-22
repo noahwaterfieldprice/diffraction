@@ -2,13 +2,17 @@ import pytest
 from numpy import array, pi, sqrt
 from numpy.testing import assert_almost_equal, assert_array_almost_equal
 
-from diffraction import (DirectLattice, DirectLatticeVector,
-                         ReciprocalLattice, ReciprocalLatticeVector)
+from diffraction import (
+    DirectLattice,
+    DirectLatticeVector,
+    ReciprocalLattice,
+    ReciprocalLatticeVector,
+)
 
 CALCITE_LATTICE_PARAMETERS = (4.99, 4.99, 17.002, 90.0, 90.0, 120.0)
-CALCITE_DIRECT_METRIC = array([[24.9001, -12.45005, 0],
-                               [-12.45005, 24.9001, 0],
-                               [0, 0, 289.068004]])
+CALCITE_DIRECT_METRIC = array(
+    [[24.9001, -12.45005, 0], [-12.45005, 24.9001, 0], [0, 0, 289.068004]]
+)
 CALCITE_RECIPROCAL_LATTICE_PARAMETERS = (1.4539, 1.4539, 0.3696, 90, 90, 60)
 
 
@@ -26,7 +30,7 @@ class TestCreatingDirectLatticeFromSequence:
         assert str(exception_info.value) == "Missing lattice parameter from input"
 
     def test_error_if_invalid_lattice_parameter_given(self):
-        invalid_lattice_parameters = CALCITE_LATTICE_PARAMETERS[:5] + ("abcdef",)
+        invalid_lattice_parameters = (*CALCITE_LATTICE_PARAMETERS[:5], "abcdef")
 
         with pytest.raises(ValueError) as exception_info:
             DirectLattice(invalid_lattice_parameters)
@@ -35,47 +39,76 @@ class TestCreatingDirectLatticeFromSequence:
 
 class TestCreatingDirectLatticeFromMapping:
     def test_can_create_crystal_from_dictionary(self):
-        lattice_parameters = {"a": 4.99, "b": 4.99, "c": 17.002,
-                              "alpha": 90, "beta": 90, "gamma": 120}
+        lattice_parameters = {
+            "a": 4.99,
+            "b": 4.99,
+            "c": 17.002,
+            "alpha": 90,
+            "beta": 90,
+            "gamma": 120,
+        }
         lattice = DirectLattice.from_dict(lattice_parameters)
 
         assert lattice.lattice_parameters == CALCITE_LATTICE_PARAMETERS
 
     def test_error_if_lattice_parameter_missing_from_dict(self):
-        lattice_parameters = {"a": 4.99, "c": 17.002,
-                              "alpha": 90, "beta": 90, "gamma": 120}
+        lattice_parameters = {
+            "a": 4.99,
+            "c": 17.002,
+            "alpha": 90,
+            "beta": 90,
+            "gamma": 120,
+        }
         with pytest.raises(ValueError) as exception_info:
             DirectLattice.from_dict(lattice_parameters)
-        assert str(exception_info.value) == "Parameter: 'b' missing from input dictionary"
+        assert (
+            str(exception_info.value) == "Parameter: 'b' missing from input dictionary"
+        )
 
 
 class TestCreatingDirectLatticeFromCIF:
     def test_can_create_direct_lattice_from_single_datablock_cif(self):
-        lattice = DirectLattice.from_cif("tests/functional/static/valid_cifs/calcite_icsd.cif")
+        lattice = DirectLattice.from_cif(
+            "tests/functional/static/valid_cifs/calcite_icsd.cif"
+        )
 
         assert lattice.lattice_parameters == CALCITE_LATTICE_PARAMETERS
 
     def test_error_if_lattice_parameter_is_missing_from_cif(self):
         with pytest.raises(ValueError) as exception_info:
-            DirectLattice.from_cif("tests/functional/static/invalid_cifs/"
-                                   "calcite_icsd_missing_lattice_parameter.cif")
-        assert str(exception_info.value) == \
-            "Parameter: 'cell_length_b' missing from input CIF"
+            DirectLattice.from_cif(
+                "tests/functional/static/invalid_cifs/"
+                "calcite_icsd_missing_lattice_parameter.cif"
+            )
+        assert (
+            str(exception_info.value)
+            == "Parameter: 'cell_length_b' missing from input CIF"
+        )
 
     def test_error_datablock_not_given_for_multi_data_block_cif(self):
         with pytest.raises(TypeError) as exception_info:
-            DirectLattice.from_cif("tests/functional/static/valid_cifs/multi_data_block.cif")
-        assert str(exception_info.value) == \
-            ("__init__() missing keyword argument: 'data_block'. "
-             "Required when input CIF has multiple data blocks.")
+            DirectLattice.from_cif(
+                "tests/functional/static/valid_cifs/multi_data_block.cif"
+            )
+        assert str(exception_info.value) == (
+            "__init__() missing keyword argument: 'data_block'. "
+            "Required when input CIF has multiple data blocks."
+        )
 
     def test_can_create_direct_lattice_from_multi_data_block_cif(self):
         CHFeNOS = DirectLattice.from_cif(
             "tests/functional/static/valid_cifs/multi_data_block.cif",
-            data_block="data_CSD_CIF_ACAKOF")
+            data_block="data_CSD_CIF_ACAKOF",
+        )
 
-        assert CHFeNOS.lattice_parameters == \
-            (6.1250, 9.2460, 10.147, 77.16, 83.44, 80.28)
+        assert CHFeNOS.lattice_parameters == (
+            6.1250,
+            9.2460,
+            10.147,
+            77.16,
+            83.44,
+            80.28,
+        )
 
 
 class TestCreatingDirectLatticeFromReciprocalLattice:
@@ -84,8 +117,9 @@ class TestCreatingDirectLatticeFromReciprocalLattice:
         direct_lattice = reciprocal_lattice.direct()
 
         assert isinstance(direct_lattice, DirectLattice)
-        assert_almost_equal(direct_lattice.lattice_parameters,
-                            CALCITE_LATTICE_PARAMETERS, decimal=2)
+        assert_almost_equal(
+            direct_lattice.lattice_parameters, CALCITE_LATTICE_PARAMETERS, decimal=2
+        )
 
 
 class TestDirectSpaceCalculations:
@@ -101,7 +135,7 @@ class TestDirectSpaceCalculations:
 
     def test_calculating_unit_cell_volume(self):
         lattice = DirectLattice(CALCITE_LATTICE_PARAMETERS)
-        a, b, c, *_ = CALCITE_LATTICE_PARAMETERS
+        a, _b, c, *_ = CALCITE_LATTICE_PARAMETERS
         expected_volume = sqrt(3) / 2 * a * a * c
 
         assert_almost_equal(lattice.unit_cell_volume, expected_volume)
@@ -166,8 +200,10 @@ class TestDirectSpaceCalculations:
         with pytest.raises(TypeError) as exception_info:
             v1_direct.inner(v2_direct)
 
-        assert str(exception_info.value) == "lattice must be the same " \
-                                            "for both DirectLatticeVectors"
+        assert (
+            str(exception_info.value) == "lattice must be the same "
+            "for both DirectLatticeVectors"
+        )
 
         reciprocal_lattice2 = direct_lattice2.reciprocal()
         v2_reciprocal = ReciprocalLatticeVector([1, 0, 0], reciprocal_lattice2)
@@ -175,5 +211,8 @@ class TestDirectSpaceCalculations:
         with pytest.raises(TypeError) as exception_info:
             v1_direct.inner(v2_reciprocal)
 
-        assert str(exception_info.value) == "DirectLatticeVector and ReciprocalLatticeVector" \
-                                            " lattices must be reciprocally related."
+        assert (
+            str(exception_info.value)
+            == "DirectLatticeVector and ReciprocalLatticeVector"
+            " lattices must be reciprocally related."
+        )

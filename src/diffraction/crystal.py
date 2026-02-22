@@ -1,9 +1,10 @@
-from typing import Any, Dict, Sequence
+from collections.abc import Sequence
+from typing import Any
 
 import numpy as np
 
-from .cif.helpers import CIF_NAMES, get_cif_data, load_data_block
-from .lattice import DirectLattice
+from . import lattice as lattice_module
+from .cif import helpers as cif_helpers
 
 LatticeParameters, Position = Sequence[float], Sequence[float]
 
@@ -33,11 +34,7 @@ class Site:
 
     """
 
-    def __init__(self,
-                 ion: str,
-                 position: Position,
-                 precision: float = 1E-6
-                 ) -> None:
+    def __init__(self, ion: str, position: Position, precision: float = 1e-6) -> None:
         self.ion = ion
         self.position = position
         self.precision = precision
@@ -51,12 +48,12 @@ class Site:
         self._position = np.array(new_position)
 
     def __repr__(self) -> str:
-        return "{0}({1.ion!r}, {1.position!r})".format(
-            self.__class__.__name__, self)
+        return f"{self.__class__.__name__}({self.ion!r}, {self.position!r})"
 
     def __eq__(self, other: "Site") -> bool:
-        return (self.ion == other.ion and np.allclose(
-            self.position, other.position, atol=self.precision))
+        return self.ion == other.ion and np.allclose(
+            self.position, other.position, atol=self.precision
+        )
 
 
 class Crystal:
@@ -98,12 +95,12 @@ class Crystal:
     """
 
     def __init__(self, lattice_parameters, space_group):
-        self.lattice = DirectLattice(lattice_parameters)
+        self.lattice = lattice_module.DirectLattice(lattice_parameters)
         self.space_group = space_group
         self.sites = {}
 
     @classmethod
-    def from_dict(cls, input_dict: Dict[str, float]) -> "Crystal":
+    def from_dict(cls, input_dict: dict[str, float]) -> "Crystal":
         """Create a Crystal using a dictionary as input
 
         Raises
@@ -131,23 +128,25 @@ class Crystal:
         'R -3 c H'
         """
         crystal = cls.__new__(cls)
-        crystal.lattice = DirectLattice.from_dict(input_dict)
+        crystal.lattice = lattice_module.DirectLattice.from_dict(input_dict)
         try:
             crystal.space_group = input_dict["space_group"]
-        except KeyError:
-            raise ValueError("Parameter: 'space_group' missing from "
-                             "input dictionary")
+        except KeyError as exc:
+            raise ValueError(
+                "Parameter: 'space_group' missing from input dictionary"
+            ) from exc
         if "sites" in input_dict:
             crystal.sites = {}
             crystal.add_sites(input_dict["sites"])
         return crystal
 
     @classmethod
-    def from_cif(cls,
-                 filepath: str,
-                 data_block: str = None,
-                 load_sites: bool = True
-                 ) -> "Crystal":
+    def from_cif(
+        cls,
+        filepath: str,
+        data_block: str | None = None,
+        load_sites: bool = True,
+    ) -> "Crystal":
         """Create a Crystal using a CIF as input
 
         Parameters
@@ -183,9 +182,11 @@ class Crystal:
         'R -3 c H'
         """
         crystal = cls.__new__(cls)
-        lattice = DirectLattice.from_cif(filepath, data_block)
-        data_items = load_data_block(filepath, data_block)
-        [space_group] = get_cif_data(data_items, CIF_NAMES["space_group"])
+        lattice = lattice_module.DirectLattice.from_cif(filepath, data_block)
+        data_items = cif_helpers.load_data_block(filepath, data_block)
+        [space_group] = cif_helpers.get_cif_data(
+            data_items, cif_helpers.CIF_NAMES["space_group"]
+        )
         crystal.lattice, crystal.space_group = lattice, space_group
         if load_sites:
             crystal.sites = {}
@@ -193,29 +194,34 @@ class Crystal:
         return crystal
 
     def __repr__(self) -> str:
-        repr_string = ("{0}([{1.a!r}, {1.b!r}, {1.c!r}, "
-                       "{1.alpha!r}, {1.beta!r}, {1.gamma!r}], "
-                       "{1.space_group!r})")
+        repr_string = (
+            "{0}([{1.a!r}, {1.b!r}, {1.c!r}, "
+            "{1.alpha!r}, {1.beta!r}, {1.gamma!r}], "
+            "{1.space_group!r})"
+        )
         return repr_string.format(self.__class__.__name__, self)
 
-    def __getattr__(self, name: str) -> Any:  # TODO: Only delegate access for certain variables
+    def __getattr__(
+        self, name: str
+    ) -> Any:  # TODO: Only delegate access for certain variables
         return getattr(self.lattice, name)
 
-    def add_sites_from_cif(self,
-                           filepath: str,
-                           data_block: str = None
-                           ) -> None:
-        data_items = load_data_block(filepath, data_block)
-        atomic_site_data = get_cif_data(data_items,
-                                        "atom_site_label",
-                                        "atom_site_type_symbol",
-                                        "atom_site_fract_x",
-                                        "atom_site_fract_y",
-                                        "atom_site_fract_z")
-        for label, element, *position in zip(*atomic_site_data):
+    def add_sites_from_cif(self, filepath: str, data_block: str | None = None) -> None:
+        data_items = cif_helpers.load_data_block(filepath, data_block)
+        atomic_site_data = cif_helpers.get_cif_data(
+            data_items,
+            "atom_site_label",
+            "atom_site_type_symbol",
+            "atom_site_fract_x",
+            "atom_site_fract_y",
+            "atom_site_fract_z",
+        )
+        # zip with strict=False: all columns come from same loop so they are
+        # equal length by construction; unpacking with *position uses the tail
+        for label, element, *position in zip(*atomic_site_data, strict=False):
             self.sites[label] = Site(element, position)
 
-    def add_sites(self, atoms: Dict[str, Position]) -> None:
+    def add_sites(self, atoms: dict[str, Position]) -> None:
         """Add multiple atomic sites to the crystal.
 
         Parameters

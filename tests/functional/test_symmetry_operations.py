@@ -28,12 +28,9 @@ def test_retrieving_point_group_operations_matrix_form():
     point_group = PointGroup("4/m")
 
     assert len(point_group.operators["matrix"]) == 8
-    assert point_group.operators["matrix"][0] == [
-        [1, 0, 0], [0, 1, 0], [0, 0, 1]]
-    assert point_group.operators["matrix"][3] == [
-        [0, 1, 0], [-1, 0, 0], [0, 0, 1]]
-    assert point_group.operators["matrix"][5] == [
-        [1, 0, 0], [0, 1, 0], [0, 0, -1]]
+    assert point_group.operators["matrix"][0] == [[1, 0, 0], [0, 1, 0], [0, 0, 1]]
+    assert point_group.operators["matrix"][3] == [[0, 1, 0], [-1, 0, 0], [0, 0, 1]]
+    assert point_group.operators["matrix"][5] == [[1, 0, 0], [0, 1, 0], [0, 0, -1]]
 
 
 def test_retrieving_point_group_operations_ita_form():
