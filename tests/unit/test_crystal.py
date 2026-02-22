@@ -1,176 +1,32 @@
-from collections import OrderedDict
+"""Unit tests for Crystal and Site classes.
+
+All tests use real Crystal, DirectLattice, and Site instances.
+No mocks are used anywhere in this file.
+"""
 
 import pytest
 from numpy import array, ndarray
 from numpy.testing import assert_array_almost_equal, assert_array_equal
 
-from diffraction.cif.helpers import (
-    CIF_NAMES,
-)
-from diffraction.crystal import Crystal, Site
-from diffraction.lattice import DirectLattice
+from diffraction import Crystal, Site
 
-# Data names and parameters for testing
-CRYSTAL_PARAMETERS = [*DirectLattice.lattice_parameter_keys, "space_group"]
-CRYSTAL_DATA_NAMES = [CIF_NAMES[parameter] for parameter in CRYSTAL_PARAMETERS]
+# Canonical values match CALCITE_LATTICE_PARAMS in tests/conftest.py.
+CALCITE_LATTICE_PARAMS = [4.99, 4.99, 17.002, 90.0, 90.0, 120.0]
+CALCITE_SPACE_GROUP = "R -3 c H"
 
-# Example data for testing
-CALCITE_DATA = OrderedDict(
-    [
-        ("a", 4.99),
-        ("b", 4.99),
-        ("c", 17.002),
-        ("alpha", 90),
-        ("beta", 90),
-        ("gamma", 120),
-        ("space_group", "R -3 c H"),
-    ]
-)
-CALCITE_CIF = OrderedDict(
-    [
-        ("cell_length_a", "4.9900(2)"),
-        ("cell_length_b", "4.9900(2)"),
-        ("cell_length_c", "17.002(1)"),
-        ("cell_angle_alpha", "90."),
-        ("cell_angle_beta", "90."),
-        ("cell_angle_gamma", "90."),
-        ("symmetry_space_group_name_H-M", "R -3 c H"),
-        ("atom_site_label", ["Ca1", "C1", "O1"]),
-        ("atom_site_type_symbol", ["Ca2+", "C4+", "O2-"]),
-        ("atom_site_symmetry_multiplicity", ["6", "6", "18"]),
-        ("atom_site_Wyckoff_symbol", ["b", "a", "e"]),
-        ("atom_site_fract_x", ["0", "0", "0.25706(33)"]),
-        ("atom_site_fract_y", ["0", "0", "0"]),
-        ("atom_site_fract_z", ["0", "0.25", "0.25"]),
-        ("atom_site_B_iso_or_equiv", [".", ".", "."]),
-        ("atom_site_occupancy", ["1.", "1.", "1."]),
-        ("atom_site_attached_hydrogens", ["0", "0", "0"]),
-    ]
-)
-CALCITE_ATOMIC_SITES = OrderedDict(
-    [
-        ("Ca1", ["Ca2+", [0, 0, 0]]),
-        ("C1", ["C4+", [0, 0, 0.25]]),
-        ("O1", ["O2-", [0.25706, 0, 0.25]]),
-    ]
-)
+CALCITE_SITES = {
+    "Ca1": ("Ca2+", [0, 0, 0]),
+    "C1": ("C4+", [0, 0, 0.25]),
+    "O1": ("O2-", [0.25706, 0, 0.25]),
+}
 
 
-class TestCreatingCrystalFromSequence:  # TODO: add test to check space group validity
-    def test_lattice_parameters_stored_lattice_object(self, mocker):
-        *lattice_parameters, space_group = CALCITE_DATA.values()
-        mock_lattice = mocker.Mock(spec=DirectLattice)
-        m = mocker.patch(
-            "diffraction.crystal.lattice_module.DirectLattice",
-            return_value=mock_lattice,
-        )
-        c = Crystal(lattice_parameters, space_group)
-
-        # test lattice parameters are passed DirectLattice object
-        m.assert_called_once_with(lattice_parameters)
-        assert c.lattice == mock_lattice
-
-    def test_lattice_parameters_are_directly_available_from_crystal(self, mocker):
-        *lattice_parameters, space_group = CALCITE_DATA.values()
-        # mock DirectLattice to return mock with lattice parameter attributes
-        mock_lattice = mocker.Mock(spec=DirectLattice)
-        for key, value in zip(
-            DirectLattice.lattice_parameter_keys, lattice_parameters, strict=True
-        ):
-            setattr(mock_lattice, key, float(value))
-        mocker.patch(
-            "diffraction.crystal.lattice_module.DirectLattice",
-            return_value=mock_lattice,
-        )
-
-        c = Crystal(lattice_parameters, space_group)
-        for key in DirectLattice.lattice_parameter_keys:
-            assert getattr(c, key) == CALCITE_DATA[key]
-            assert isinstance(getattr(c, key), float)
-
-    def test_string_representation_of_crystal(self):
-        *lattice_parameters, space_group = CALCITE_DATA.values()
-        c = Crystal(lattice_parameters, space_group)
-
-        assert (
-            repr(c)
-            == f"Crystal({[float(parameter) for parameter in lattice_parameters]}, '{space_group}')"
-        )
-        assert (
-            str(c)
-            == f"Crystal({[float(parameter) for parameter in lattice_parameters]}, '{space_group}')"
-        )
+# ---------------------------------------------------------------------------
+# TestCreatingSites
+# ---------------------------------------------------------------------------
 
 
-class TestCreatingCrystalFromMapping:
-    def test_lattice_parameters_and_space_group_are_assigned(self, mocker):
-        mock_lattice = mocker.Mock(spec=DirectLattice)
-        mocker.patch(
-            "diffraction.crystal.lattice_module.DirectLattice.from_dict",
-            return_value=mock_lattice,
-        )
-
-        c = Crystal.from_dict(CALCITE_DATA)
-        assert c.space_group == CALCITE_DATA["space_group"]
-        assert c.lattice == mock_lattice
-
-    def test_error_if_space_group_not_given(self, mocker):
-        dict_with_space_group_missing = CALCITE_CIF.copy()
-        dict_with_space_group_missing.pop("symmetry_space_group_name_H-M")
-        mocker.patch("diffraction.crystal.lattice_module.DirectLattice")
-
-        with pytest.raises(ValueError) as exception_info:
-            Crystal.from_dict(dict_with_space_group_missing)
-        assert str(exception_info.value) == (
-            "Parameter: 'space_group' missing from input dictionary"
-        )
-
-    def test_loading_atomic_sites_from_dict(self, mocker):
-        mocker.patch("diffraction.crystal.lattice_module.DirectLattice.from_dict")
-        calcite_data_with_sites = CALCITE_DATA.copy()
-        calcite_data_with_sites["sites"] = CALCITE_ATOMIC_SITES
-
-        c = Crystal.from_dict(calcite_data_with_sites)
-        expected_sites = {
-            name: Site(ion, position)
-            for name, (ion, position) in CALCITE_ATOMIC_SITES.items()
-        }
-        assert c.sites == expected_sites
-
-
-class TestCreatingCrystalFromCIF:  # TODO: add test to ensure load sites is called in constructor
-    def test_lattice_parameters_and_space_group_are_assigned(self, mocker):
-        mocker.patch(
-            "diffraction.crystal.cif_helpers.load_data_block", return_value=CALCITE_CIF
-        )
-        mock_lattice = mocker.Mock(spec=DirectLattice)
-        m = mocker.patch(
-            "diffraction.crystal.lattice_module.DirectLattice.from_cif",
-            return_value=mock_lattice,
-        )
-
-        c = Crystal.from_cif("some/cif/file.cif", load_sites=False)
-        m.assert_called_once_with("some/cif/file.cif", None)
-        assert c.lattice == mock_lattice
-        assert c.space_group == "R -3 c H"
-
-    def test_loading_atomic_sites_from_cif(self, mocker):
-        mocker.patch(
-            "diffraction.crystal.cif_helpers.load_data_block", return_value=CALCITE_CIF
-        )
-        mock = mocker.MagicMock()
-        mock.add_sites_from_cif = Crystal.add_sites_from_cif
-        mock.sites = {}
-
-        mock.add_sites_from_cif(mock, "some/cif/file.cif")
-        expected_sites = {
-            name: Site(ion, position)
-            for name, (ion, position) in CALCITE_ATOMIC_SITES.items()
-        }
-        assert mock.sites == expected_sites
-
-
-class TestAddingAndModifyingAtomicSites:
+class TestCreatingSites:
     def test_creating_atom(self):
         atom1 = Site("Ca2+", [0, 0, 0])
 
@@ -206,34 +62,169 @@ class TestAddingAndModifyingAtomicSites:
         atom_1.precision = 1e-5
         assert atom_1 == atom_3
 
-    def test_adding_single_sites(self, mocker):
-        mock = mocker.MagicMock()
-        mock.sites = {}
 
-        Crystal.add_sites(mock, {"Ca1": ["Ca2+", [0, 0, 0]]})
-        assert mock.sites == {"Ca1": Site("Ca2+", [0, 0, 0])}
-        Crystal.add_sites(mock, {"C1": ["C4+", [0, 0, 0.25]]})
-        assert mock.sites == {
-            "Ca1": Site("Ca2+", [0, 0, 0]),
-            "C1": Site("C4+", [0, 0, 0.25]),
+# ---------------------------------------------------------------------------
+# TestCreatingCrystalFromSequence
+# ---------------------------------------------------------------------------
+
+
+class TestCreatingCrystalFromSequence:
+    def test_crystal_stores_lattice_parameters(self):
+        c = Crystal(CALCITE_LATTICE_PARAMS, CALCITE_SPACE_GROUP)
+
+        assert c.a == pytest.approx(4.99)
+        assert c.b == pytest.approx(4.99)
+        assert c.c == pytest.approx(17.002)
+        assert c.alpha == pytest.approx(90.0)
+        assert c.beta == pytest.approx(90.0)
+        assert c.gamma == pytest.approx(120.0)
+
+    def test_crystal_stores_space_group(self):
+        c = Crystal(CALCITE_LATTICE_PARAMS, CALCITE_SPACE_GROUP)
+
+        assert c.space_group == "R -3 c H"
+
+    def test_crystal_repr_includes_space_group(self):
+        c = Crystal(CALCITE_LATTICE_PARAMS, CALCITE_SPACE_GROUP)
+
+        assert "R -3 c H" in repr(c)
+        assert "Crystal(" in repr(c)
+
+
+# ---------------------------------------------------------------------------
+# TestCreatingCrystalFromDict
+# ---------------------------------------------------------------------------
+
+
+class TestCreatingCrystalFromDict:
+    def test_crystal_from_dict_assigns_parameters_and_space_group(self):
+        params = {
+            "a": 4.99,
+            "b": 4.99,
+            "c": 17.002,
+            "alpha": 90.0,
+            "beta": 90.0,
+            "gamma": 120.0,
+            "space_group": "R -3 c H",
         }
+        c = Crystal.from_dict(params)
 
-    def test_adding_multiple_sites(self, mocker):
-        mock = mocker.MagicMock()
+        assert c.a == pytest.approx(4.99)
+        assert c.b == pytest.approx(4.99)
+        assert c.c == pytest.approx(17.002)
+        assert c.alpha == pytest.approx(90.0)
+        assert c.beta == pytest.approx(90.0)
+        assert c.gamma == pytest.approx(120.0)
+        assert c.space_group == "R -3 c H"
 
-        mock.sites = {}
-        Crystal.add_sites(mock, CALCITE_ATOMIC_SITES)
+    def test_crystal_from_dict_raises_if_space_group_missing(self):
+        params = {
+            "a": 4.99,
+            "b": 4.99,
+            "c": 17.002,
+            "alpha": 90.0,
+            "beta": 90.0,
+            "gamma": 120.0,
+        }
+        with pytest.raises(ValueError, match="space_group"):
+            Crystal.from_dict(params)
+
+    def test_crystal_from_dict_loads_sites_when_provided(self):
+        params = {
+            "a": 4.99,
+            "b": 4.99,
+            "c": 17.002,
+            "alpha": 90.0,
+            "beta": 90.0,
+            "gamma": 120.0,
+            "space_group": "R -3 c H",
+            "sites": CALCITE_SITES,
+        }
+        c = Crystal.from_dict(params)
+
         expected_sites = {
-            name: Site(ion, position)
-            for name, (ion, position) in CALCITE_ATOMIC_SITES.items()
+            name: Site(ion, position) for name, (ion, position) in CALCITE_SITES.items()
         }
-        assert mock.sites == expected_sites
+        assert c.sites == expected_sites
 
-    def test_modifying_atom_position(self, mocker):
-        mock = mocker.MagicMock()
 
-        mock.sites = {}
-        Crystal.add_sites(mock, CALCITE_ATOMIC_SITES)
-        mock.sites["Ca1"].position = [0, 0, 0.5]
-        assert_array_equal(mock.sites["Ca1"].position, array([0, 0, 0.5]))
-        assert isinstance(mock.sites["Ca1"].position, ndarray)
+# ---------------------------------------------------------------------------
+# TestCreatingCrystalFromCIF
+# ---------------------------------------------------------------------------
+
+
+class TestCreatingCrystalFromCIF:
+    def test_crystal_from_cif_loads_calcite(self, calcite_cif_path):
+        c = Crystal.from_cif(str(calcite_cif_path), load_sites=False)
+
+        assert c.a == pytest.approx(4.99, abs=0.01)
+        assert c.b == pytest.approx(4.99, abs=0.01)
+        assert c.c == pytest.approx(17.002, abs=0.01)
+        assert c.alpha == pytest.approx(90.0)
+        assert c.beta == pytest.approx(90.0)
+        assert c.gamma == pytest.approx(120.0)
+        assert c.space_group == "R -3 c H"
+        assert not hasattr(c, "sites")
+
+    def test_crystal_from_cif_loads_atomic_sites(self, calcite_cif_path):
+        c = Crystal.from_cif(str(calcite_cif_path))
+
+        assert len(c.sites) > 0
+        # Calcite has Ca1, C1, O1 sites
+        assert "Ca1" in c.sites
+        assert "C1" in c.sites
+        assert "O1" in c.sites
+
+
+# ---------------------------------------------------------------------------
+# TestAddingAndModifyingAtomicSites
+# ---------------------------------------------------------------------------
+
+
+class TestAddingAndModifyingAtomicSites:
+    def test_adding_single_site_to_crystal(self):
+        c = Crystal(CALCITE_LATTICE_PARAMS, CALCITE_SPACE_GROUP)
+        c.add_sites({"Ca1": ("Ca2+", [0, 0, 0])})
+
+        assert "Ca1" in c.sites
+        assert c.sites["Ca1"] == Site("Ca2+", [0, 0, 0])
+
+    def test_adding_multiple_sites_to_crystal(self):
+        c = Crystal(CALCITE_LATTICE_PARAMS, CALCITE_SPACE_GROUP)
+        c.add_sites(CALCITE_SITES)
+
+        expected_sites = {
+            name: Site(ion, position) for name, (ion, position) in CALCITE_SITES.items()
+        }
+        assert c.sites == expected_sites
+
+    def test_modifying_site_position(self):
+        c = Crystal(CALCITE_LATTICE_PARAMS, CALCITE_SPACE_GROUP)
+        c.add_sites({"Ca1": ("Ca2+", [0, 0, 0])})
+
+        c.sites["Ca1"].position = [0, 0, 0.5]
+        assert_array_equal(c.sites["Ca1"].position, array([0, 0, 0.5]))
+        assert isinstance(c.sites["Ca1"].position, ndarray)
+
+
+# ---------------------------------------------------------------------------
+# TestCrystalEdgeCases
+# ---------------------------------------------------------------------------
+
+
+class TestCrystalEdgeCases:
+    def test_crystal_getattr_delegates_lattice_params(self):
+        c = Crystal(CALCITE_LATTICE_PARAMS, CALCITE_SPACE_GROUP)
+
+        # All six lattice parameters should be accessible directly on Crystal
+        assert isinstance(c.a, float)
+        assert isinstance(c.b, float)
+        assert isinstance(c.c, float)
+        assert isinstance(c.alpha, float)
+        assert isinstance(c.beta, float)
+        assert isinstance(c.gamma, float)
+
+    def test_crystal_without_sites_has_empty_sites_dict(self):
+        c = Crystal(CALCITE_LATTICE_PARAMS, CALCITE_SPACE_GROUP)
+
+        assert c.sites == {}

@@ -4,6 +4,7 @@ from unittest import mock
 
 import pytest
 
+from diffraction import load_cif, validate_cif
 from diffraction.cif.cif import (
     INLINE_DATA_ITEM,
     SEMICOLON_DATA_ITEM,
@@ -13,8 +14,6 @@ from diffraction.cif.cif import (
     DataBlock,
     strip_quotes,
 )
-
-# TODO: add unit tests for load_cif and validate_cif
 
 
 class TestParsingFile:
@@ -387,3 +386,86 @@ class TestCIFSyntaxExceptions:
             str(exception_info.value)
             == 'Unclosed semicolon text field on line 4: "Unclosed text field"'
         )
+
+
+
+
+class TestLoadCif:
+    def test_load_cif_returns_dict_keyed_by_data_block_header(self, mocker):
+        content = "data_test\n_cell_length_a 5.00\n"
+        mocker.patch("pathlib.Path.open", mock.mock_open(read_data=content))
+
+        result = load_cif("/fake/path.cif")
+        assert "data_test" in result
+
+    def test_load_cif_parses_multiple_data_blocks(self, mocker):
+        content = "data_block_one\n_key_a valueA\ndata_block_two\n_key_b valueB\n"
+        mocker.patch("pathlib.Path.open", mock.mock_open(read_data=content))
+
+        result = load_cif("/fake/path.cif")
+        assert "data_block_one" in result
+        assert "data_block_two" in result
+
+    def test_load_cif_extracts_data_values(self, mocker):
+        content = "data_test\n_cell_length_a 4.99\n_cell_length_b 4.99\n"
+        mocker.patch("pathlib.Path.open", mock.mock_open(read_data=content))
+
+        result = load_cif("/fake/path.cif")
+        data = result["data_test"]
+        assert "cell_length_a" in data
+        assert data["cell_length_a"] == "4.99"
+
+    def test_load_cif_reads_real_calcite_file(self, calcite_cif_path):
+        result = load_cif(str(calcite_cif_path))
+
+        # calcite_icsd.cif has a single data block keyed by its ICSD code
+        assert len(result) == 1
+        block = next(iter(result.values()))
+        assert "cell_length_a" in block
+        assert "symmetry_space_group_name_H-M" in block
+
+    def test_load_cif_real_calcite_file_has_expected_data_block(self, calcite_cif_path):
+        result = load_cif(str(calcite_cif_path))
+
+        # The data block header in calcite_icsd.cif is data_18166-ICSD
+        assert "data_18166-ICSD" in result
+
+
+class TestValidateCif:
+    def test_validate_cif_returns_true_for_valid_content(self, mocker):
+        content = "data_test\n_cell_length_a 5.00\n"
+        mocker.patch("pathlib.Path.open", mock.mock_open(read_data=content))
+
+        result = validate_cif("/fake/path.cif")
+        assert result is True
+
+    def test_validate_cif_raises_for_value_without_data_name(self, mocker):
+        # A lone data value (not preceded by a _data_name) is a CIF syntax error
+        content = "data_test\n4.99\n"
+        mocker.patch("pathlib.Path.open", mock.mock_open(read_data=content))
+
+        with pytest.raises(CIFParseError, match="Missing inline data name"):
+            validate_cif("/fake/path.cif")
+
+    def test_validate_cif_raises_for_unclosed_semicolon_field(self, mocker):
+        content = "data_test\n_data_name_1\n;\nunclosed text field\n"
+        mocker.patch("pathlib.Path.open", mock.mock_open(read_data=content))
+
+        with pytest.raises(CIFParseError, match="Unclosed semicolon text field"):
+            validate_cif("/fake/path.cif")
+
+    def test_validate_cif_validates_multi_block_content(self, mocker):
+        content = (
+            "data_block_one\n_cell_length_a 5.00\n"
+            "data_block_two\n_cell_length_b 6.00\n"
+        )
+        mocker.patch("pathlib.Path.open", mock.mock_open(read_data=content))
+
+        result = validate_cif("/fake/path.cif")
+
+        assert result is True
+
+    def test_validate_cif_accepts_real_calcite_file(self, calcite_cif_path):
+        result = validate_cif(str(calcite_cif_path))
+
+        assert result is True
