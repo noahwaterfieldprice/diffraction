@@ -1,6 +1,6 @@
 [build-system]
-requires = ["setuptools"]
-build-backend = "setuptools.build_meta"
+requires = ["hatchling"]
+build-backend = "hatchling.build"
 
 [project]
 name = "diffraction"
@@ -9,8 +9,27 @@ description = "A package for simulating diffraction experiments and performing c
 requires-python = ">=3.13"
 dependencies = ["numpy"]
 
-[project.optional-dependencies]
-dev = ["pytest", "pytest-mock", "pytest-cov", "pytest-html"]
+[tool.hatch.build.targets.wheel]
+packages = ["src/diffraction"]
 
-[tool.setuptools.packages.find]
-include = ["diffraction*"]
+[dependency-groups]
+dev = [
+    "pytest",
+    "pytest-mock",
+    "pytest-cov",
+    "pytest-html",
+    "ruff>=0.15.2",
+]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+addopts = [
+    "-ra",
+    "--strict-markers",
+    "--cov-config=.coveragerc",
+    "--cov-report=html",
+    "--cov=src/diffraction",
+    "--html=pytest_report.html",
+    "--verbose",
+]
+norecursedirs = ["example_libraries"]
