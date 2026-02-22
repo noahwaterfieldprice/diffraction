@@ -37,9 +37,9 @@ from diffraction.lattice import (
 # Path to the functional test CIF directory, used for real CIF loading tests.
 CIF_DIR = Path(__file__).parent.parent / "functional" / "static" / "valid_cifs"
 
-# Lattice parameters used across tests (defined inline to keep tests
-# self-contained and legible without importing from conftest).
-CALCITE_PARAMS = (4.99, 4.99, 17.002, 90.0, 90.0, 120.0)
+# Lattice parameters used across tests — canonical values match
+# CALCITE_LATTICE_PARAMS in tests/conftest.py.
+CALCITE_LATTICE_PARAMS = (4.99, 4.99, 17.002, 90.0, 90.0, 120.0)
 NACL_PARAMS = (5.6402, 5.6402, 5.6402, 90.0, 90.0, 90.0)
 CORUNDUM_PARAMS = (4.758, 4.758, 12.991, 90.0, 90.0, 120.0)
 FORSTERITE_PARAMS = (4.758, 10.225, 5.994, 90.0, 90.0, 90.0)
@@ -122,7 +122,7 @@ class TestUtilityFunctions:
 
 class TestDirectLatticeCreation:
     def test_direct_lattice_from_sequence_assigns_all_parameters(self):
-        lattice = DirectLattice(CALCITE_PARAMS)
+        lattice = DirectLattice(CALCITE_LATTICE_PARAMS)
 
         assert lattice.a == pytest.approx(4.99)
         assert lattice.b == pytest.approx(4.99)
@@ -130,18 +130,18 @@ class TestDirectLatticeCreation:
         assert lattice.alpha == pytest.approx(90.0)
         assert lattice.beta == pytest.approx(90.0)
         assert lattice.gamma == pytest.approx(120.0)
-        assert lattice.lattice_parameters == CALCITE_PARAMS
+        assert lattice.lattice_parameters == CALCITE_LATTICE_PARAMS
 
     def test_direct_lattice_from_dict_assigns_all_parameters(self):
         lattice = DirectLattice.from_dict(CALCITE_LATTICE_DICT)
 
-        assert lattice.lattice_parameters == CALCITE_PARAMS
+        assert lattice.lattice_parameters == CALCITE_LATTICE_PARAMS
 
     def test_direct_lattice_from_cif_loads_calcite_parameters(self):
         cif_path = str(CIF_DIR / "calcite_icsd.cif")
         lattice = DirectLattice.from_cif(cif_path)
 
-        assert lattice.lattice_parameters == CALCITE_PARAMS
+        assert lattice.lattice_parameters == CALCITE_LATTICE_PARAMS
 
     def test_reciprocal_lattice_from_cif_loads_calcite_parameters(self):
         cif_path = str(CIF_DIR / "calcite_icsd.cif")
@@ -153,7 +153,7 @@ class TestDirectLatticeCreation:
         assert lattice.gamma_star == pytest.approx(60.0, rel=1e-4)
 
     def test_direct_lattice_reciprocal_returns_reciprocal_lattice(self):
-        lattice = DirectLattice(CALCITE_PARAMS)
+        lattice = DirectLattice(CALCITE_LATTICE_PARAMS)
         rl = lattice.reciprocal()
 
         assert isinstance(rl, ReciprocalLattice)
@@ -165,7 +165,7 @@ class TestDirectLatticeCreation:
         direct = rl.direct()
 
         assert isinstance(direct, DirectLattice)
-        assert_almost_equal(direct.lattice_parameters, CALCITE_PARAMS, decimal=2)
+        assert_almost_equal(direct.lattice_parameters, CALCITE_LATTICE_PARAMS, decimal=2)
 
     def test_abstract_lattice_from_cif_raises_not_implemented(self):
         with pytest.raises(NotImplementedError):
@@ -179,19 +179,19 @@ class TestDirectLatticeCreation:
 
 class TestLatticePropertiesWithKnownValues:
     def test_calcite_metric_tensor_matches_known_value(self):
-        lattice = DirectLattice(CALCITE_PARAMS)
+        lattice = DirectLattice(CALCITE_LATTICE_PARAMS)
 
         assert_array_almost_equal(lattice.metric, CALCITE_DIRECT_METRIC)
 
     def test_calcite_unit_cell_volume_matches_known_value(self):
-        lattice = DirectLattice(CALCITE_PARAMS)
+        lattice = DirectLattice(CALCITE_LATTICE_PARAMS)
 
         assert_almost_equal(lattice.unit_cell_volume, 366.6332, decimal=4)
 
     @pytest.mark.parametrize(
         "params, expected_volume",
         [
-            (CALCITE_PARAMS, 366.6332),   # trigonal, hexagonal setting
+            (CALCITE_LATTICE_PARAMS, 366.6332),   # trigonal, hexagonal setting
             (NACL_PARAMS, 179.4252),       # cubic
             (CORUNDUM_PARAMS, 254.6960),   # trigonal, hexagonal setting
             (FORSTERITE_PARAMS, 291.6114), # orthorhombic
@@ -203,11 +203,11 @@ class TestLatticePropertiesWithKnownValues:
         assert_almost_equal(lattice.unit_cell_volume, expected_volume, decimal=4)
 
     def test_lattice_parameters_tuple_updates_when_attribute_set(self):
-        lattice = DirectLattice(CALCITE_PARAMS)
+        lattice = DirectLattice(CALCITE_LATTICE_PARAMS)
         lattice.a = 5.5
 
         assert lattice.lattice_parameters[0] == pytest.approx(5.5)
-        assert lattice.lattice_parameters[1:] == CALCITE_PARAMS[1:]
+        assert lattice.lattice_parameters[1:] == CALCITE_LATTICE_PARAMS[1:]
 
 
 # ---------------------------------------------------------------------------
@@ -224,15 +224,19 @@ class TestLatticeValidationEdgeCases:
         assert "gamma" in str(exc_info.value)
 
     @pytest.mark.parametrize("invalid_value", ["abc", "123@%£", "1232.433.21"])
-    def test_check_lattice_parameters_rejects_non_numeric(self, invalid_value):
-        invalid_params = (*CALCITE_PARAMS[:5], invalid_value)
+    @pytest.mark.parametrize("position", range(6))
+    def test_check_lattice_parameters_rejects_non_numeric(
+        self, position, invalid_value
+    ):
+        params = list(CALCITE_LATTICE_PARAMS)
+        params[position] = invalid_value
+        expected_key = DirectLattice.lattice_parameter_keys[position]
 
-        with pytest.raises(ValueError) as exc_info:
-            DirectLattice(list(invalid_params))
-        assert "gamma" in str(exc_info.value)
+        with pytest.raises(ValueError, match=expected_key):
+            DirectLattice(params)
 
     def test_repr_shows_lattice_type_and_parameters(self):
-        lattice = DirectLattice(CALCITE_PARAMS)
+        lattice = DirectLattice(CALCITE_LATTICE_PARAMS)
 
         result = repr(lattice)
         assert result.startswith("DirectLattice(")

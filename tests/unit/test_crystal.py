@@ -4,24 +4,14 @@ All tests use real Crystal, DirectLattice, and Site instances.
 No mocks are used anywhere in this file.
 """
 
-from pathlib import Path
-
 import pytest
 from numpy import array, ndarray
 from numpy.testing import assert_array_almost_equal, assert_array_equal
 
 from diffraction import Crystal, Site
 
-# Path to the real calcite CIF file used for from_cif tests.
-CALCITE_CIF_PATH = (
-    Path(__file__).parent.parent
-    / "functional"
-    / "static"
-    / "valid_cifs"
-    / "calcite_icsd.cif"
-)
-
-CALCITE_PARAMS = [4.99, 4.99, 17.002, 90.0, 90.0, 120.0]
+# Canonical values match CALCITE_LATTICE_PARAMS in tests/conftest.py.
+CALCITE_LATTICE_PARAMS = [4.99, 4.99, 17.002, 90.0, 90.0, 120.0]
 CALCITE_SPACE_GROUP = "R -3 c H"
 
 CALCITE_SITES = {
@@ -80,7 +70,7 @@ class TestCreatingSites:
 
 class TestCreatingCrystalFromSequence:
     def test_crystal_stores_lattice_parameters(self):
-        c = Crystal(CALCITE_PARAMS, CALCITE_SPACE_GROUP)
+        c = Crystal(CALCITE_LATTICE_PARAMS, CALCITE_SPACE_GROUP)
 
         assert c.a == pytest.approx(4.99)
         assert c.b == pytest.approx(4.99)
@@ -90,12 +80,12 @@ class TestCreatingCrystalFromSequence:
         assert c.gamma == pytest.approx(120.0)
 
     def test_crystal_stores_space_group(self):
-        c = Crystal(CALCITE_PARAMS, CALCITE_SPACE_GROUP)
+        c = Crystal(CALCITE_LATTICE_PARAMS, CALCITE_SPACE_GROUP)
 
         assert c.space_group == "R -3 c H"
 
     def test_crystal_repr_includes_space_group(self):
-        c = Crystal(CALCITE_PARAMS, CALCITE_SPACE_GROUP)
+        c = Crystal(CALCITE_LATTICE_PARAMS, CALCITE_SPACE_GROUP)
 
         assert "R -3 c H" in repr(c)
         assert "Crystal(" in repr(c)
@@ -164,8 +154,8 @@ class TestCreatingCrystalFromDict:
 
 
 class TestCreatingCrystalFromCIF:
-    def test_crystal_from_cif_loads_calcite(self):
-        c = Crystal.from_cif(str(CALCITE_CIF_PATH), load_sites=False)
+    def test_crystal_from_cif_loads_calcite(self, calcite_cif_path):
+        c = Crystal.from_cif(str(calcite_cif_path), load_sites=False)
 
         assert c.a == pytest.approx(4.99, abs=0.01)
         assert c.b == pytest.approx(4.99, abs=0.01)
@@ -174,9 +164,10 @@ class TestCreatingCrystalFromCIF:
         assert c.beta == pytest.approx(90.0)
         assert c.gamma == pytest.approx(120.0)
         assert c.space_group == "R -3 c H"
+        assert not hasattr(c, "sites")
 
-    def test_crystal_from_cif_loads_atomic_sites(self):
-        c = Crystal.from_cif(str(CALCITE_CIF_PATH))
+    def test_crystal_from_cif_loads_atomic_sites(self, calcite_cif_path):
+        c = Crystal.from_cif(str(calcite_cif_path))
 
         assert len(c.sites) > 0
         # Calcite has Ca1, C1, O1 sites
@@ -192,14 +183,14 @@ class TestCreatingCrystalFromCIF:
 
 class TestAddingAndModifyingAtomicSites:
     def test_adding_single_site_to_crystal(self):
-        c = Crystal(CALCITE_PARAMS, CALCITE_SPACE_GROUP)
+        c = Crystal(CALCITE_LATTICE_PARAMS, CALCITE_SPACE_GROUP)
         c.add_sites({"Ca1": ("Ca2+", [0, 0, 0])})
 
         assert "Ca1" in c.sites
         assert c.sites["Ca1"] == Site("Ca2+", [0, 0, 0])
 
     def test_adding_multiple_sites_to_crystal(self):
-        c = Crystal(CALCITE_PARAMS, CALCITE_SPACE_GROUP)
+        c = Crystal(CALCITE_LATTICE_PARAMS, CALCITE_SPACE_GROUP)
         c.add_sites(CALCITE_SITES)
 
         expected_sites = {
@@ -208,7 +199,7 @@ class TestAddingAndModifyingAtomicSites:
         assert c.sites == expected_sites
 
     def test_modifying_site_position(self):
-        c = Crystal(CALCITE_PARAMS, CALCITE_SPACE_GROUP)
+        c = Crystal(CALCITE_LATTICE_PARAMS, CALCITE_SPACE_GROUP)
         c.add_sites({"Ca1": ("Ca2+", [0, 0, 0])})
 
         c.sites["Ca1"].position = [0, 0, 0.5]
@@ -223,7 +214,7 @@ class TestAddingAndModifyingAtomicSites:
 
 class TestCrystalEdgeCases:
     def test_crystal_getattr_delegates_lattice_params(self):
-        c = Crystal(CALCITE_PARAMS, CALCITE_SPACE_GROUP)
+        c = Crystal(CALCITE_LATTICE_PARAMS, CALCITE_SPACE_GROUP)
 
         # All six lattice parameters should be accessible directly on Crystal
         assert isinstance(c.a, float)
@@ -234,6 +225,6 @@ class TestCrystalEdgeCases:
         assert isinstance(c.gamma, float)
 
     def test_crystal_without_sites_has_empty_sites_dict(self):
-        c = Crystal(CALCITE_PARAMS, CALCITE_SPACE_GROUP)
+        c = Crystal(CALCITE_LATTICE_PARAMS, CALCITE_SPACE_GROUP)
 
         assert c.sites == {}

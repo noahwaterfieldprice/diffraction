@@ -11,6 +11,7 @@ Crystal system coverage:
 """
 
 from collections import OrderedDict
+from pathlib import Path
 
 import numpy as np
 import pytest
@@ -47,8 +48,21 @@ CALCITE_DIRECT_METRIC = np.array(
 )
 
 # ---------------------------------------------------------------------------
+# CIF file paths
+# ---------------------------------------------------------------------------
+
+VALID_CIFS_DIR = Path(__file__).parent / "functional" / "static" / "valid_cifs"
+CALCITE_CIF_PATH = VALID_CIFS_DIR / "calcite_icsd.cif"
+
+# ---------------------------------------------------------------------------
 # Fixtures
 # ---------------------------------------------------------------------------
+
+
+@pytest.fixture
+def calcite_cif_path():
+    """Return the path to the calcite ICSD CIF file."""
+    return CALCITE_CIF_PATH
 
 
 @pytest.fixture

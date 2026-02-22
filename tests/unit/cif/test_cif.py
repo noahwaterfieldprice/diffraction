@@ -1,5 +1,4 @@
 from collections import OrderedDict
-from pathlib import Path
 from typing import ClassVar
 from unittest import mock
 
@@ -389,17 +388,6 @@ class TestCIFSyntaxExceptions:
         )
 
 
-# ---------------------------------------------------------------------------
-# Real CIF file path for integration tests
-# ---------------------------------------------------------------------------
-
-_CALCITE_CIF = (
-    Path(__file__).parent.parent.parent
-    / "functional"
-    / "static"
-    / "valid_cifs"
-    / "calcite_icsd.cif"
-)
 
 
 class TestLoadCif:
@@ -427,8 +415,8 @@ class TestLoadCif:
         assert "cell_length_a" in data
         assert data["cell_length_a"] == "4.99"
 
-    def test_load_cif_reads_real_calcite_file(self):
-        result = load_cif(str(_CALCITE_CIF))
+    def test_load_cif_reads_real_calcite_file(self, calcite_cif_path):
+        result = load_cif(str(calcite_cif_path))
 
         # calcite_icsd.cif has a single data block keyed by its ICSD code
         assert len(result) == 1
@@ -436,8 +424,8 @@ class TestLoadCif:
         assert "cell_length_a" in block
         assert "symmetry_space_group_name_H-M" in block
 
-    def test_load_cif_real_calcite_file_has_expected_data_block(self):
-        result = load_cif(str(_CALCITE_CIF))
+    def test_load_cif_real_calcite_file_has_expected_data_block(self, calcite_cif_path):
+        result = load_cif(str(calcite_cif_path))
 
         # The data block header in calcite_icsd.cif is data_18166-ICSD
         assert "data_18166-ICSD" in result
@@ -466,7 +454,18 @@ class TestValidateCif:
         with pytest.raises(CIFParseError, match="Unclosed semicolon text field"):
             validate_cif("/fake/path.cif")
 
-    def test_validate_cif_accepts_real_calcite_file(self):
-        result = validate_cif(str(_CALCITE_CIF))
+    def test_validate_cif_validates_multi_block_content(self, mocker):
+        content = (
+            "data_block_one\n_cell_length_a 5.00\n"
+            "data_block_two\n_cell_length_b 6.00\n"
+        )
+        mocker.patch("pathlib.Path.open", mock.mock_open(read_data=content))
+
+        result = validate_cif("/fake/path.cif")
+
+        assert result is True
+
+    def test_validate_cif_accepts_real_calcite_file(self, calcite_cif_path):
+        result = validate_cif(str(calcite_cif_path))
 
         assert result is True
