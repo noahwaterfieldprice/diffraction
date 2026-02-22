@@ -1,60 +1,78 @@
+"""Unit tests for diffraction.symmetry.
+
+All tests use real PointGroup instances — no mocks. PointGroup loads
+symmetry operators from bundled JSON files, which is fast and reliable
+enough to use in unit tests without mocking.
+
+Tests cover:
+  - Creating PointGroup by symbol and by number
+  - Operator data loaded correctly
+  - String representation
+  - Error handling for invalid inputs
+  - Parametrized lookup table across representative point groups
+"""
+
 import pytest
 
 from diffraction import PointGroup
 
-TEST_POINT_GROUP = {
-    "number": 2,
-    "symbol": "-1",
-    "operators": {
-        "xyz": ["x,y,z", "-x,-y,-z"],
-        "matrix": [
-            [[1, 0, 0], [0, 1, 0], [0, 0, 1]],
-            [[-1, 0, 0], [0, -1, 0], [0, 0, -1]],
-        ],
-        "ita": ["1", "-1 0,0,0"],
-    },
-}
 
+class TestPointGroupCreation:
+    def test_point_group_created_by_symbol(self):
+        pg = PointGroup("-6m2")
 
-class TestCreatingPointGroups:
-    def test_error_if_neither_symbol_nor_number_is_given(self):
-        with pytest.raises(ValueError) as exception:
+        assert pg.symbol == "-6m2"
+        assert pg.number == 26
+
+    def test_point_group_created_by_number(self):
+        pg = PointGroup(number=26)
+
+        assert pg.symbol == "-6m2"
+
+    def test_point_group_operators_loaded(self):
+        pg = PointGroup("-1")
+
+        xyz_ops = pg.operators["xyz"]
+        assert len(xyz_ops) == 2
+        assert "x,y,z" in xyz_ops
+        assert "-x,-y,-z" in xyz_ops
+
+    def test_point_group_repr_shows_symbol(self):
+        pg = PointGroup("4/m")
+
+        assert repr(pg) == 'PointGroup("4/m")'
+
+    def test_point_group_raises_when_neither_symbol_nor_number_given(self):
+        with pytest.raises(ValueError) as exc_info:
             PointGroup()
-        assert str(exception.value) == (
+        assert str(exc_info.value) == (
             "Either the point group symbol or point group number must be given."
         )
 
-    def test_operations_loaded_from_correct_file_for_given_symbol(self, mocker):
-        json_mock = mocker.patch(
-            "diffraction.symmetry.json.loads", return_value=TEST_POINT_GROUP
-        )
+    def test_point_group_raises_for_invalid_symbol(self):
+        with pytest.raises(KeyError):
+            PointGroup("not_a_symbol")
 
-        PointGroup._load_point_group_data("-6m2", None)
-        call_args = json_mock.call_args[0][0]
-        assert '"number": 26' in call_args
+    def test_point_group_raises_for_out_of_range_number(self):
+        # Numbers outside 1-32 have no corresponding JSON data file.
+        with pytest.raises(FileNotFoundError):
+            PointGroup(number=0)
+        with pytest.raises(FileNotFoundError):
+            PointGroup(number=33)
 
-    def test_operations_loaded_from_correct_file_for_given_number(self, mocker):
-        json_mock = mocker.patch(
-            "diffraction.symmetry.json.loads", return_value=TEST_POINT_GROUP
-        )
+    @pytest.mark.parametrize(
+        "symbol, number",
+        [
+            ("1", 1),       # triclinic, no symmetry
+            ("-1", 2),      # triclinic, inversion
+            ("mmm", 8),     # orthorhombic
+            ("4/mmm", 15),  # tetragonal, highest symmetry
+            ("m-3m", 32),   # cubic, highest symmetry
+        ],
+    )
+    def test_point_group_symbol_and_number_are_consistent(self, symbol, number):
+        pg_by_symbol = PointGroup(symbol)
+        pg_by_number = PointGroup(number=number)
 
-        PointGroup._load_point_group_data(None, 26)
-        call_args = json_mock.call_args[0][0]
-        assert '"number": 26' in call_args
-
-    def test_point_attributes_are_loaded_correctly(self, mocker):
-        mocker.patch("diffraction.symmetry.json.loads", return_value=TEST_POINT_GROUP)
-
-        symbol, number, operators = PointGroup._load_point_group_data("-1", None)
-        assert number == TEST_POINT_GROUP["number"]
-        assert symbol == TEST_POINT_GROUP["symbol"]
-        assert operators == TEST_POINT_GROUP["operators"]
-
-    def test_string_representation_of_point_group(self, mocker):
-        point_group_mock = mocker.MagicMock(symbol="6/mmm")
-        point_group_mock.__repr__ = PointGroup.__repr__
-        point_group_mock.__str__ = PointGroup.__str__
-        point_group_mock.__class__.__name__ = "PointGroup"
-
-        assert repr(point_group_mock) == 'PointGroup("6/mmm")'
-        assert str(point_group_mock) == 'PointGroup("6/mmm")'
+        assert pg_by_symbol.number == number
+        assert pg_by_number.symbol == symbol
