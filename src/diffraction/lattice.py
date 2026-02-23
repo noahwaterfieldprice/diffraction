@@ -347,8 +347,8 @@ class DirectLattice(Lattice):
         """
         data_items = cif_helpers.load_data_block(filepath, data_block)
         data_names = [cif_helpers.CIF_NAMES[key] for key in cls.lattice_parameter_keys]
-        lattice_parameters = cif_helpers.get_cif_data(data_items, *data_names)
-        return cls(cast(list[float], lattice_parameters))
+        lattice_parameters = cif_helpers.get_numerical_cif_data(data_items, *data_names)
+        return cls(lattice_parameters)
 
     def vector(self, uvw: Sequence[float]) -> "DirectLatticeVector":
         """Return a direct lattice vector defined on this lattice.
@@ -450,8 +450,8 @@ class ReciprocalLattice(Lattice):
             cif_helpers.CIF_NAMES[key]
             for key in ["a", "b", "c", "alpha", "beta", "gamma"]
         ]
-        lattice_parameters = cif_helpers.get_cif_data(data_items, *data_names)
-        reciprocal_lps = reciprocalise(cast(list[float], lattice_parameters))
+        lattice_parameters = cif_helpers.get_numerical_cif_data(data_items, *data_names)
+        reciprocal_lps = reciprocalise(lattice_parameters)
         return cls(reciprocal_lps)
 
     def vector(self, hkl: Sequence[float]) -> "ReciprocalLatticeVector":

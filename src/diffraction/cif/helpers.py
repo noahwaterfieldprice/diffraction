@@ -183,6 +183,48 @@ def get_cif_data(
     return data
 
 
+def get_numerical_cif_data(
+    data_items: dict[str, str | list[str]], *data_names: str
+) -> list[float]:
+    """Retrieve numerical data values from a parsed CIF data items dictionary.
+
+    Like get_cif_data, but asserts all requested names are in
+    NUMERICAL_DATA_NAMES and returns list[float] directly, eliminating
+    the need for callers to cast.
+
+    Args:
+        data_items: Dictionary mapping CIF data name strings to their
+            extracted values (str or list[str]).
+        *data_names: One or more CIF data name strings to retrieve. All
+            must be in NUMERICAL_DATA_NAMES.
+
+    Returns:
+        List of float values in the same order as data_names.
+
+    Raises:
+        ValueError: If any requested data name is not present in
+            data_items, is not a numerical data name, or cannot be
+            parsed as a float.
+    """
+    data: list[float] = []
+    for data_name in data_names:
+        if data_name not in NUMERICAL_DATA_NAMES:
+            raise ValueError(f"'{data_name}' is not a numerical CIF data name")
+        try:
+            data_value = data_items[data_name]
+        except KeyError as exc:
+            raise ValueError(
+                f"Parameter: '{data_name}' missing from input CIF"
+            ) from exc
+        result = cif_numerical(data_name, data_value)
+        if isinstance(result, list):
+            raise ValueError(
+                f"Expected scalar numerical value for '{data_name}', got list"
+            )
+        data.append(result)
+    return data
+
+
 @overload
 def cif_numerical(data_name: str, data_value: str) -> float: ...
 
