@@ -7,14 +7,16 @@ dictionaries, or CIF files.
 """
 
 from collections.abc import Sequence
-from typing import Any
+from typing import Any, TypeAlias, cast
 
 import numpy as np
+from numpy.typing import NDArray
 
 from . import lattice as lattice_module
 from .cif import helpers as cif_helpers
 
-LatticeParameters, Position = Sequence[float], Sequence[float]
+LatticeParameters: TypeAlias = Sequence[float]
+Position: TypeAlias = Sequence[float]
 
 __all__ = ["Crystal", "Site"]
 
@@ -53,18 +55,20 @@ class Site:
         self.precision = precision
 
     @property
-    def position(self) -> np.ndarray:
+    def position(self) -> NDArray[np.float64]:
         """Return the fractional coordinate position as a numpy array."""
         return self._position
 
     @position.setter
     def position(self, new_position: Position) -> None:
-        self._position = np.array(new_position)
+        self._position: NDArray[np.float64] = np.array(new_position)
 
     def __repr__(self) -> str:
         return f"{self.__class__.__name__}({self.ion!r}, {self.position!r})"
 
-    def __eq__(self, other: "Site") -> bool:
+    def __eq__(self, other: object) -> bool:
+        if not isinstance(other, Site):
+            return NotImplemented
         return self.ion == other.ion and np.allclose(
             self.position, other.position, atol=self.precision
         )
@@ -102,13 +106,15 @@ class Crystal:
         'R -3 c H'
     """
 
-    def __init__(self, lattice_parameters, space_group):
+    def __init__(
+        self, lattice_parameters: LatticeParameters, space_group: str
+    ) -> None:
         self.lattice = lattice_module.DirectLattice(lattice_parameters)
         self.space_group = space_group
-        self.sites = {}
+        self.sites: dict[str, Site] = {}
 
     @classmethod
-    def from_dict(cls, input_dict: dict[str, float]) -> "Crystal":
+    def from_dict(cls, input_dict: dict[str, Any]) -> "Crystal":
         """Create a Crystal from a parameter dictionary.
 
         Args:
@@ -190,7 +196,7 @@ class Crystal:
         [space_group] = cif_helpers.get_cif_data(
             data_items, cif_helpers.CIF_NAMES["space_group"]
         )
-        crystal.lattice, crystal.space_group = lattice, space_group
+        crystal.lattice, crystal.space_group = lattice, cast(str, space_group)
         if load_sites:
             crystal.sites = {}
             crystal.add_sites_from_cif(filepath, data_block)
@@ -244,9 +250,9 @@ class Crystal:
         # zip with strict=False: all columns come from same loop so they are
         # equal length by construction; unpacking with *position uses the tail
         for label, element, *position in zip(*atomic_site_data, strict=False):
-            self.sites[label] = Site(element, position)
+            self.sites[str(label)] = Site(str(element), position)
 
-    def add_sites(self, atoms: dict[str, Position]) -> None:
+    def add_sites(self, atoms: dict[str, tuple[str, Position]]) -> None:
         """Add multiple atomic sites to the crystal.
 
         Args:
