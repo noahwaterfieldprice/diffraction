@@ -482,6 +482,11 @@ def check_lattice(
 ) -> Callable[[_VT, _VT], _VT]:
     @wraps(operation)  # TODO: sort error msg when adding direct + recip vector
     def wrapper(self: _VT, other: _VT) -> _VT:
+        if self.lattice is None or other.lattice is None:
+            raise TypeError(
+                f"Cannot perform operation: {self.__class__.__name__} has no"
+                " attached lattice"
+            )
         if self.lattice != other.lattice:
             raise TypeError(
                 f"lattice must be the same for both {self.__class__.__name__}s"
@@ -519,7 +524,7 @@ class DirectLatticeVector(np.ndarray):
         0.0
     """
 
-    lattice: DirectLattice
+    lattice: DirectLattice | None
 
     def __new__(
         cls, uvw: Sequence[float], lattice: DirectLattice
@@ -531,7 +536,7 @@ class DirectLatticeVector(np.ndarray):
     def __array_finalize__(
         self, vector: object
     ) -> None:
-        self.lattice = getattr(vector, "lattice", None)  # type: ignore[assignment]
+        self.lattice = getattr(vector, "lattice", None)
 
     def __eq__(self, other: object) -> bool:
         if not isinstance(other, DirectLatticeVector):
@@ -567,6 +572,8 @@ class DirectLatticeVector(np.ndarray):
         Returns:
             The length of the vector in angstroms.
         """
+        if self.lattice is None:
+            raise TypeError("Cannot compute norm: vector has no attached lattice")
         return float(np.sqrt(self.dot(self.lattice.metric).dot(self)))
 
     def inner(self, other: "DirectLatticeVector") -> float:
@@ -592,8 +599,16 @@ class DirectLatticeVector(np.ndarray):
             TypeError: If other is a DirectLatticeVector on a different
                 lattice.
         """
+        if self.lattice is None:
+            raise TypeError(
+                "Cannot compute inner product: vector has no attached lattice"
+            )
         #  TODO: is there any way to do this apart from type-checking?
         if type(other) is ReciprocalLatticeVector:
+            if other.lattice is None:
+                raise TypeError(
+                    "Cannot compute inner product: vector has no attached lattice"
+                )
             if not np.allclose(
                 self.lattice.metric,
                 np.linalg.inv(other.lattice.metric / (2 * np.pi) ** 2),
@@ -652,7 +667,7 @@ class ReciprocalLatticeVector(DirectLatticeVector):
         4.361842158457823
     """
 
-    lattice: ReciprocalLattice  # type: ignore[assignment]
+    lattice: ReciprocalLattice | None  # type: ignore[assignment]
 
     def __new__(
         cls, hkl: Sequence[float], lattice: ReciprocalLattice
@@ -686,8 +701,16 @@ class ReciprocalLatticeVector(DirectLatticeVector):
             TypeError: If other is a ReciprocalLatticeVector on a different
                 lattice.
         """
+        if self.lattice is None:
+            raise TypeError(
+                "Cannot compute inner product: vector has no attached lattice"
+            )
         #  TODO: is there any way to do this apart from type-checking?
         if type(other) is DirectLatticeVector:
+            if other.lattice is None:
+                raise TypeError(
+                    "Cannot compute inner product: vector has no attached lattice"
+                )
             if not np.allclose(
                 self.lattice.metric,
                 np.linalg.inv(other.lattice.metric) * (2 * np.pi) ** 2,
