@@ -48,7 +48,9 @@ class TestParsingFile:
         p = CIFParser(filepath)
         assert p.raw_data == "\n".join(contents)
 
-    def test_comments_and_blank_lines_are_stripped_out(self, mocker: MockerFixture) -> None:
+    def test_comments_and_blank_lines_are_stripped_out(
+        self, mocker: MockerFixture
+    ) -> None:
         contents = [
             "# Here is a comment on the first line",
             "# Here is another comment. The next line is just whitespace",
@@ -171,7 +173,9 @@ class TestParsingFile:
         data_block.extract_data_items(SEMICOLON_DATA_ITEM)
         assert data_block.raw_data == expected_remaining_data
 
-    def test_inline_declared_variables_are_assigned(self, mocker: MockerFixture) -> None:
+    def test_inline_declared_variables_are_assigned(
+        self, mocker: MockerFixture
+    ) -> None:
         data_items = OrderedDict(
             [
                 ("data_name", "value"),
@@ -212,7 +216,9 @@ class TestParsingFile:
         data_block.extract_data_items(INLINE_DATA_ITEM)
         assert data_block.raw_data == expected_remaining_data
 
-    def test_variables_declared_in_loop_are_assigned(self, mocker: MockerFixture) -> None:
+    def test_variables_declared_in_loop_are_assigned(
+        self, mocker: MockerFixture
+    ) -> None:
         data_items = {
             "number": ["1", "2222", "3456789"],
             "symbol": [".", "-", "?"],
@@ -445,14 +451,18 @@ class TestLoadCif:
 
 
 class TestValidateCif:
-    def test_validate_cif_returns_true_for_valid_content(self, mocker: MockerFixture) -> None:
+    def test_validate_cif_returns_true_for_valid_content(
+        self, mocker: MockerFixture
+    ) -> None:
         content = "data_test\n_cell_length_a 5.00\n"
         mocker.patch("pathlib.Path.open", mock.mock_open(read_data=content))
 
         result = validate_cif("/fake/path.cif")
         assert result is True
 
-    def test_validate_cif_raises_for_value_without_data_name(self, mocker: MockerFixture) -> None:
+    def test_validate_cif_raises_for_value_without_data_name(
+        self, mocker: MockerFixture
+    ) -> None:
         # A lone data value (not preceded by a _data_name) is a CIF syntax error
         content = "data_test\n4.99\n"
         mocker.patch("pathlib.Path.open", mock.mock_open(read_data=content))
@@ -469,10 +479,11 @@ class TestValidateCif:
         with pytest.raises(CIFParseError, match="Unclosed semicolon text field"):
             validate_cif("/fake/path.cif")
 
-    def test_validate_cif_validates_multi_block_content(self, mocker: MockerFixture) -> None:
+    def test_validate_cif_validates_multi_block_content(
+        self, mocker: MockerFixture
+    ) -> None:
         content = (
-            "data_block_one\n_cell_length_a 5.00\n"
-            "data_block_two\n_cell_length_b 6.00\n"
+            "data_block_one\n_cell_length_a 5.00\ndata_block_two\n_cell_length_b 6.00\n"
         )
         mocker.patch("pathlib.Path.open", mock.mock_open(read_data=content))
 
@@ -480,7 +491,9 @@ class TestValidateCif:
 
         assert result is True
 
-    def test_validate_cif_accepts_real_calcite_file(self, calcite_cif_path: Any) -> None:
+    def test_validate_cif_accepts_real_calcite_file(
+        self, calcite_cif_path: Any
+    ) -> None:
         result = validate_cif(str(calcite_cif_path))
 
         assert result is True

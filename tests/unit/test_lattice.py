@@ -20,7 +20,9 @@ from math import pi
 from pathlib import Path
 from typing import Any
 
+import numpy as np
 import pytest
+from conftest import CALCITE_LATTICE_PARAMS  # type: ignore[import-not-found]
 from numpy import array
 from numpy.testing import assert_almost_equal, assert_array_almost_equal
 from pytest_mock import MockerFixture
@@ -29,6 +31,7 @@ from diffraction import DirectLattice, ReciprocalLattice
 from diffraction.lattice import (
     DirectLatticeVector,
     Lattice,
+    LatticeVector,
     ReciprocalLatticeVector,
     _metric_tensor,
     _reciprocalise,
@@ -39,9 +42,6 @@ from diffraction.lattice import (
 # Path to the functional test CIF directory, used for real CIF loading tests.
 CIF_DIR = Path(__file__).parent.parent / "functional" / "static" / "valid_cifs"
 
-# Lattice parameters used across tests — canonical values match
-# CALCITE_LATTICE_PARAMS in tests/conftest.py.
-CALCITE_LATTICE_PARAMS = (4.99, 4.99, 17.002, 90.0, 90.0, 120.0)
 NACL_PARAMS = (5.6402, 5.6402, 5.6402, 90.0, 90.0, 90.0)
 CORUNDUM_PARAMS = (4.758, 4.758, 12.991, 90.0, 90.0, 120.0)
 FORSTERITE_PARAMS = (4.758, 10.225, 5.994, 90.0, 90.0, 90.0)
@@ -162,7 +162,9 @@ class TestDirectLatticeCreation:
         direct = rl.direct()
 
         assert isinstance(direct, DirectLattice)
-        assert_almost_equal(direct.lattice_parameters, CALCITE_LATTICE_PARAMS, decimal=2)
+        assert_almost_equal(
+            direct.lattice_parameters, CALCITE_LATTICE_PARAMS, decimal=2
+        )
 
     def test_concrete_subclass_can_omit_from_cif(self) -> None:
         # from_cif is no longer abstract; subclasses can be instantiated
@@ -190,10 +192,10 @@ class TestLatticePropertiesWithKnownValues:
     @pytest.mark.parametrize(
         "params, expected_volume",
         [
-            (CALCITE_LATTICE_PARAMS, 366.6332),   # trigonal, hexagonal setting
-            (NACL_PARAMS, 179.4252),       # cubic
-            (CORUNDUM_PARAMS, 254.6960),   # trigonal, hexagonal setting
-            (FORSTERITE_PARAMS, 291.6114), # orthorhombic
+            (CALCITE_LATTICE_PARAMS, 366.6332),  # trigonal, hexagonal setting
+            (NACL_PARAMS, 179.4252),  # cubic
+            (CORUNDUM_PARAMS, 254.6960),  # trigonal, hexagonal setting
+            (FORSTERITE_PARAMS, 291.6114),  # orthorhombic
         ],
     )
     def test_unit_cell_volume_for_multiple_crystal_systems(
@@ -250,7 +252,7 @@ class TestLatticeValidationEdgeCases:
         self, position: int, invalid_value: str
     ) -> None:
         params = list(CALCITE_LATTICE_PARAMS)
-        params[position] = invalid_value  # type: ignore[call-overload]
+        params[position] = invalid_value
         expected_key = DirectLattice.lattice_parameter_keys[position]
 
         with pytest.raises(ValueError, match=expected_key):
@@ -309,9 +311,7 @@ class TestDirectLatticeVectorCreationAndMagicMethods:
         assert isinstance(v2, self.cls)
         assert v2.lattice == lattice
 
-    def test_negation_preserves_type_and_lattice(
-        self, mocker: MockerFixture
-    ) -> None:
+    def test_negation_preserves_type_and_lattice(self, mocker: MockerFixture) -> None:
         lattice: Any = mocker.MagicMock()
 
         v1 = self.cls([1, 0, 0], lattice)
@@ -372,6 +372,94 @@ class TestDirectLatticeVectorCreationAndMagicMethods:
         assert self.cls.__name__ in repr(v1)
         # str should contain the class name
         assert self.cls.__name__ in str(v1)
+
+    # --- Finding A: __init__ rejects non-3D components ---
+
+    def test_error_if_components_not_3d_too_few(self, mocker: MockerFixture) -> None:
+        lattice: Any = mocker.MagicMock()
+        with pytest.raises(ValueError, match="3-dimensional"):
+            self.cls([1, 2], lattice)
+
+    def test_error_if_components_not_3d_too_many(self, mocker: MockerFixture) -> None:
+        lattice: Any = mocker.MagicMock()
+        with pytest.raises(ValueError, match="3-dimensional"):
+            self.cls([1, 2, 3, 4], lattice)
+
+    # --- Setter validates shape ---
+
+    def test_error_if_setting_components_wrong_shape_too_few(
+        self, mocker: MockerFixture
+    ) -> None:
+        lattice: Any = mocker.MagicMock()
+        v = self.cls([1, 2, 3], lattice)
+        with pytest.raises(ValueError, match="3-dimensional"):
+            v.components = [1, 2]
+
+    def test_error_if_setting_components_wrong_shape_too_many(
+        self, mocker: MockerFixture
+    ) -> None:
+        lattice: Any = mocker.MagicMock()
+        v = self.cls([1, 2, 3], lattice)
+        with pytest.raises(ValueError, match="3-dimensional"):
+            v.components = [1, 2, 3, 4]
+
+    # --- Finding B: __array__ returns read-only view ---
+
+    def test_array_returns_read_only_view(self, mocker: MockerFixture) -> None:
+        lattice: Any = mocker.MagicMock()
+        v = self.cls([1, 2, 3], lattice)
+        arr = np.asarray(v)
+        assert not arr.flags.writeable
+
+    # --- Finding C: scalar ops accept numpy scalars ---
+
+    def test_scalar_multiply_accepts_numpy_scalar(self, mocker: MockerFixture) -> None:
+        lattice: Any = mocker.MagicMock()
+        v = self.cls([1, 2, 3], lattice)
+        result = v * np.float64(2.0)
+        assert isinstance(result, self.cls)
+        assert result.components[0] == pytest.approx(2.0)
+
+    def test_scalar_divide_accepts_numpy_scalar(self, mocker: MockerFixture) -> None:
+        lattice: Any = mocker.MagicMock()
+        v = self.cls([2, 4, 6], lattice)
+        result = v / np.int64(2)
+        assert isinstance(result, self.cls)
+        assert result.components[0] == pytest.approx(1.0)
+
+    def test_rmul_accepts_numpy_scalar(self, mocker: MockerFixture) -> None:
+        lattice: Any = mocker.MagicMock()
+        v = self.cls([1, 2, 3], lattice)
+        # Call __rmul__ directly: np.float64.__mul__ intercepts the * operator
+        # before __rmul__ is reached when __array__ is defined on the operand.
+        result = v.__rmul__(np.float64(3.0))
+        assert isinstance(result, self.cls)
+        assert result.components[0] == pytest.approx(3.0)
+
+    # --- Finding D: add/sub with incompatible types returns NotImplemented ---
+
+    def test_add_incompatible_type_returns_not_implemented(
+        self, mocker: MockerFixture
+    ) -> None:
+        lattice: Any = mocker.MagicMock()
+        v = self.cls([1, 2, 3], lattice)
+        assert v.__add__("not a vector") is NotImplemented
+        assert v.__sub__("not a vector") is NotImplemented
+
+    def test_add_cross_type_returns_not_implemented(
+        self, mocker: MockerFixture
+    ) -> None:
+        """Adding DirectLatticeVector to ReciprocalLatticeVector returns NotImplemented."""
+        lattice: Any = mocker.MagicMock()
+        other_cls: type[LatticeVector]
+        if self.cls is DirectLatticeVector:
+            other_cls = ReciprocalLatticeVector
+        else:
+            other_cls = DirectLatticeVector
+        v1 = self.cls([1, 2, 3], lattice)
+        v2 = other_cls([1, 2, 3], lattice)
+        assert v1.__add__(v2) is NotImplemented
+        assert v1.__sub__(v2) is NotImplemented
 
 
 class TestReciprocalLatticeVectorCreationAndMagicMethods(
@@ -453,6 +541,17 @@ class TestDirectLatticeVectorCalculations:
         v2 = DirectLatticeVector(uvw, lattice)
 
         assert_almost_equal(v1.angle(v2), result)
+
+    # --- Finding E: angle raises ValueError for zero-length vector ---
+
+    def test_angle_raises_for_zero_length_vector(self, mocker: MockerFixture) -> None:
+        lattice: Any = mocker.MagicMock(metric=CALCITE_DIRECT_METRIC)
+        v1 = DirectLatticeVector([1, 1, 0], lattice)
+        v_zero = DirectLatticeVector([0, 0, 0], lattice)
+        with pytest.raises(ValueError, match="zero-length"):
+            v1.angle(v_zero)
+        with pytest.raises(ValueError, match="zero-length"):
+            v_zero.angle(v1)
 
 
 # ---------------------------------------------------------------------------
@@ -607,3 +706,27 @@ class TestDirectAndReciprocalLatticeVectorCalculations:
 
         assert_almost_equal(direct_vector.angle(reciprocal_vector), result, decimal=2)
         assert_almost_equal(reciprocal_vector.angle(direct_vector), result, decimal=2)
+
+    # --- Finding F: cross-space inner with non-reciprocal lattices (reverse) ---
+
+    def test_error_if_reciprocal_inner_with_non_reciprocal_direct_lattice(
+        self, mocker: MockerFixture
+    ) -> None:
+        direct_lattice: Any = mocker.MagicMock(metric=CALCITE_DIRECT_METRIC * 1.02)
+        reciprocal_lattice: Any = mocker.MagicMock(metric=CALCITE_RECIPROCAL_METRIC)
+        direct_vector = DirectLatticeVector([1, 0, 0], direct_lattice)
+        reciprocal_vector = ReciprocalLatticeVector([0, 2, 3], reciprocal_lattice)
+
+        with pytest.raises(TypeError, match="reciprocally related"):
+            reciprocal_vector.inner(direct_vector)
+
+    # --- Finding G: cross-space inner with real reciprocal lattices ---
+
+    def test_cross_space_inner_product_with_real_reciprocal_lattices(self) -> None:
+        direct = DirectLattice(CALCITE_LATTICE_PARAMS)
+        reciprocal = direct.reciprocal()
+        u = DirectLatticeVector([1, 0, 0], direct)
+        h = ReciprocalLatticeVector([1, 0, 0], reciprocal)
+
+        result = u.inner(h)
+        assert result == pytest.approx(2 * pi)

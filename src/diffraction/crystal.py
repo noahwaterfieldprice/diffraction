@@ -120,9 +120,7 @@ class Crystal:
         'R -3 c H'
     """
 
-    def __init__(
-        self, lattice_parameters: LatticeParameters, space_group: str
-    ) -> None:
+    def __init__(self, lattice_parameters: LatticeParameters, space_group: str) -> None:
         self.lattice = lattice_module.DirectLattice(lattice_parameters)
         self.space_group = space_group
         self.sites: dict[str, Site] = {}

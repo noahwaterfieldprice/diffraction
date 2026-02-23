@@ -144,6 +144,12 @@ def get_cif_data(
         ValueError: If any requested data name is not present in
             ``data_items``.
         ValueError: If a numerical data value cannot be parsed as a float.
+
+    Note:
+        This function returns a wide union type because the return type
+        depends on which data names are in NUMERICAL_DATA_NAMES, not on
+        argument types. For fully typed numerical lookups, use
+        :func:`get_numerical_cif_data` instead.
     """
     data: list[str | float | list[str] | list[float]] = []
     for data_name in data_names:

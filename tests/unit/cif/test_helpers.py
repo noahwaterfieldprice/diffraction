@@ -25,9 +25,7 @@ def fake_num_data(
     return data_values
 
 
-def fake_text_data(
-    data_names: Sequence[str], no_data_blocks: int = 1
-) -> list[str]:
+def fake_text_data(data_names: Sequence[str], no_data_blocks: int = 1) -> list[str]:
     """Generates dummy textual input cif data for testing"""
     data_values = [f"'{string.ascii_letters[i] * 5}'" for i in range(len(data_names))]
     return data_values
@@ -74,7 +72,9 @@ class TestLoadingDataItemsFromDataBlocks:
             "Required when input CIF has multiple data blocks."
         )
 
-    def test_data_block_loads_for_multi_data_blocks(self, mocker: MockerFixture) -> None:
+    def test_data_block_loads_for_multi_data_blocks(
+        self, mocker: MockerFixture
+    ) -> None:
         input_dict = fake_cif_data(
             NUMERICAL_DATA_NAMES + TEXTUAL_DATA_NAMES, no_data_blocks=5
         )
@@ -189,7 +189,9 @@ class TestLoadingSpecificDataItems:
         [data] = get_cif_data(test_data_items, data_name)
         assert data == "C1 Ca1 O3"
 
-    def test_numerical_data_values_stripped_of_errors(self, mocker: MockerFixture) -> None:
+    def test_numerical_data_values_stripped_of_errors(
+        self, mocker: MockerFixture
+    ) -> None:
         data_items = fake_cif_data(NUMERICAL_DATA_NAMES, errors=True)["data_block_0"]
         mocker.patch("diffraction.cif.helpers.float", side_effect=lambda x: x)
 
