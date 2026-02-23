@@ -61,6 +61,8 @@ from .cif import helpers as cif_helpers
 
 LatticeParameters: TypeAlias = Sequence[float]
 
+_LT = TypeVar("_LT", bound="Lattice")
+
 __all__ = [
     "DirectLattice",
     "DirectLatticeVector",
@@ -223,7 +225,7 @@ class Lattice(abc.ABC):
         raise NotImplementedError
 
     @classmethod
-    def from_dict(cls, input_dict: dict[str, float]) -> "Lattice":
+    def from_dict(cls: type[_LT], input_dict: dict[str, float]) -> _LT:
         """Create a lattice from a parameter dictionary.
 
         Args:
@@ -347,23 +349,6 @@ class DirectLattice(Lattice):
         data_names = [cif_helpers.CIF_NAMES[key] for key in cls.lattice_parameter_keys]
         lattice_parameters = cif_helpers.get_cif_data(data_items, *data_names)
         return cls(cast(list[float], lattice_parameters))
-
-    @classmethod
-    def from_dict(cls, input_dict: dict[str, float]) -> "DirectLattice":
-        """Create a DirectLattice from a parameter dictionary.
-
-        Args:
-            input_dict: Mapping from parameter name strings to values. Must
-                contain all keys in ``lattice_parameter_keys``.
-
-        Returns:
-            A new DirectLattice instance populated from the dictionary.
-
-        Raises:
-            ValueError: If any required lattice parameter key is missing from
-                the dictionary.
-        """
-        return cast("DirectLattice", super().from_dict(input_dict))
 
     def vector(self, uvw: Sequence[float]) -> "DirectLatticeVector":
         """Return a direct lattice vector defined on this lattice.

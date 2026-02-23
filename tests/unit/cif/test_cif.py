@@ -25,6 +25,14 @@ class TestParsingFile:
         data_block = DataBlock("header", "a" * 100)
         assert repr(data_block) == "DataBlock('header', '%s...', {})" % ("a" * 15)
 
+    def test_datablock_equality(self) -> None:
+        db1 = DataBlock("header", "raw")
+        db2 = DataBlock("header", "raw")
+        db3 = DataBlock("other", "raw")
+        assert db1 == db2
+        assert db1 != db3
+        assert db1 != object()
+
     def test_file_contents_are_stored_as_raw_string_attribute(
         self, mocker: Any
     ) -> None:
