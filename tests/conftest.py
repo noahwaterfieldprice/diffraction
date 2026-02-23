@@ -60,24 +60,24 @@ CALCITE_CIF_PATH = VALID_CIFS_DIR / "calcite_icsd.cif"
 
 
 @pytest.fixture
-def calcite_cif_path():
+def calcite_cif_path() -> Path:
     """Return the path to the calcite ICSD CIF file."""
     return CALCITE_CIF_PATH
 
 
 @pytest.fixture
-def calcite_lattice():
+def calcite_lattice() -> DirectLattice:
     """Return a real DirectLattice for calcite (trigonal, hexagonal setting)."""
     return DirectLattice(CALCITE_LATTICE_PARAMS)
 
 
 @pytest.fixture
-def nacl_lattice():
+def nacl_lattice() -> DirectLattice:
     """Return a real DirectLattice for NaCl (cubic)."""
     return DirectLattice(NACL_LATTICE_PARAMS)
 
 
 @pytest.fixture
-def calcite_crystal():
+def calcite_crystal() -> Crystal:
     """Return a real Crystal for calcite with space group R -3 c H."""
     return Crystal(list(CALCITE_LATTICE_PARAMS), "R -3 c H")

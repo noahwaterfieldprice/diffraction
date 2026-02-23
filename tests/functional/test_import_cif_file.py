@@ -8,7 +8,7 @@ from diffraction.cif.cif import CIFParser
 
 
 class TestFileLoading:
-    def test_raises_warning_if_file_extension_is_not_cif(self):
+    def test_raises_warning_if_file_extension_is_not_cif(self) -> None:
         cif_filepath = "tests/functional/static/valid_cifs/non_cif_extension.txt"
 
         # test for warning on validating cif
@@ -18,7 +18,7 @@ class TestFileLoading:
         with pytest.warns(UserWarning):
             load_cif(cif_filepath)
 
-    def test_loading_cif_from_invalid_filepath_raises_exception(self):
+    def test_loading_cif_from_invalid_filepath_raises_exception(self) -> None:
         cif_filepath = "/no/cif/file/here"
 
         # test for exception on validating cif
@@ -46,7 +46,9 @@ class TestCIFValidating:
     @pytest.mark.parametrize(
         "filename, error_message", zip(invalid_files, error_messages, strict=True)
     )
-    def test_exception_with_invalid_cif(self, filename, error_message):
+    def test_exception_with_invalid_cif(
+        self, filename: str, error_message: str
+    ) -> None:
         filepath = "tests/functional/static/invalid_cifs/" + filename
         with pytest.raises(CIFParseError) as exception_info:
             validate_cif(filepath)
@@ -56,12 +58,12 @@ class TestCIFValidating:
         "filepath",
         sorted(Path("tests/functional/static/valid_cifs").glob("*")),
     )
-    def test_no_exception_and_return_true_with_valid_cif(self, filepath):
+    def test_no_exception_and_return_true_with_valid_cif(self, filepath: Path) -> None:
         assert validate_cif(str(filepath)) is True
 
 
 class TestCIFReading:
-    def test_can_load_crystal_data_from_vesta_cif(self):
+    def test_can_load_crystal_data_from_vesta_cif(self) -> None:
         p = CIFParser("tests/functional/static/valid_cifs/calcite_vesta.cif")
         p.parse()
 
@@ -82,7 +84,7 @@ class TestCIFReading:
         assert data_items["symmetry_space_group_name_H-M"] == "R -3 c"
         assert data_items["symmetry_Int_Tables_number"] == "167"
 
-    def test_can_load_crystal_data_from_icsd_cif(self):
+    def test_can_load_crystal_data_from_icsd_cif(self) -> None:
         p = CIFParser("tests/functional/static/valid_cifs/calcite_icsd.cif")
         p.parse()
 
@@ -108,7 +110,7 @@ class TestCIFReading:
         assert data_items["chemical_name_mineral"] == "Calcite"
         assert data_items["cell_formula_units_Z"] == "6"
 
-    def test_can_load_crystal_data_from_multi_data_block_cif(self):
+    def test_can_load_crystal_data_from_multi_data_block_cif(self) -> None:
         p = CIFParser("tests/functional/static/valid_cifs/multi_data_block.cif")
         p.parse()
 

@@ -52,13 +52,16 @@ import abc
 import math
 from collections.abc import Callable, Sequence
 from functools import wraps
-from typing import ClassVar
+from typing import ClassVar, TypeAlias, TypeVar, cast
 
 import numpy as np
+from numpy.typing import NDArray
 
 from .cif import helpers as cif_helpers
 
-LatticeParameters = Sequence[float]
+LatticeParameters: TypeAlias = Sequence[float]
+
+_LT = TypeVar("_LT", bound="Lattice")
 
 __all__ = [
     "DirectLattice",
@@ -67,8 +70,10 @@ __all__ = [
     "ReciprocalLatticeVector",
 ]
 
+_VT = TypeVar("_VT", bound="DirectLatticeVector")
 
-def _to_radians(lattice_parameters: LatticeParameters) -> LatticeParameters:
+
+def _to_radians(lattice_parameters: LatticeParameters) -> tuple[float, ...]:
     """Convert angles in lattice parameters from degrees to radians.
 
     Args:
@@ -85,7 +90,7 @@ def _to_radians(lattice_parameters: LatticeParameters) -> LatticeParameters:
     return lengths + angles_in_radians
 
 
-def _to_degrees(lattice_parameters: LatticeParameters) -> LatticeParameters:
+def _to_degrees(lattice_parameters: tuple[float, ...]) -> tuple[float, ...]:
     """Convert angles in lattice parameters from radians to degrees.
 
     Args:
@@ -102,7 +107,7 @@ def _to_degrees(lattice_parameters: LatticeParameters) -> LatticeParameters:
     return lengths + angles_in_degrees
 
 
-def metric_tensor(lattice_parameters: LatticeParameters) -> np.ndarray:
+def metric_tensor(lattice_parameters: LatticeParameters) -> NDArray[np.float64]:
     """Calculate the metric tensor for a lattice.
 
     Args:
@@ -116,7 +121,7 @@ def metric_tensor(lattice_parameters: LatticeParameters) -> np.ndarray:
         See International Tables for Crystallography, Vol. B, Section 1.1.
     """
     a, b, c, al, be, ga = _to_radians(lattice_parameters)
-    tensor = np.around(
+    tensor: NDArray[np.float64] = np.around(
         [
             [a**2, a * b * np.cos(ga), a * c * math.cos(be)],
             [a * b * math.cos(ga), b**2, b * c * math.cos(al)],
@@ -127,7 +132,7 @@ def metric_tensor(lattice_parameters: LatticeParameters) -> np.ndarray:
     return tensor
 
 
-def reciprocalise(lattice_parameters: LatticeParameters) -> LatticeParameters:
+def reciprocalise(lattice_parameters: LatticeParameters) -> tuple[float, ...]:
     """Transform lattice parameters to those of the reciprocally related lattice.
 
     Convert direct lattice parameters to reciprocal lattice parameters, or
@@ -147,7 +152,7 @@ def reciprocalise(lattice_parameters: LatticeParameters) -> LatticeParameters:
         the physics convention used for wavevectors.
     """
     a, b, c, al, be, ga = _to_radians(lattice_parameters)
-    cell_volume = np.sqrt(np.linalg.det(metric_tensor(lattice_parameters)))
+    cell_volume = float(np.sqrt(np.linalg.det(metric_tensor(lattice_parameters))))
     pi, sin, cos, arccos = math.pi, math.sin, math.cos, math.acos
 
     a_ = 2 * pi * b * c * sin(al) / cell_volume
@@ -177,9 +182,9 @@ class Lattice(abc.ABC):
             used as attribute names and dict keys.
     """
 
-    lattice_parameter_keys: ClassVar[tuple[str, ...] | None] = None
+    lattice_parameter_keys: ClassVar[tuple[str, ...]]
 
-    def __init__(self, lattice_parameters: LatticeParameters):
+    def __init__(self, lattice_parameters: LatticeParameters) -> None:
         lattice_parameters = self.check_lattice_parameters(lattice_parameters)
         for key, value in zip(
             self.lattice_parameter_keys, lattice_parameters, strict=True
@@ -188,7 +193,7 @@ class Lattice(abc.ABC):
 
     def check_lattice_parameters(
         self, lattice_parameters: LatticeParameters
-    ) -> LatticeParameters:
+    ) -> list[float]:
         """Validate and coerce lattice parameters to floats.
 
         Args:
@@ -204,7 +209,7 @@ class Lattice(abc.ABC):
         """
         if len(lattice_parameters) < 6:
             raise (ValueError("Missing lattice parameter from input"))
-        lattice_parameters_ = []
+        lattice_parameters_: list[float] = []
         for key, value in zip(
             self.lattice_parameter_keys, lattice_parameters, strict=False
         ):
@@ -220,7 +225,7 @@ class Lattice(abc.ABC):
         raise NotImplementedError
 
     @classmethod
-    def from_dict(cls, input_dict: dict[str, float]) -> "Lattice":
+    def from_dict(cls: type[_LT], input_dict: dict[str, float]) -> _LT:
         """Create a lattice from a parameter dictionary.
 
         Args:
@@ -245,19 +250,19 @@ class Lattice(abc.ABC):
         return cls(lattice_parameters)
 
     @property
-    def lattice_parameters(self) -> LatticeParameters:
+    def lattice_parameters(self) -> tuple[float, ...]:
         """Return all lattice parameters as a tuple."""
         return tuple(getattr(self, name) for name in self.lattice_parameter_keys)
 
     @property
-    def metric(self) -> np.ndarray:
+    def metric(self) -> NDArray[np.float64]:
         """Return the 3x3 metric tensor for this lattice."""
         return metric_tensor(self.lattice_parameters)
 
     @property
     def unit_cell_volume(self) -> float:
         """Return the unit cell volume computed from the metric tensor."""
-        return np.sqrt(np.linalg.det(self.metric))
+        return float(np.sqrt(np.linalg.det(self.metric)))
 
     def __repr__(self) -> str:
         repr_string = "{0}([{1!r}, {2!r}, {3!r}, {4!r}, {5!r}, {6!r}])"
@@ -314,6 +319,14 @@ class DirectLattice(Lattice):
 
     lattice_parameter_keys = ("a", "b", "c", "alpha", "beta", "gamma")
 
+    # Declared explicitly so mypy can resolve these dynamically-set attributes.
+    a: float
+    b: float
+    c: float
+    alpha: float
+    beta: float
+    gamma: float
+
     @classmethod
     def from_cif(cls, filepath: str, data_block: str | None = None) -> "DirectLattice":
         """Create a DirectLattice from a CIF file.
@@ -334,7 +347,7 @@ class DirectLattice(Lattice):
         """
         data_items = cif_helpers.load_data_block(filepath, data_block)
         data_names = [cif_helpers.CIF_NAMES[key] for key in cls.lattice_parameter_keys]
-        lattice_parameters = cif_helpers.get_cif_data(data_items, *data_names)
+        lattice_parameters = cif_helpers.get_numerical_cif_data(data_items, *data_names)
         return cls(lattice_parameters)
 
     def vector(self, uvw: Sequence[float]) -> "DirectLatticeVector":
@@ -400,6 +413,14 @@ class ReciprocalLattice(Lattice):
         "gamma_star",
     )
 
+    # Declared explicitly so mypy can resolve these dynamically-set attributes.
+    a_star: float
+    b_star: float
+    c_star: float
+    alpha_star: float
+    beta_star: float
+    gamma_star: float
+
     @classmethod
     def from_cif(
         cls, filepath: str, data_block: str | None = None
@@ -429,7 +450,7 @@ class ReciprocalLattice(Lattice):
             cif_helpers.CIF_NAMES[key]
             for key in ["a", "b", "c", "alpha", "beta", "gamma"]
         ]
-        lattice_parameters = cif_helpers.get_cif_data(data_items, *data_names)
+        lattice_parameters = cif_helpers.get_numerical_cif_data(data_items, *data_names)
         reciprocal_lps = reciprocalise(lattice_parameters)
         return cls(reciprocal_lps)
 
@@ -456,9 +477,16 @@ class ReciprocalLattice(Lattice):
         return DirectLattice(direct_lattice_parameters)
 
 
-def check_lattice(operation: Callable) -> Callable:
+def check_lattice(
+    operation: Callable[[_VT, _VT], _VT],
+) -> Callable[[_VT, _VT], _VT]:
     @wraps(operation)  # TODO: sort error msg when adding direct + recip vector
-    def wrapper(self, other):
+    def wrapper(self: _VT, other: _VT) -> _VT:
+        if self.lattice is None or other.lattice is None:
+            raise TypeError(
+                f"Cannot perform operation: {self.__class__.__name__} has no"
+                " attached lattice"
+            )
         if self.lattice != other.lattice:
             raise TypeError(
                 f"lattice must be the same for both {self.__class__.__name__}s"
@@ -496,27 +524,41 @@ class DirectLatticeVector(np.ndarray):
         0.0
     """
 
-    def __new__(cls, uvw: Sequence, lattice: DirectLattice) -> "DirectLatticeVector":
+    lattice: DirectLattice | None
+
+    def __new__(
+        cls, uvw: Sequence[float], lattice: DirectLattice
+    ) -> "DirectLatticeVector":
         vector = np.asarray(uvw).view(cls)
         vector.lattice = lattice
         return vector
 
-    def __array_finalize__(self, vector: "DirectLatticeVector"):
+    def __array_finalize__(
+        self, vector: object
+    ) -> None:
         self.lattice = getattr(vector, "lattice", None)
 
-    def __eq__(self, other: "DirectLatticeVector") -> bool:
-        return np.array_equal(self, other) and self.lattice == other.lattice
+    def __eq__(self, other: object) -> bool:
+        if not isinstance(other, DirectLatticeVector):
+            return NotImplemented
+        return bool(np.array_equal(self, other) and self.lattice == other.lattice)
 
-    def __ne__(self, other: "DirectLatticeVector") -> bool:
-        return not self == other
+    def __ne__(self, other: object) -> bool:
+        if not isinstance(other, DirectLatticeVector):
+            return NotImplemented
+        return not self.__eq__(other)
 
     @check_lattice
-    def __add__(self, other: "DirectLatticeVector") -> "DirectLatticeVector":
-        return np.ndarray.__add__(self, other)
+    def __add__(  # type: ignore[override]
+        self, other: "DirectLatticeVector"
+    ) -> "DirectLatticeVector":
+        return cast("DirectLatticeVector", np.ndarray.__add__(self, other))
 
     @check_lattice
-    def __sub__(self, other: "DirectLatticeVector") -> "DirectLatticeVector":
-        return np.ndarray.__sub__(self, other)
+    def __sub__(  # type: ignore[override]
+        self, other: "DirectLatticeVector"
+    ) -> "DirectLatticeVector":
+        return cast("DirectLatticeVector", np.ndarray.__sub__(self, other))
 
     def __repr__(self) -> str:
         return f"{self.__class__.__name__}({list(self)}, {self.lattice})"
@@ -530,7 +572,9 @@ class DirectLatticeVector(np.ndarray):
         Returns:
             The length of the vector in angstroms.
         """
-        return np.sqrt(self.dot(self.lattice.metric).dot(self))
+        if self.lattice is None:
+            raise TypeError("Cannot compute norm: vector has no attached lattice")
+        return float(np.sqrt(self.dot(self.lattice.metric).dot(self)))
 
     def inner(self, other: "DirectLatticeVector") -> float:
         """Calculate the inner product with another lattice vector.
@@ -555,8 +599,16 @@ class DirectLatticeVector(np.ndarray):
             TypeError: If other is a DirectLatticeVector on a different
                 lattice.
         """
+        if self.lattice is None:
+            raise TypeError(
+                "Cannot compute inner product: vector has no attached lattice"
+            )
         #  TODO: is there any way to do this apart from type-checking?
         if type(other) is ReciprocalLatticeVector:
+            if other.lattice is None:
+                raise TypeError(
+                    "Cannot compute inner product: vector has no attached lattice"
+                )
             if not np.allclose(
                 self.lattice.metric,
                 np.linalg.inv(other.lattice.metric / (2 * np.pi) ** 2),
@@ -568,14 +620,14 @@ class DirectLatticeVector(np.ndarray):
                     f"{self_name} and {other_name} lattices must be reciprocally"
                     " related."
                 )
-            return 2 * np.pi * self.dot(other)
+            return float(2 * np.pi * self.dot(other))
 
         if self.lattice != other.lattice:
             raise TypeError(
                 f"lattice must be the same for both {self.__class__.__name__}s"
             )
 
-        return self.dot(self.lattice.metric).dot(other)
+        return float(self.dot(self.lattice.metric).dot(other))
 
     def angle(self, other: "DirectLatticeVector") -> float:
         """Calculate the angle between this vector and another.
@@ -615,6 +667,8 @@ class ReciprocalLatticeVector(DirectLatticeVector):
         4.361842158457823
     """
 
+    lattice: ReciprocalLattice | None  # type: ignore[assignment]
+
     def __new__(
         cls, hkl: Sequence[float], lattice: ReciprocalLattice
     ) -> "ReciprocalLatticeVector":
@@ -647,8 +701,16 @@ class ReciprocalLatticeVector(DirectLatticeVector):
             TypeError: If other is a ReciprocalLatticeVector on a different
                 lattice.
         """
+        if self.lattice is None:
+            raise TypeError(
+                "Cannot compute inner product: vector has no attached lattice"
+            )
         #  TODO: is there any way to do this apart from type-checking?
         if type(other) is DirectLatticeVector:
+            if other.lattice is None:
+                raise TypeError(
+                    "Cannot compute inner product: vector has no attached lattice"
+                )
             if not np.allclose(
                 self.lattice.metric,
                 np.linalg.inv(other.lattice.metric) * (2 * np.pi) ** 2,
@@ -660,10 +722,10 @@ class ReciprocalLatticeVector(DirectLatticeVector):
                     f"{self_name} and {other_name} lattices must be reciprocally"
                     " related."
                 )
-            return 2 * np.pi * self.dot(other)
+            return float(2 * np.pi * self.dot(other))
 
         if self.lattice != other.lattice:
             raise TypeError(
                 f"lattice must be the same for both {self.__class__.__name__}s"
             )
-        return self.dot(self.lattice.metric).dot(other)
+        return float(self.dot(self.lattice.metric).dot(other))

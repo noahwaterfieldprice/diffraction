@@ -18,18 +18,18 @@ from diffraction import PointGroup
 
 
 class TestPointGroupCreation:
-    def test_point_group_created_by_symbol(self):
+    def test_point_group_created_by_symbol(self) -> None:
         pg = PointGroup("-6m2")
 
         assert pg.symbol == "-6m2"
         assert pg.number == 26
 
-    def test_point_group_created_by_number(self):
+    def test_point_group_created_by_number(self) -> None:
         pg = PointGroup(number=26)
 
         assert pg.symbol == "-6m2"
 
-    def test_point_group_operators_loaded(self):
+    def test_point_group_operators_loaded(self) -> None:
         pg = PointGroup("-1")
 
         xyz_ops = pg.operators["xyz"]
@@ -37,23 +37,23 @@ class TestPointGroupCreation:
         assert "x,y,z" in xyz_ops
         assert "-x,-y,-z" in xyz_ops
 
-    def test_point_group_repr_shows_symbol(self):
+    def test_point_group_repr_shows_symbol(self) -> None:
         pg = PointGroup("4/m")
 
         assert repr(pg) == 'PointGroup("4/m")'
 
-    def test_point_group_raises_when_neither_symbol_nor_number_given(self):
+    def test_point_group_raises_when_neither_symbol_nor_number_given(self) -> None:
         with pytest.raises(ValueError) as exc_info:
             PointGroup()
         assert str(exc_info.value) == (
             "Either the point group symbol or point group number must be given."
         )
 
-    def test_point_group_raises_for_invalid_symbol(self):
+    def test_point_group_raises_for_invalid_symbol(self) -> None:
         with pytest.raises(KeyError):
             PointGroup("not_a_symbol")
 
-    def test_point_group_raises_for_out_of_range_number(self):
+    def test_point_group_raises_for_out_of_range_number(self) -> None:
         # Numbers outside 1-32 have no corresponding JSON data file.
         with pytest.raises(FileNotFoundError):
             PointGroup(number=0)
@@ -70,7 +70,9 @@ class TestPointGroupCreation:
             ("m-3m", 32),   # cubic, highest symmetry
         ],
     )
-    def test_point_group_symbol_and_number_are_consistent(self, symbol, number):
+    def test_point_group_symbol_and_number_are_consistent(
+        self, symbol: str, number: int
+    ) -> None:
         pg_by_symbol = PointGroup(symbol)
         pg_by_number = PointGroup(number=number)
 

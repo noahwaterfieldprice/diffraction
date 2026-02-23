@@ -6,7 +6,7 @@ build-backend = "hatchling.build"
 name = "diffraction"
 version = "0.1"
 description = "A package for simulating diffraction experiments and performing crystallographic calculations."
-requires-python = ">=3.13"
+requires-python = ">=3.11"
 dependencies = ["numpy"]
 
 [tool.hatch.build.targets.wheel]
@@ -19,6 +19,7 @@ dev = [
     "pytest-cov",
     "pytest-html",
     "ruff>=0.15.2",
+    "mypy>=1.19.1",
 ]
 
 [tool.pytest.ini_options]

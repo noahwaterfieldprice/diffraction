@@ -1,8 +1,9 @@
 from collections import OrderedDict
-from typing import ClassVar
+from typing import Any, ClassVar
 from unittest import mock
 
 import pytest
+from pytest_mock import MockerFixture
 
 from diffraction import load_cif, validate_cif
 from diffraction.cif.cif import (
@@ -17,7 +18,7 @@ from diffraction.cif.cif import (
 
 
 class TestParsingFile:
-    def test_datablock_class_abbreviates_raw_data_when_printed(self):
+    def test_datablock_class_abbreviates_raw_data_when_printed(self) -> None:
         # test when raw_data is shorter than 18 characters
         data_block = DataBlock("header", "a" * 10)
         assert repr(data_block) == "DataBlock('header', '%s', {})" % ("a" * 10)
@@ -25,7 +26,17 @@ class TestParsingFile:
         data_block = DataBlock("header", "a" * 100)
         assert repr(data_block) == "DataBlock('header', '%s...', {})" % ("a" * 15)
 
-    def test_file_contents_are_stored_as_raw_string_attribute(self, mocker):
+    def test_datablock_equality(self) -> None:
+        db1 = DataBlock("header", "raw")
+        db2 = DataBlock("header", "raw")
+        db3 = DataBlock("other", "raw")
+        assert db1 == db2
+        assert db1 != db3
+        assert db1 != object()
+
+    def test_file_contents_are_stored_as_raw_string_attribute(
+        self, mocker: MockerFixture
+    ) -> None:
         contents = [
             "_data_name_1 data_value_1",
             "_data_name_2 data_value_2",
@@ -37,7 +48,7 @@ class TestParsingFile:
         p = CIFParser(filepath)
         assert p.raw_data == "\n".join(contents)
 
-    def test_comments_and_blank_lines_are_stripped_out(self, mocker):
+    def test_comments_and_blank_lines_are_stripped_out(self, mocker: MockerFixture) -> None:
         contents = [
             "# Here is a comment on the first line",
             "# Here is another comment. The next line is just whitespace",
@@ -54,7 +65,7 @@ class TestParsingFile:
         p._strip_comments_and_blank_lines()
         assert p.raw_data == "\n".join(expected_remaining_lines)
 
-    def test_file_split_by_data_blocks(self, mocker):
+    def test_file_split_by_data_blocks(self, mocker: MockerFixture) -> None:
         block_1 = [
             "data_block_header",
             "_data_name_A data_value_A",
@@ -82,7 +93,7 @@ class TestParsingFile:
         p._extract_data_blocks()
         assert p.data_blocks == expected
 
-    def test_textual_data_values_are_stripped_of_ending_quotes(self):
+    def test_textual_data_values_are_stripped_of_ending_quotes(self) -> None:
         test_data_values = [
             "'data value with single quotes'",
             '"data value with double quotes"',
@@ -103,7 +114,7 @@ class TestParsingFile:
         for test, expected in zip(test_data_values, expected_data_values, strict=True):
             assert strip_quotes(test) == expected
 
-    def test_semicolon_data_items_are_assigned(self, mocker):
+    def test_semicolon_data_items_are_assigned(self, mocker: MockerFixture) -> None:
         contents = [
             "_data_name_1",
             ";",
@@ -140,7 +151,7 @@ class TestParsingFile:
         assert strip_quotes_mock.call_args_list == expected_calls
         assert data_block.data_items == semicolon_data_items
 
-    def test_semicolon_data_items_are_stripped_out(self):
+    def test_semicolon_data_items_are_stripped_out(self) -> None:
         contents = [
             "_data_name_1 data_value_1",
             "_data_name_2",
@@ -160,7 +171,7 @@ class TestParsingFile:
         data_block.extract_data_items(SEMICOLON_DATA_ITEM)
         assert data_block.raw_data == expected_remaining_data
 
-    def test_inline_declared_variables_are_assigned(self, mocker):
+    def test_inline_declared_variables_are_assigned(self, mocker: MockerFixture) -> None:
         data_items = OrderedDict(
             [
                 ("data_name", "value"),
@@ -184,7 +195,7 @@ class TestParsingFile:
         assert strip_quotes_mock.call_args_list == expected_calls
         assert data_block.data_items == data_items
 
-    def test_inline_declared_variables_are_stripped_out(self):
+    def test_inline_declared_variables_are_stripped_out(self) -> None:
         contents = [
             "_data_name_1 value",
             "_DatA_name-two another_value",
@@ -201,7 +212,7 @@ class TestParsingFile:
         data_block.extract_data_items(INLINE_DATA_ITEM)
         assert data_block.raw_data == expected_remaining_data
 
-    def test_variables_declared_in_loop_are_assigned(self, mocker):
+    def test_variables_declared_in_loop_are_assigned(self, mocker: MockerFixture) -> None:
         data_items = {
             "number": ["1", "2222", "3456789"],
             "symbol": [".", "-", "?"],
@@ -231,9 +242,9 @@ class TestParsingFile:
         assert strip_quotes_mock.call_count == 21
         assert data_block.data_items == data_items
 
-    def test_parse_method_calls_in_correct_order(self):
-        p = mock.Mock(spec=CIFParser)
-        data_block = mock.Mock(spec=DataBlock)
+    def test_parse_method_calls_in_correct_order(self) -> None:
+        p: Any = mock.Mock(spec=CIFParser)
+        data_block: Any = mock.Mock(spec=DataBlock)
         p.data_blocks = [data_block]
         CIFParser.parse(p)
         expected_calls = [
@@ -274,11 +285,11 @@ class TestCIFSyntaxExceptions:
         ";",
     ]
 
-    def test_error_throws_correct_exception_with_message(self):
+    def test_error_throws_correct_exception_with_message(self) -> None:
         message = "Oh no! An exception has been raised...."
 
         with pytest.raises(CIFParseError) as exception_info:
-            v = mock.Mock(spec=CIFValidator)
+            v: Any = mock.Mock(spec=CIFValidator)
             v.error = CIFValidator.error
             v.error(v, message, 1, "Erroneous line")
         assert str(exception_info.value) == f'{message} on line 1: "Erroneous line"'
@@ -287,11 +298,11 @@ class TestCIFSyntaxExceptions:
         "valid_contents",
         [valid_comments, valid_inline_items, valid_loop, valid_semicolon_field],
     )
-    def test_valid_syntax_raises_no_exception(self, valid_contents):
+    def test_valid_syntax_raises_no_exception(self, valid_contents: list[str]) -> None:
         v = CIFValidator("\n".join(valid_contents))
         assert v.validate() is True
 
-    def test_warning_if_file_is_empty(self):
+    def test_warning_if_file_is_empty(self) -> None:
         # test when file is empty
         with pytest.warns(UserWarning):
             CIFValidator("")
@@ -309,7 +320,7 @@ class TestCIFSyntaxExceptions:
             '"in double quotes"',
         ],
     )
-    def test_error_if_missing_inline_data_name(self, invalid_line):
+    def test_error_if_missing_inline_data_name(self, invalid_line: str) -> None:
         contents = [
             "_data_name_1 value_1",
             "_data_name_2 value_2",
@@ -324,7 +335,7 @@ class TestCIFSyntaxExceptions:
             == f'Missing inline data name on line 2: "{invalid_line}"'
         )
 
-    def test_error_if_invalid_inline_data_value(self):
+    def test_error_if_invalid_inline_data_value(self) -> None:
         contents = ["_data_name_1 value_1", "_data_name_2 ", "_data_name_3 value_3"]
 
         # test when final line of file
@@ -348,7 +359,7 @@ class TestCIFSyntaxExceptions:
         )
 
     @pytest.mark.parametrize("invalid_line", ["value_A1", "value_A1 value_B1 value_C1"])
-    def test_error_if_unmatched_data_items_in_loop(self, invalid_line):
+    def test_error_if_unmatched_data_items_in_loop(self, invalid_line: str) -> None:
         contents = ["loop_", "_data_name_A", "_data_name_B ", "value_A1 value_B1"]
         contents.insert(4, invalid_line)
         v = CIFValidator("\n".join(contents))
@@ -359,7 +370,7 @@ class TestCIFSyntaxExceptions:
             f'Unmatched data values to data names in loop on line 5: "{invalid_line}"'
         )
 
-    def test_error_if_semicolon_data_item_not_closed(self):
+    def test_error_if_semicolon_data_item_not_closed(self) -> None:
         contents = [
             "_data_name_1",
             ";",
@@ -388,17 +399,17 @@ class TestCIFSyntaxExceptions:
         )
 
 
-
-
 class TestLoadCif:
-    def test_load_cif_returns_dict_keyed_by_data_block_header(self, mocker):
+    def test_load_cif_returns_dict_keyed_by_data_block_header(
+        self, mocker: MockerFixture
+    ) -> None:
         content = "data_test\n_cell_length_a 5.00\n"
         mocker.patch("pathlib.Path.open", mock.mock_open(read_data=content))
 
         result = load_cif("/fake/path.cif")
         assert "data_test" in result
 
-    def test_load_cif_parses_multiple_data_blocks(self, mocker):
+    def test_load_cif_parses_multiple_data_blocks(self, mocker: MockerFixture) -> None:
         content = "data_block_one\n_key_a valueA\ndata_block_two\n_key_b valueB\n"
         mocker.patch("pathlib.Path.open", mock.mock_open(read_data=content))
 
@@ -406,7 +417,7 @@ class TestLoadCif:
         assert "data_block_one" in result
         assert "data_block_two" in result
 
-    def test_load_cif_extracts_data_values(self, mocker):
+    def test_load_cif_extracts_data_values(self, mocker: MockerFixture) -> None:
         content = "data_test\n_cell_length_a 4.99\n_cell_length_b 4.99\n"
         mocker.patch("pathlib.Path.open", mock.mock_open(read_data=content))
 
@@ -415,7 +426,7 @@ class TestLoadCif:
         assert "cell_length_a" in data
         assert data["cell_length_a"] == "4.99"
 
-    def test_load_cif_reads_real_calcite_file(self, calcite_cif_path):
+    def test_load_cif_reads_real_calcite_file(self, calcite_cif_path: Any) -> None:
         result = load_cif(str(calcite_cif_path))
 
         # calcite_icsd.cif has a single data block keyed by its ICSD code
@@ -424,7 +435,9 @@ class TestLoadCif:
         assert "cell_length_a" in block
         assert "symmetry_space_group_name_H-M" in block
 
-    def test_load_cif_real_calcite_file_has_expected_data_block(self, calcite_cif_path):
+    def test_load_cif_real_calcite_file_has_expected_data_block(
+        self, calcite_cif_path: Any
+    ) -> None:
         result = load_cif(str(calcite_cif_path))
 
         # The data block header in calcite_icsd.cif is data_18166-ICSD
@@ -432,14 +445,14 @@ class TestLoadCif:
 
 
 class TestValidateCif:
-    def test_validate_cif_returns_true_for_valid_content(self, mocker):
+    def test_validate_cif_returns_true_for_valid_content(self, mocker: MockerFixture) -> None:
         content = "data_test\n_cell_length_a 5.00\n"
         mocker.patch("pathlib.Path.open", mock.mock_open(read_data=content))
 
         result = validate_cif("/fake/path.cif")
         assert result is True
 
-    def test_validate_cif_raises_for_value_without_data_name(self, mocker):
+    def test_validate_cif_raises_for_value_without_data_name(self, mocker: MockerFixture) -> None:
         # A lone data value (not preceded by a _data_name) is a CIF syntax error
         content = "data_test\n4.99\n"
         mocker.patch("pathlib.Path.open", mock.mock_open(read_data=content))
@@ -447,14 +460,16 @@ class TestValidateCif:
         with pytest.raises(CIFParseError, match="Missing inline data name"):
             validate_cif("/fake/path.cif")
 
-    def test_validate_cif_raises_for_unclosed_semicolon_field(self, mocker):
+    def test_validate_cif_raises_for_unclosed_semicolon_field(
+        self, mocker: MockerFixture
+    ) -> None:
         content = "data_test\n_data_name_1\n;\nunclosed text field\n"
         mocker.patch("pathlib.Path.open", mock.mock_open(read_data=content))
 
         with pytest.raises(CIFParseError, match="Unclosed semicolon text field"):
             validate_cif("/fake/path.cif")
 
-    def test_validate_cif_validates_multi_block_content(self, mocker):
+    def test_validate_cif_validates_multi_block_content(self, mocker: MockerFixture) -> None:
         content = (
             "data_block_one\n_cell_length_a 5.00\n"
             "data_block_two\n_cell_length_b 6.00\n"
@@ -465,7 +480,7 @@ class TestValidateCif:
 
         assert result is True
 
-    def test_validate_cif_accepts_real_calcite_file(self, calcite_cif_path):
+    def test_validate_cif_accepts_real_calcite_file(self, calcite_cif_path: Any) -> None:
         result = validate_cif(str(calcite_cif_path))
 
         assert result is True

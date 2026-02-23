@@ -1,21 +1,21 @@
 from diffraction.symmetry import PointGroup
 
 
-def test_loading_point_group_from_symbol():
+def test_loading_point_group_from_symbol() -> None:
     point_group = PointGroup("432")
 
     assert point_group.symbol == "432"
     assert point_group.number == 30
 
 
-def test_loading_point_group_from_number():
+def test_loading_point_group_from_number() -> None:
     point_group = PointGroup(number=11)
 
     assert point_group.number == 11
     assert point_group.symbol == "4/m"
 
 
-def test_retrieving_point_group_operations_xyz_form():
+def test_retrieving_point_group_operations_xyz_form() -> None:
     point_group = PointGroup("-6m2")
 
     assert len(point_group.operators["xyz"]) == 12
@@ -24,7 +24,7 @@ def test_retrieving_point_group_operations_xyz_form():
     assert point_group.operators["xyz"][8] == "x,x-y,z"
 
 
-def test_retrieving_point_group_operations_matrix_form():
+def test_retrieving_point_group_operations_matrix_form() -> None:
     point_group = PointGroup("4/m")
 
     assert len(point_group.operators["matrix"]) == 8
@@ -33,7 +33,7 @@ def test_retrieving_point_group_operations_matrix_form():
     assert point_group.operators["matrix"][5] == [[1, 0, 0], [0, 1, 0], [0, 0, -1]]
 
 
-def test_retrieving_point_group_operations_ita_form():
+def test_retrieving_point_group_operations_ita_form() -> None:
     point_group = PointGroup("m-3")
 
     assert len(point_group.operators["ita"]) == 24

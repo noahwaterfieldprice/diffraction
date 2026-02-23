@@ -152,7 +152,10 @@ INLINE_DATA_ITEM = re.compile(
 
 def strip_quotes(data_value: str) -> str:
     """Strip surrounding quotes from a CIF data value string."""
-    return DATA_VALUE_QUOTES.match(data_value).group(1)
+    match = DATA_VALUE_QUOTES.match(data_value)
+    if match is None:
+        return data_value
+    return match.group(1)
 
 
 class DataBlock:
@@ -178,9 +181,9 @@ class DataBlock:
     def __init__(self, header: str, raw_data: str) -> None:
         self.header = header
         self.raw_data = raw_data
-        self.data_items = {}
+        self.data_items: dict[str, DataItem] = {}
 
-    def extract_data_items(self, data_item_pattern: Pattern) -> None:
+    def extract_data_items(self, data_item_pattern: Pattern[str]) -> None:
         """Extract non-loop data items matching a regex pattern.
 
         Find all matches of ``data_item_pattern`` in ``raw_data``, store
@@ -238,7 +241,14 @@ class DataBlock:
                 # data_names when a line has fewer values (partial loop rows
                 # are skipped intentionally by this parser design)
                 for data_name, data_value in zip(data_names, data_values, strict=False):
-                    self.data_items[data_name].append(strip_quotes(data_value))
+                    current = self.data_items[data_name]
+                    if not isinstance(current, list):
+                        raise ValueError(
+                            f"Expected list for loop data item '{data_name}', "
+                            f"got {type(current).__name__}. "
+                            f"Data name may conflict with a non-loop item."
+                        )
+                    current.append(strip_quotes(data_value))
 
     def __repr__(self) -> str:
         """Return a representation of DataBlock, abbreviating raw data."""
@@ -248,7 +258,9 @@ class DataBlock:
             raw_data = self.raw_data
         return f"DataBlock({self.header!r}, {raw_data!r}, {self.data_items!r})"
 
-    def __eq__(self, other: "DataBlock") -> bool:
+    def __eq__(self, other: object) -> bool:
+        if not isinstance(other, DataBlock):
+            return NotImplemented
         return self.header == other.header and self.data_items == other.data_items
 
 
@@ -278,7 +290,7 @@ class CIFParser:
             self.raw_data = cif.read()
         validator = CIFValidator(self.raw_data)
         validator.validate()
-        self.data_blocks = []
+        self.data_blocks: list[DataBlock] = []
 
     def _strip_comments_and_blank_lines(self) -> None:
         """Remove all comment and blank lines from the raw file string."""
@@ -445,13 +457,13 @@ class CIFValidator:
         Returns:
             List of data name strings found in the loop header.
         """
-        loop_data_names = []
+        loop_data_names: list[str] = []
         self._next_line()
         while True:
             if COMMENT_OR_BLANK.match(self.current_line):
                 self._next_line()
-            elif DATA_NAME.match(self.current_line):
-                loop_data_names.append(DATA_NAME.match(self.current_line).group())
+            elif match := DATA_NAME.match(self.current_line):
+                loop_data_names.append(match.group())
                 self._next_line()
             else:
                 break
@@ -493,7 +505,7 @@ class CIFValidator:
         self._next_line()
         # two line queue must be kept as if no closing semicolon is found,
         # then error occurred on previous line.
-        previous_lines = collections.deque(maxlen=2)
+        previous_lines: collections.deque[tuple[int, str]] = collections.deque(maxlen=2)
         while True:
             if COMMENT_OR_BLANK.match(self.current_line) or TEXT_FIELD.match(
                 self.current_line
@@ -533,7 +545,7 @@ class CIFValidator:
             True if the line starts with a data value and is neither a
             loop_ keyword nor a data block header.
         """
-        return (
+        return bool(
             DATA_VALUE.match(self.current_line)
             and not LOOP.match(self.current_line)
             and not DATA_BLOCK_HEADER.match(self.current_line)
