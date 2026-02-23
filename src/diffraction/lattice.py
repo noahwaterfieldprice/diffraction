@@ -317,6 +317,14 @@ class DirectLattice(Lattice):
 
     lattice_parameter_keys = ("a", "b", "c", "alpha", "beta", "gamma")
 
+    # Declared explicitly so mypy can resolve these dynamically-set attributes.
+    a: float
+    b: float
+    c: float
+    alpha: float
+    beta: float
+    gamma: float
+
     @classmethod
     def from_cif(cls, filepath: str, data_block: str | None = None) -> "DirectLattice":
         """Create a DirectLattice from a CIF file.
@@ -419,6 +427,14 @@ class ReciprocalLattice(Lattice):
         "beta_star",
         "gamma_star",
     )
+
+    # Declared explicitly so mypy can resolve these dynamically-set attributes.
+    a_star: float
+    b_star: float
+    c_star: float
+    alpha_star: float
+    beta_star: float
+    gamma_star: float
 
     @classmethod
     def from_cif(
