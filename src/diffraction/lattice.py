@@ -48,6 +48,8 @@ Examples:
     6.283185307179586
 """
 
+from __future__ import annotations
+
 import abc
 import math
 from collections.abc import Callable, Sequence
@@ -62,6 +64,7 @@ from .cif import helpers as cif_helpers
 LatticeParameters: TypeAlias = Sequence[float]
 
 _LT = TypeVar("_LT", bound="Lattice")
+_VT = TypeVar("_VT", bound="DirectLatticeVector")
 
 __all__ = [
     "DirectLattice",
@@ -70,7 +73,11 @@ __all__ = [
     "ReciprocalLatticeVector",
 ]
 
-_VT = TypeVar("_VT", bound="DirectLatticeVector")
+# Named constants replacing magic literals in metric/reciprocal calculations.
+_ROUNDING_PRECISION: int = 10
+# Relative tolerance for verifying reciprocal lattice relationship. Generous
+# to accommodate floating-point accumulation through matrix inversion.
+_RECIPROCAL_LATTICE_RTOL: float = 1e-2
 
 
 def _to_radians(lattice_parameters: LatticeParameters) -> tuple[float, ...]:
@@ -127,7 +134,7 @@ def metric_tensor(lattice_parameters: LatticeParameters) -> NDArray[np.float64]:
             [a * b * math.cos(ga), b**2, b * c * math.cos(al)],
             [a * c * math.cos(be), b * c * np.cos(al), c**2],
         ],
-        10,
+        _ROUNDING_PRECISION,
     )
     return tensor
 
@@ -221,7 +228,7 @@ class Lattice(abc.ABC):
 
     @classmethod
     @abc.abstractmethod
-    def from_cif(cls, filepath: str, data_block: str | None = None) -> "Lattice":
+    def from_cif(cls, filepath: str, data_block: str | None = None) -> Lattice:
         raise NotImplementedError
 
     @classmethod
@@ -328,7 +335,7 @@ class DirectLattice(Lattice):
     gamma: float
 
     @classmethod
-    def from_cif(cls, filepath: str, data_block: str | None = None) -> "DirectLattice":
+    def from_cif(cls, filepath: str, data_block: str | None = None) -> DirectLattice:
         """Create a DirectLattice from a CIF file.
 
         Args:
@@ -350,7 +357,7 @@ class DirectLattice(Lattice):
         lattice_parameters = cif_helpers.get_numerical_cif_data(data_items, *data_names)
         return cls(lattice_parameters)
 
-    def vector(self, uvw: Sequence[float]) -> "DirectLatticeVector":
+    def vector(self, uvw: Sequence[float]) -> DirectLatticeVector:
         """Return a direct lattice vector defined on this lattice.
 
         Args:
@@ -362,7 +369,7 @@ class DirectLattice(Lattice):
         """
         return DirectLatticeVector(uvw, self)
 
-    def reciprocal(self) -> "ReciprocalLattice":
+    def reciprocal(self) -> ReciprocalLattice:
         """Return the corresponding reciprocal lattice.
 
         Returns:
@@ -424,7 +431,7 @@ class ReciprocalLattice(Lattice):
     @classmethod
     def from_cif(
         cls, filepath: str, data_block: str | None = None
-    ) -> "ReciprocalLattice":
+    ) -> ReciprocalLattice:
         """Create a ReciprocalLattice from a CIF file.
 
         Read direct lattice parameters from the CIF and convert them to
@@ -454,7 +461,7 @@ class ReciprocalLattice(Lattice):
         reciprocal_lps = reciprocalise(lattice_parameters)
         return cls(reciprocal_lps)
 
-    def vector(self, hkl: Sequence[float]) -> "ReciprocalLatticeVector":
+    def vector(self, hkl: Sequence[float]) -> ReciprocalLatticeVector:
         """Return a reciprocal lattice vector defined on this lattice.
 
         Args:
@@ -466,7 +473,7 @@ class ReciprocalLattice(Lattice):
         """
         return ReciprocalLatticeVector(hkl, self)
 
-    def direct(self) -> "DirectLattice":
+    def direct(self) -> DirectLattice:
         """Return the corresponding direct lattice.
 
         Returns:
@@ -528,7 +535,7 @@ class DirectLatticeVector(np.ndarray):
 
     def __new__(
         cls, uvw: Sequence[float], lattice: DirectLattice
-    ) -> "DirectLatticeVector":
+    ) -> DirectLatticeVector:
         vector = np.asarray(uvw).view(cls)
         vector.lattice = lattice
         return vector
@@ -550,14 +557,14 @@ class DirectLatticeVector(np.ndarray):
 
     @check_lattice
     def __add__(  # type: ignore[override]
-        self, other: "DirectLatticeVector"
-    ) -> "DirectLatticeVector":
+        self, other: DirectLatticeVector
+    ) -> DirectLatticeVector:
         return cast("DirectLatticeVector", np.ndarray.__add__(self, other))
 
     @check_lattice
     def __sub__(  # type: ignore[override]
-        self, other: "DirectLatticeVector"
-    ) -> "DirectLatticeVector":
+        self, other: DirectLatticeVector
+    ) -> DirectLatticeVector:
         return cast("DirectLatticeVector", np.ndarray.__sub__(self, other))
 
     def __repr__(self) -> str:
@@ -576,7 +583,7 @@ class DirectLatticeVector(np.ndarray):
             raise TypeError("Cannot compute norm: vector has no attached lattice")
         return float(np.sqrt(self.dot(self.lattice.metric).dot(self)))
 
-    def inner(self, other: "DirectLatticeVector") -> float:
+    def inner(self, other: DirectLatticeVector) -> float:
         """Calculate the inner product with another lattice vector.
 
         For two direct lattice vectors on the same lattice, compute the
@@ -629,7 +636,7 @@ class DirectLatticeVector(np.ndarray):
 
         return float(self.dot(self.lattice.metric).dot(other))
 
-    def angle(self, other: "DirectLatticeVector") -> float:
+    def angle(self, other: DirectLatticeVector) -> float:
         """Calculate the angle between this vector and another.
 
         Args:
@@ -671,14 +678,14 @@ class ReciprocalLatticeVector(DirectLatticeVector):
 
     def __new__(
         cls, hkl: Sequence[float], lattice: ReciprocalLattice
-    ) -> "ReciprocalLatticeVector":
+    ) -> ReciprocalLatticeVector:
         vector = np.asarray(hkl).view(cls)
         vector.lattice = lattice
         return vector
 
     # TODO: add copies of functions so docstrings aren't inherited using super
 
-    def inner(self, other: "DirectLatticeVector | ReciprocalLatticeVector") -> float:
+    def inner(self, other: DirectLatticeVector | ReciprocalLatticeVector) -> float:
         """Calculate the inner product with another lattice vector.
 
         For two reciprocal lattice vectors on the same lattice, compute the

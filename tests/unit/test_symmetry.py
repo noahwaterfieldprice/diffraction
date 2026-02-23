@@ -9,8 +9,12 @@ Tests cover:
   - Operator data loaded correctly
   - String representation
   - Error handling for invalid inputs
+  - PointGroup is a frozen dataclass (immutability)
+  - ValueError with close-match suggestions for invalid symbols
   - Parametrized lookup table across representative point groups
 """
+
+import dataclasses
 
 import pytest
 
@@ -37,10 +41,10 @@ class TestPointGroupCreation:
         assert "x,y,z" in xyz_ops
         assert "-x,-y,-z" in xyz_ops
 
-    def test_point_group_repr_shows_symbol(self) -> None:
+    def test_point_group_repr_shows_number_and_symbol(self) -> None:
         pg = PointGroup("4/m")
 
-        assert repr(pg) == 'PointGroup("4/m")'
+        assert repr(pg) == "PointGroup(number=11, symbol='4/m')"
 
     def test_point_group_raises_when_neither_symbol_nor_number_given(self) -> None:
         with pytest.raises(ValueError) as exc_info:
@@ -50,8 +54,15 @@ class TestPointGroupCreation:
         )
 
     def test_point_group_raises_for_invalid_symbol(self) -> None:
-        with pytest.raises(KeyError):
+        with pytest.raises(ValueError) as exc_info:
             PointGroup("not_a_symbol")
+        assert "Unknown point group symbol 'not_a_symbol'" in str(exc_info.value)
+
+    def test_point_group_invalid_symbol_suggests_close_match(self) -> None:
+        # "mmn" is close to "mmm" (valid symbol for point group 8)
+        with pytest.raises(ValueError) as exc_info:
+            PointGroup("mmn")
+        assert "mmm" in str(exc_info.value)
 
     def test_point_group_raises_for_out_of_range_number(self) -> None:
         # Numbers outside 1-32 have no corresponding JSON data file.
@@ -59,6 +70,12 @@ class TestPointGroupCreation:
             PointGroup(number=0)
         with pytest.raises(FileNotFoundError):
             PointGroup(number=33)
+
+    def test_point_group_is_frozen(self) -> None:
+        pg = PointGroup("4/m")
+
+        with pytest.raises(dataclasses.FrozenInstanceError):
+            pg.number = 99  # type: ignore[misc]
 
     @pytest.mark.parametrize(
         "symbol, number",

@@ -23,6 +23,8 @@ import warnings
 from pathlib import Path
 from re import Pattern
 
+from ..exceptions import DiffractionError
+
 __all__ = ["CIFParseError", "load_cif", "validate_cif"]
 
 DataItem = str | list[str]
@@ -328,7 +330,7 @@ class CIFParser:
             data_block.extract_loop_data_items()
 
 
-class CIFParseError(Exception):
+class CIFParseError(DiffractionError):
     """Exception raised for CIF syntax errors."""
 
 

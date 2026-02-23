@@ -6,12 +6,15 @@ Each group is identified by its Hermann-Mauguin symbol or an integer from
 are loaded from bundled JSON files under ``static/point_groups/``.
 """
 
+import difflib
 import json
+from dataclasses import dataclass, field
 from importlib import resources
+from typing import TypeAlias
 
 __all__ = ["PointGroup"]
 
-Matrix = list[list[int]]
+Matrix: TypeAlias = list[list[int]]
 
 POINT_GROUP_NUMBERS = {
     "1": 1,
@@ -49,6 +52,7 @@ POINT_GROUP_NUMBERS = {
 }
 
 
+@dataclass(frozen=True, init=False)
 class PointGroup:
     """One of the 32 three-dimensional crystallographic point groups.
 
@@ -72,6 +76,7 @@ class PointGroup:
 
     Raises:
         ValueError: If neither ``symbol`` nor ``number`` is provided.
+        ValueError: If ``symbol`` is not a recognised Hermann-Mauguin symbol.
 
     Examples:
         Create a point group by Hermann-Mauguin symbol and inspect operators:
@@ -90,37 +95,45 @@ class PointGroup:
         '4/m'
     """
 
-    def __init__(self, symbol: str | None = None, number: int | None = None):
+    number: int
+    symbol: str
+    operators: dict[str, list[str] | list[Matrix]] = field(repr=False)
+
+    def __init__(self, symbol: str | None = None, number: int | None = None) -> None:
         if symbol is None and number is None:
             raise ValueError(
                 "Either the point group symbol or point group number must be given."
             )
-        self.symbol, self.number, self.operators = self._load_point_group_data(
-            symbol, number
-        )
+        if symbol is not None:
+            try:
+                resolved_number = POINT_GROUP_NUMBERS[symbol]
+            except KeyError:
+                close = difflib.get_close_matches(
+                    symbol, POINT_GROUP_NUMBERS.keys(), n=3, cutoff=0.6
+                )
+                suggestion = (
+                    f" Did you mean: {', '.join(repr(m) for m in close)}?"
+                    if close
+                    else ""
+                )
+                raise ValueError(
+                    f"Unknown point group symbol {symbol!r}.{suggestion}"
+                ) from None
+        else:
+            resolved_number = number  # type: ignore[assignment]
+        data = self._load_point_group_data(resolved_number)
+        object.__setattr__(self, "number", data["number"])
+        object.__setattr__(self, "symbol", data["symbol"])
+        object.__setattr__(self, "operators", data["operators"])
 
     @staticmethod
-    def _load_point_group_data(
-        symbol: str | None = None, number: int | None = None
-    ) -> tuple[str, int, dict[str, list[str] | list[Matrix]]]:
-        """Load point group symbol, number, and operators from a JSON data file."""
-        if symbol is not None:
-            number = POINT_GROUP_NUMBERS[symbol]
-
+    def _load_point_group_data(number: int) -> dict[str, object]:
+        """Load point group data from a JSON data file."""
         data_file = (
             resources.files("diffraction")
             / "static"
             / "point_groups"
             / f"{number}.json"
         )
-        point_group_data = json.loads(data_file.read_text())
-
-        symbol, number, operators = (
-            point_group_data["symbol"],
-            point_group_data["number"],
-            point_group_data["operators"],
-        )
-        return symbol, number, operators
-
-    def __repr__(self) -> str:
-        return f'{self.__class__.__name__}("{self.symbol}")'
+        result: dict[str, object] = json.loads(data_file.read_text())
+        return result

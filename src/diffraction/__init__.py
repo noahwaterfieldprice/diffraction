@@ -3,6 +3,7 @@
 from .cif.cif import CIFParseError, load_cif, validate_cif
 from .cif.helpers import load_data_block
 from .crystal import Crystal, Site
+from .exceptions import DiffractionError
 from .lattice import (
     DirectLattice,
     DirectLatticeVector,
@@ -14,6 +15,7 @@ from .symmetry import PointGroup
 __all__ = [
     "CIFParseError",
     "Crystal",
+    "DiffractionError",
     "DirectLattice",
     "DirectLatticeVector",
     "PointGroup",
