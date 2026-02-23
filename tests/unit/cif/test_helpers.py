@@ -1,9 +1,9 @@
 import re
 import string
 from collections.abc import Sequence
-from typing import Any
 
 import pytest
+from pytest_mock import MockerFixture
 
 from diffraction.cif.helpers import (
     NUMERICAL_DATA_NAMES,
@@ -52,7 +52,7 @@ def fake_cif_data(
 
 
 class TestLoadingDataItemsFromDataBlocks:
-    def test_single_datablock_loaded_automatically(self, mocker: Any) -> None:
+    def test_single_datablock_loaded_automatically(self, mocker: MockerFixture) -> None:
         input_dict = fake_cif_data(NUMERICAL_DATA_NAMES + TEXTUAL_DATA_NAMES)
         mocker.patch("diffraction.cif.helpers.load_cif", return_value=input_dict)
 
@@ -60,7 +60,7 @@ class TestLoadingDataItemsFromDataBlocks:
         assert data_items == input_dict["data_block_0"]
 
     def test_error_if_data_block_not_given_for_multi_data_blocks(
-        self, mocker: Any
+        self, mocker: MockerFixture
     ) -> None:
         input_dict = fake_cif_data(
             NUMERICAL_DATA_NAMES + TEXTUAL_DATA_NAMES, no_data_blocks=5
@@ -74,7 +74,7 @@ class TestLoadingDataItemsFromDataBlocks:
             "Required when input CIF has multiple data blocks."
         )
 
-    def test_data_block_loads_for_multi_data_blocks(self, mocker: Any) -> None:
+    def test_data_block_loads_for_multi_data_blocks(self, mocker: MockerFixture) -> None:
         input_dict = fake_cif_data(
             NUMERICAL_DATA_NAMES + TEXTUAL_DATA_NAMES, no_data_blocks=5
         )
@@ -112,7 +112,7 @@ class TestLoadingSpecificDataItems:
             == f"Parameter: '{missing_data_item}' missing from input CIF"
         )
 
-    def test_get_numerical_cif_data_by_name(self, mocker: Any) -> None:
+    def test_get_numerical_cif_data_by_name(self, mocker: MockerFixture) -> None:
         test_data_items: dict[str, str | list[str]] = {
             "cell_length_a": "4.9900(2)",
             "cell_length_b": "4.9900(2)",
@@ -158,7 +158,7 @@ class TestLoadingSpecificDataItems:
         assert labels == ["Ca1", "C1", "O1"]
         assert symbols == ["Ca2+", "C4+", "O2-"]
 
-    def test_get_numerical_loop_cif_data_by_name(self, mocker: Any) -> None:
+    def test_get_numerical_loop_cif_data_by_name(self, mocker: MockerFixture) -> None:
         test_data_items: dict[str, str | list[str]] = {
             "cell_length_a": "4.9900(2)",
             "atom_site_fract_x": ["0", "0", "0.25706(33)"],
@@ -189,7 +189,7 @@ class TestLoadingSpecificDataItems:
         [data] = get_cif_data(test_data_items, data_name)
         assert data == "C1 Ca1 O3"
 
-    def test_numerical_data_values_stripped_of_errors(self, mocker: Any) -> None:
+    def test_numerical_data_values_stripped_of_errors(self, mocker: MockerFixture) -> None:
         data_items = fake_cif_data(NUMERICAL_DATA_NAMES, errors=True)["data_block_0"]
         mocker.patch("diffraction.cif.helpers.float", side_effect=lambda x: x)
 
