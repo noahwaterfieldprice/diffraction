@@ -135,7 +135,7 @@ def load_data_block(
     else:
         if data_block is None:
             raise TypeError(
-                "__init__() missing keyword argument: 'data_block'. "
+                "load_data_block() missing keyword argument: 'data_block'. "
                 "Required when input CIF has multiple data blocks."
             )
         else:

@@ -133,7 +133,7 @@ class TestCreatingFromCIF:
         with pytest.raises(TypeError) as exception_info:
             Crystal.from_cif("tests/functional/static/valid_cifs/multi_data_block.cif")
         assert str(exception_info.value) == (
-            "__init__() missing keyword argument: 'data_block'. "
+            "load_data_block() missing keyword argument: 'data_block'. "
             "Required when input CIF has multiple data blocks."
         )
 
