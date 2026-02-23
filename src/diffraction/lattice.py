@@ -52,7 +52,7 @@ import abc
 import math
 from collections.abc import Callable, Sequence
 from functools import wraps
-from typing import Any, ClassVar, TypeAlias, TypeVar, cast
+from typing import ClassVar, TypeAlias, TypeVar, cast
 
 import numpy as np
 from numpy.typing import NDArray
@@ -68,7 +68,7 @@ __all__ = [
     "ReciprocalLatticeVector",
 ]
 
-F = TypeVar("F", bound=Callable[..., Any])
+_VT = TypeVar("_VT", bound="DirectLatticeVector")
 
 
 def _to_radians(lattice_parameters: LatticeParameters) -> tuple[float, ...]:
@@ -492,9 +492,11 @@ class ReciprocalLattice(Lattice):
         return DirectLattice(direct_lattice_parameters)
 
 
-def check_lattice(operation: F) -> F:
+def check_lattice(
+    operation: Callable[[_VT, _VT], _VT],
+) -> Callable[[_VT, _VT], _VT]:
     @wraps(operation)  # TODO: sort error msg when adding direct + recip vector
-    def wrapper(self: Any, other: Any) -> Any:
+    def wrapper(self: _VT, other: _VT) -> _VT:
         if self.lattice != other.lattice:
             raise TypeError(
                 f"lattice must be the same for both {self.__class__.__name__}s"
@@ -502,7 +504,7 @@ def check_lattice(operation: F) -> F:
         else:
             return operation(self, other)
 
-    return wrapper  # type: ignore[return-value]
+    return wrapper
 
 
 class DirectLatticeVector(np.ndarray):

@@ -242,8 +242,13 @@ class DataBlock:
                 # are skipped intentionally by this parser design)
                 for data_name, data_value in zip(data_names, data_values, strict=False):
                     current = self.data_items[data_name]
-                    if isinstance(current, list):
-                        current.append(strip_quotes(data_value))
+                    if not isinstance(current, list):
+                        raise ValueError(
+                            f"Expected list for loop data item '{data_name}', "
+                            f"got {type(current).__name__}. "
+                            f"Data name may conflict with a non-loop item."
+                        )
+                    current.append(strip_quotes(data_value))
 
     def __repr__(self) -> str:
         """Return a representation of DataBlock, abbreviating raw data."""
