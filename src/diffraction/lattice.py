@@ -17,18 +17,12 @@ Examples:
     >>> calcite_lattice = DirectLattice([4.99, 4.99, 17.002, 90, 90, 120])
     >>> calcite_lattice.c
     17.002
-    >>> calcite_lattice.metric
-    array([[ 24.9001  , -12.45005 ,   0.      ],
-           [-12.45005 ,  24.9001  ,   0.      ],
-           [  0.      ,   0.      , 289.068004]])
 
     Construct the corresponding reciprocal lattice:
 
     >>> calcite_reciprocal_lattice = calcite_lattice.reciprocal()
     >>> calcite_reciprocal_lattice.b_star
     1.4539473861596934
-    >>> calcite_reciprocal_lattice.gamma_star
-    60.00000000000002
 
     Perform lattice vector calculations in direct space:
 
@@ -38,23 +32,14 @@ Examples:
     >>> v = calcite_lattice.vector([0, 0, 1])
     >>> u.inner(v)
     0.0
-
-    And in reciprocal space, including the cross-space inner product:
-
-    >>> u_ = ReciprocalLatticeVector([1, 0, 0], lattice=calcite_reciprocal_lattice)
-    >>> u_.norm()
-    4.361842158457823
-    >>> u.inner(u_)  # equals 2 * pi
-    6.283185307179586
 """
 
 from __future__ import annotations
 
 import abc
 import math
-from collections.abc import Callable, Sequence
-from functools import wraps
-from typing import ClassVar, TypeAlias, TypeVar, cast
+from collections.abc import Sequence
+from typing import ClassVar, TypeAlias, TypeVar, overload
 
 import numpy as np
 from numpy.typing import NDArray
@@ -64,7 +49,6 @@ from .cif import helpers as cif_helpers
 LatticeParameters: TypeAlias = Sequence[float]
 
 _LT = TypeVar("_LT", bound="Lattice")
-_VT = TypeVar("_VT", bound="DirectLatticeVector")
 
 __all__ = [
     "DirectLattice",
@@ -484,38 +468,165 @@ class ReciprocalLattice(Lattice):
         return DirectLattice(direct_lattice_parameters)
 
 
-def check_lattice(
-    operation: Callable[[_VT, _VT], _VT],
-) -> Callable[[_VT, _VT], _VT]:
-    @wraps(operation)  # TODO: sort error msg when adding direct + recip vector
-    def wrapper(self: _VT, other: _VT) -> _VT:
-        if self.lattice is None or other.lattice is None:
-            raise TypeError(
-                f"Cannot perform operation: {self.__class__.__name__} has no"
-                " attached lattice"
-            )
-        if self.lattice != other.lattice:
+class LatticeVector:
+    """Composition-based base class for lattice vectors.
+
+    Store a 3-component vector alongside a reference lattice. Subclasses
+    specialise for direct and reciprocal space. Direct construction should
+    use the concrete subclasses ``DirectLatticeVector`` and
+    ``ReciprocalLatticeVector`` rather than this base class.
+
+    Attributes:
+        components: Read-only view of the underlying ndarray.
+        lattice: The lattice this vector is defined on.
+    """
+
+    __slots__ = ("_components", "_lattice")
+
+    def __init__(
+        self,
+        components: Sequence[float] | NDArray[np.float64],
+        lattice: Lattice,
+    ) -> None:
+        self._components: NDArray[np.float64] = np.asarray(components, dtype=np.float64)
+        self._lattice = lattice
+
+    @property
+    def components(self) -> NDArray[np.float64]:
+        """Read-only view of the vector components as a numpy array."""
+        result: NDArray[np.float64] = self._components.view()
+        result.flags.writeable = False
+        return result
+
+    @components.setter
+    def components(self, value: Sequence[float]) -> None:
+        self._components = np.asarray(value, dtype=np.float64)
+
+    @property
+    def lattice(self) -> Lattice:
+        """The lattice this vector is defined on."""
+        return self._lattice
+
+    def __array__(
+        self, dtype: np.typing.DTypeLike | None = None, copy: bool | None = None
+    ) -> NDArray[np.float64]:
+        if dtype is None:
+            return self._components
+        return self._components.astype(dtype)
+
+    def __eq__(self, other: object) -> bool:
+        if type(other) is not type(self):
+            return NotImplemented
+        other_lv = other  # same type confirmed by type() check above
+        assert isinstance(other_lv, LatticeVector)
+        return bool(
+            self._lattice == other_lv._lattice
+            and np.allclose(self._components, other_lv._components)
+        )
+
+    def __ne__(self, other: object) -> bool:
+        result = self.__eq__(other)
+        if result is NotImplemented:
+            return NotImplemented
+        return not result
+
+    def __repr__(self) -> str:
+        return f"{self.__class__.__name__}({self._components.tolist()})"
+
+    def __str__(self) -> str:
+        return repr(self)
+
+    def __add__(self, other: object) -> LatticeVector:
+        if type(other) is not type(self):
+            return NotImplemented
+        assert isinstance(other, LatticeVector)
+        if self._lattice != other._lattice:
             raise TypeError(
                 f"lattice must be the same for both {self.__class__.__name__}s"
             )
-        else:
-            return operation(self, other)
+        return type(self)(self._components + other._components, self._lattice)
 
-    return wrapper
+    def __sub__(self, other: object) -> LatticeVector:
+        if type(other) is not type(self):
+            return NotImplemented
+        assert isinstance(other, LatticeVector)
+        if self._lattice != other._lattice:
+            raise TypeError(
+                f"lattice must be the same for both {self.__class__.__name__}s"
+            )
+        return type(self)(self._components - other._components, self._lattice)
+
+    def __neg__(self) -> LatticeVector:
+        return type(self)(-self._components, self._lattice)
+
+    def __mul__(self, scalar: object) -> LatticeVector:
+        if not isinstance(scalar, (int, float)):
+            return NotImplemented
+        return type(self)(self._components * scalar, self._lattice)
+
+    def __rmul__(self, scalar: object) -> LatticeVector:
+        return self.__mul__(scalar)
+
+    def __truediv__(self, scalar: object) -> LatticeVector:
+        if not isinstance(scalar, (int, float)):
+            return NotImplemented
+        return type(self)(self._components / scalar, self._lattice)
+
+    def norm(self) -> float:
+        """Calculate the norm (magnitude) of the vector.
+
+        Returns:
+            The length of the vector computed using the lattice metric tensor.
+
+        Examples:
+            >>> from diffraction import DirectLattice, DirectLatticeVector
+            >>> calcite = DirectLattice([4.99, 4.99, 17.002, 90, 90, 120])
+            >>> v = DirectLatticeVector([1, 0, 0], calcite)
+            >>> v.norm()
+            4.99
+        """
+        c = self._components
+        return float(np.sqrt(c @ self._lattice.metric @ c))
+
+    def angle(self, other: LatticeVector) -> float:
+        """Calculate the angle between this vector and another.
+
+        Args:
+            other: Another lattice vector (direct or reciprocal).
+
+        Returns:
+            The angle in degrees.
+        """
+        return math.degrees(math.acos(self.inner(other) / (self.norm() * other.norm())))
+
+    def inner(self, other: LatticeVector) -> float:
+        """Calculate the inner product with another lattice vector.
+
+        Subclasses override this to provide metric-aware and cross-space
+        variants.
+
+        Args:
+            other: Another lattice vector.
+
+        Returns:
+            The inner product value.
+        """
+        raise NotImplementedError
 
 
-class DirectLatticeVector(np.ndarray):
+class DirectLatticeVector(LatticeVector):
     """Vector in direct space attached to a DirectLattice.
 
-    Extend numpy ndarray to represent a direct lattice vector [u, v, w].
-    The attached lattice provides the metric tensor required for computing
-    norms, inner products, and angles in physical units.
+    Use a composition-based design wrapping a numpy array. The attached
+    lattice provides the metric tensor required for computing norms, inner
+    products, and angles in physical units.
 
     Args:
         uvw: Components (u, v, w) of the direct lattice vector.
         lattice: The DirectLattice this vector is defined on.
 
     Attributes:
+        components: Read-only view of the underlying ndarray.
         lattice: The DirectLattice this vector is attached to.
 
     Examples:
@@ -531,59 +642,21 @@ class DirectLatticeVector(np.ndarray):
         0.0
     """
 
-    lattice: DirectLattice | None
+    def __init__(self, uvw: Sequence[float], lattice: DirectLattice) -> None:
+        super().__init__(uvw, lattice)
 
-    def __new__(
-        cls, uvw: Sequence[float], lattice: DirectLattice
-    ) -> DirectLatticeVector:
-        vector = np.asarray(uvw).view(cls)
-        vector.lattice = lattice
-        return vector
+    @property
+    def lattice(self) -> DirectLattice:
+        """The DirectLattice this vector is defined on."""
+        return self._lattice  # type: ignore[return-value]
 
-    def __array_finalize__(
-        self, vector: object
-    ) -> None:
-        self.lattice = getattr(vector, "lattice", None)
+    @overload  # type: ignore[override]
+    def inner(self, other: DirectLatticeVector) -> float: ...
 
-    def __eq__(self, other: object) -> bool:
-        if not isinstance(other, DirectLatticeVector):
-            return NotImplemented
-        return bool(np.array_equal(self, other) and self.lattice == other.lattice)
+    @overload
+    def inner(self, other: ReciprocalLatticeVector) -> float: ...
 
-    def __ne__(self, other: object) -> bool:
-        if not isinstance(other, DirectLatticeVector):
-            return NotImplemented
-        return not self.__eq__(other)
-
-    @check_lattice
-    def __add__(  # type: ignore[override]
-        self, other: DirectLatticeVector
-    ) -> DirectLatticeVector:
-        return cast("DirectLatticeVector", np.ndarray.__add__(self, other))
-
-    @check_lattice
-    def __sub__(  # type: ignore[override]
-        self, other: DirectLatticeVector
-    ) -> DirectLatticeVector:
-        return cast("DirectLatticeVector", np.ndarray.__sub__(self, other))
-
-    def __repr__(self) -> str:
-        return f"{self.__class__.__name__}({list(self)}, {self.lattice})"
-
-    def __str__(self) -> str:
-        return f"{self.__class__.__name__}({list(self)})"
-
-    def norm(self) -> float:
-        """Calculate the norm (magnitude) of the vector.
-
-        Returns:
-            The length of the vector in angstroms.
-        """
-        if self.lattice is None:
-            raise TypeError("Cannot compute norm: vector has no attached lattice")
-        return float(np.sqrt(self.dot(self.lattice.metric).dot(self)))
-
-    def inner(self, other: DirectLatticeVector) -> float:
+    def inner(self, other: LatticeVector) -> float:
         """Calculate the inner product with another lattice vector.
 
         For two direct lattice vectors on the same lattice, compute the
@@ -605,21 +678,22 @@ class DirectLatticeVector(np.ndarray):
                 is not reciprocally related to this vector's lattice.
             TypeError: If other is a DirectLatticeVector on a different
                 lattice.
+
+        Examples:
+            Same-space inner product:
+
+            >>> from diffraction import DirectLattice, DirectLatticeVector
+            >>> calcite = DirectLattice([4.99, 4.99, 17.002, 90, 90, 120])
+            >>> u = DirectLatticeVector([1, 0, 0], calcite)
+            >>> v = DirectLatticeVector([0, 0, 1], calcite)
+            >>> u.inner(v)
+            0.0
         """
-        if self.lattice is None:
-            raise TypeError(
-                "Cannot compute inner product: vector has no attached lattice"
-            )
-        #  TODO: is there any way to do this apart from type-checking?
-        if type(other) is ReciprocalLatticeVector:
-            if other.lattice is None:
-                raise TypeError(
-                    "Cannot compute inner product: vector has no attached lattice"
-                )
+        if isinstance(other, ReciprocalLatticeVector):
             if not np.allclose(
-                self.lattice.metric,
+                self._lattice.metric,
                 np.linalg.inv(other.lattice.metric / (2 * np.pi) ** 2),
-                rtol=1e-2,
+                rtol=_RECIPROCAL_LATTICE_RTOL,
             ):
                 self_name = self.__class__.__name__
                 other_name = other.__class__.__name__
@@ -627,41 +701,34 @@ class DirectLatticeVector(np.ndarray):
                     f"{self_name} and {other_name} lattices must be reciprocally"
                     " related."
                 )
-            return float(2 * np.pi * self.dot(other))
+            return float(2 * np.pi * self._components @ other._components)
 
-        if self.lattice != other.lattice:
+        if not isinstance(other, DirectLatticeVector):
+            raise TypeError(
+                f"Cannot compute inner product between {self.__class__.__name__}"
+                f" and {type(other).__name__}"
+            )
+        if self._lattice != other._lattice:
             raise TypeError(
                 f"lattice must be the same for both {self.__class__.__name__}s"
             )
-
-        return float(self.dot(self.lattice.metric).dot(other))
-
-    def angle(self, other: DirectLatticeVector) -> float:
-        """Calculate the angle between this vector and another.
-
-        Args:
-            other: Another lattice vector (direct or reciprocal).
-
-        Returns:
-            The angle in degrees.
-        """
-        u, v = self, other
-        return math.degrees(math.acos(u.inner(v) / (u.norm() * v.norm())))
+        return float(self._components @ self._lattice.metric @ other._components)
 
 
-class ReciprocalLatticeVector(DirectLatticeVector):
+class ReciprocalLatticeVector(LatticeVector):
     """Vector in reciprocal space attached to a ReciprocalLattice.
 
-    Extend DirectLatticeVector to represent a reciprocal lattice vector
-    [h, k, l]. The attached reciprocal lattice provides the metric tensor
-    for computing norms, inner products, and angles in reciprocal space.
+    Use a composition-based design wrapping a numpy array. The attached
+    reciprocal lattice provides the metric tensor for computing norms,
+    inner products, and angles in reciprocal space.
 
     Args:
         hkl: Miller indices (h, k, l) of the reciprocal lattice vector.
         lattice: The ReciprocalLattice this vector is defined on.
 
     Attributes:
-        lattice: The ReciprocalLattice this vector is attached to.
+        components: Read-only view of the underlying ndarray.
+        lattice: The ReciprocalLattice this vector is defined on.
 
     Examples:
         Create a reciprocal lattice vector and compute its norm:
@@ -674,18 +741,21 @@ class ReciprocalLatticeVector(DirectLatticeVector):
         4.361842158457823
     """
 
-    lattice: ReciprocalLattice | None  # type: ignore[assignment]
+    def __init__(self, hkl: Sequence[float], lattice: ReciprocalLattice) -> None:
+        super().__init__(hkl, lattice)
 
-    def __new__(
-        cls, hkl: Sequence[float], lattice: ReciprocalLattice
-    ) -> ReciprocalLatticeVector:
-        vector = np.asarray(hkl).view(cls)
-        vector.lattice = lattice
-        return vector
+    @property
+    def lattice(self) -> ReciprocalLattice:
+        """The ReciprocalLattice this vector is defined on."""
+        return self._lattice  # type: ignore[return-value]
 
-    # TODO: add copies of functions so docstrings aren't inherited using super
+    @overload  # type: ignore[override]
+    def inner(self, other: ReciprocalLatticeVector) -> float: ...
 
-    def inner(self, other: DirectLatticeVector | ReciprocalLatticeVector) -> float:
+    @overload
+    def inner(self, other: DirectLatticeVector) -> float: ...
+
+    def inner(self, other: LatticeVector) -> float:
         """Calculate the inner product with another lattice vector.
 
         For two reciprocal lattice vectors on the same lattice, compute the
@@ -707,21 +777,23 @@ class ReciprocalLatticeVector(DirectLatticeVector):
                 not reciprocally related to this vector's lattice.
             TypeError: If other is a ReciprocalLatticeVector on a different
                 lattice.
+
+        Examples:
+            Same-space inner product:
+
+            >>> from diffraction import DirectLattice, ReciprocalLatticeVector
+            >>> calcite = DirectLattice([4.99, 4.99, 17.002, 90, 90, 120])
+            >>> rl = calcite.reciprocal()
+            >>> u_ = ReciprocalLatticeVector([1, 0, 0], rl)
+            >>> v_ = ReciprocalLatticeVector([0, 0, 1], rl)
+            >>> u_.inner(v_)
+            0.0
         """
-        if self.lattice is None:
-            raise TypeError(
-                "Cannot compute inner product: vector has no attached lattice"
-            )
-        #  TODO: is there any way to do this apart from type-checking?
-        if type(other) is DirectLatticeVector:
-            if other.lattice is None:
-                raise TypeError(
-                    "Cannot compute inner product: vector has no attached lattice"
-                )
+        if isinstance(other, DirectLatticeVector):
             if not np.allclose(
-                self.lattice.metric,
+                self._lattice.metric,
                 np.linalg.inv(other.lattice.metric) * (2 * np.pi) ** 2,
-                rtol=1e-2,
+                rtol=_RECIPROCAL_LATTICE_RTOL,
             ):
                 self_name = self.__class__.__name__
                 other_name = other.__class__.__name__
@@ -729,10 +801,15 @@ class ReciprocalLatticeVector(DirectLatticeVector):
                     f"{self_name} and {other_name} lattices must be reciprocally"
                     " related."
                 )
-            return float(2 * np.pi * self.dot(other))
+            return float(2 * np.pi * self._components @ other._components)
 
-        if self.lattice != other.lattice:
+        if not isinstance(other, ReciprocalLatticeVector):
+            raise TypeError(
+                f"Cannot compute inner product between {self.__class__.__name__}"
+                f" and {type(other).__name__}"
+            )
+        if self._lattice != other._lattice:
             raise TypeError(
                 f"lattice must be the same for both {self.__class__.__name__}s"
             )
-        return float(self.dot(self.lattice.metric).dot(other))
+        return float(self._components @ self._lattice.metric @ other._components)
