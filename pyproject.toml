@@ -4,10 +4,30 @@ build-backend = "hatchling.build"
 
 [project]
 name = "diffraction"
-version = "0.1"
+version = "0.2"
 description = "A package for simulating diffraction experiments and performing crystallographic calculations."
+readme = "README.md"
+license = {text = "MIT"}
+authors = [
+    {name = "Noah Waterfield Price"},
+]
+classifiers = [
+    "Development Status :: 3 - Alpha",
+    "Intended Audience :: Science/Research",
+    "License :: OSI Approved :: MIT License",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Topic :: Scientific/Engineering :: Chemistry",
+    "Topic :: Scientific/Engineering :: Physics",
+    "Typing :: Typed",
+]
 requires-python = ">=3.11"
 dependencies = ["numpy"]
+
+[project.urls]
+Repository = "https://github.com/noahwaterfieldprice/diffraction"
 
 [tool.hatch.build.targets.wheel]
 packages = ["src/diffraction"]
@@ -24,7 +44,7 @@ dev = [
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
-pythonpath = ["src"]
+pythonpath = ["src", "tests"]
 addopts = [
     "-ra",
     "--strict-markers",

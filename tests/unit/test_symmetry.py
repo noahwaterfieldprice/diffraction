@@ -80,11 +80,11 @@ class TestPointGroupCreation:
     @pytest.mark.parametrize(
         "symbol, number",
         [
-            ("1", 1),       # triclinic, no symmetry
-            ("-1", 2),      # triclinic, inversion
-            ("mmm", 8),     # orthorhombic
+            ("1", 1),  # triclinic, no symmetry
+            ("-1", 2),  # triclinic, inversion
+            ("mmm", 8),  # orthorhombic
             ("4/mmm", 15),  # tetragonal, highest symmetry
-            ("m-3m", 32),   # cubic, highest symmetry
+            ("m-3m", 32),  # cubic, highest symmetry
         ],
     )
     def test_point_group_symbol_and_number_are_consistent(

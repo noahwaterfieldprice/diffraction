@@ -39,6 +39,7 @@ from __future__ import annotations
 import abc
 import math
 from collections.abc import Sequence
+from numbers import Real
 from typing import ClassVar, TypeAlias, TypeVar, overload
 
 import numpy as np
@@ -200,8 +201,7 @@ class Lattice(abc.ABC):
         """
         if len(lattice_parameters) < 6:
             raise ValueError(
-                f"Expected at least 6 lattice parameters, "
-                f"got {len(lattice_parameters)}"
+                f"Expected at least 6 lattice parameters, got {len(lattice_parameters)}"
             )
         lattice_parameters_: list[float] = []
         for key, value in zip(
@@ -215,9 +215,7 @@ class Lattice(abc.ABC):
             self.lattice_parameter_keys[:3], lattice_parameters_[:3], strict=True
         ):
             if value <= 0:
-                raise ValueError(
-                    f"Lattice length {key} must be positive, got {value}"
-                )
+                raise ValueError(f"Lattice length {key} must be positive, got {value}")
         for key, value in zip(
             self.lattice_parameter_keys[3:], lattice_parameters_[3:], strict=True
         ):
@@ -467,6 +465,10 @@ class LatticeVector:
         lattice: Lattice,
     ) -> None:
         self._components: NDArray[np.float64] = np.asarray(components, dtype=np.float64)
+        if self._components.shape != (3,):
+            raise ValueError(
+                f"components must be 3-dimensional, got shape {self._components.shape}"
+            )
         self._lattice = lattice
 
     @property
@@ -478,7 +480,12 @@ class LatticeVector:
 
     @components.setter
     def components(self, value: Sequence[float]) -> None:
-        self._components = np.asarray(value, dtype=np.float64)
+        arr = np.asarray(value, dtype=np.float64)
+        if arr.shape != (3,):
+            raise ValueError(
+                f"components must be 3-dimensional, got shape {arr.shape}"
+            )
+        self._components = arr
 
     @property
     def lattice(self) -> Lattice:
@@ -486,11 +493,23 @@ class LatticeVector:
         return self._lattice
 
     def __array__(
-        self, dtype: np.typing.DTypeLike | None = None, copy: bool | None = None
+        self, dtype: np.typing.DTypeLike | None = None
     ) -> NDArray[np.float64]:
-        if dtype is None:
-            return self._components
-        return self._components.astype(dtype)
+        """Return components as a read-only numpy array.
+
+        Implements the ``__array__`` protocol so that ``np.asarray(v)``
+        returns a read-only view of the underlying data.
+
+        Args:
+            dtype: Optional dtype for the returned array.
+
+        Returns:
+            A read-only numpy array of the vector components.
+        """
+        arr = self._components if dtype is None else self._components.astype(dtype)
+        result = arr.view()
+        result.flags.writeable = False
+        return result
 
     def __eq__(self, other: object) -> bool:
         if type(other) is not type(self):
@@ -538,17 +557,17 @@ class LatticeVector:
         return type(self)(-self._components, self._lattice)
 
     def __mul__(self, scalar: object) -> LatticeVector:
-        if not isinstance(scalar, (int, float)):
+        if not isinstance(scalar, Real):
             return NotImplemented
-        return type(self)(self._components * scalar, self._lattice)
+        return type(self)(self._components * float(scalar), self._lattice)
 
     def __rmul__(self, scalar: object) -> LatticeVector:
         return self.__mul__(scalar)
 
     def __truediv__(self, scalar: object) -> LatticeVector:
-        if not isinstance(scalar, (int, float)):
+        if not isinstance(scalar, Real):
             return NotImplemented
-        return type(self)(self._components / scalar, self._lattice)
+        return type(self)(self._components / float(scalar), self._lattice)
 
     def norm(self) -> float:
         """Calculate the norm (magnitude) of the vector.
@@ -575,7 +594,12 @@ class LatticeVector:
         Returns:
             The angle in degrees.
         """
-        return math.degrees(math.acos(self.inner(other) / (self.norm() * other.norm())))
+        inner_product = self.inner(other)
+        norm_self = self.norm()
+        norm_other = other.norm()
+        if norm_self == 0.0 or norm_other == 0.0:
+            raise ValueError("Cannot compute angle with a zero-length vector")
+        return math.degrees(math.acos(inner_product / (norm_self * norm_other)))
 
     def inner(self, other: LatticeVector) -> float:
         """Calculate the inner product with another lattice vector.

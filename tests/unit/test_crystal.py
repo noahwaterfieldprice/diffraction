@@ -7,13 +7,12 @@ No mocks are used anywhere in this file.
 from collections.abc import Sequence
 
 import pytest
+from conftest import CALCITE_LATTICE_PARAMS  # type: ignore[import-not-found]
 from numpy import array, ndarray
 from numpy.testing import assert_array_almost_equal, assert_array_equal
 
 from diffraction import Crystal, Site
 
-# Canonical values match CALCITE_LATTICE_PARAMS in tests/conftest.py.
-CALCITE_LATTICE_PARAMS = [4.99, 4.99, 17.002, 90.0, 90.0, 120.0]
 CALCITE_SPACE_GROUP = "R -3 c H"
 
 CALCITE_SITES: dict[str, tuple[str, Sequence[float]]] = {
@@ -168,7 +167,9 @@ class TestCreatingCrystalFromCIF:
         assert c.space_group == "R -3 c H"
         assert not hasattr(c, "sites")
 
-    def test_crystal_from_cif_loads_atomic_sites(self, calcite_cif_path: object) -> None:
+    def test_crystal_from_cif_loads_atomic_sites(
+        self, calcite_cif_path: object
+    ) -> None:
         c = Crystal.from_cif(str(calcite_cif_path))
 
         assert len(c.sites) > 0
