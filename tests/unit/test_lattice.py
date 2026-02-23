@@ -275,16 +275,35 @@ class TestDirectLatticeVectorCreationAndMagicMethods:
         v2 = self.lattice_cls.vector(lattice, [1, 2, 3])
         assert v1 == v2
 
-    def test_lattice_attribute_persists_when_new_array_created(
+    def test_scalar_multiplication_preserves_type_and_lattice(
         self, mocker: MockerFixture
     ) -> None:
         lattice: Any = mocker.MagicMock()
 
         v1 = self.cls([1, 0, 0], lattice)
-        v2: Any = 2 * v1
-        v3: Any = v1.copy()
+        v2 = 2.0 * v1
+        assert isinstance(v2, self.cls)
         assert v2.lattice == lattice
-        assert v3.lattice == lattice
+
+    def test_scalar_division_preserves_type_and_lattice(
+        self, mocker: MockerFixture
+    ) -> None:
+        lattice: Any = mocker.MagicMock()
+
+        v1 = self.cls([2, 4, 6], lattice)
+        v2 = v1 / 2.0
+        assert isinstance(v2, self.cls)
+        assert v2.lattice == lattice
+
+    def test_negation_preserves_type_and_lattice(
+        self, mocker: MockerFixture
+    ) -> None:
+        lattice: Any = mocker.MagicMock()
+
+        v1 = self.cls([1, 0, 0], lattice)
+        v2 = -v1
+        assert isinstance(v2, self.cls)
+        assert v2.lattice == lattice
 
     def test_direct_lattice_vector_equivalence(self, mocker: MockerFixture) -> None:
         lattice_1: Any = mocker.MagicMock()
