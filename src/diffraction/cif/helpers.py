@@ -6,7 +6,7 @@ object attribute names and CIF data names.
 """
 
 import re
-from typing import cast
+from typing import overload
 
 from .cif import load_cif
 
@@ -183,6 +183,14 @@ def get_cif_data(
     return data
 
 
+@overload
+def cif_numerical(data_name: str, data_value: str) -> float: ...
+
+
+@overload
+def cif_numerical(data_name: str, data_value: list[str]) -> list[float]: ...
+
+
 def cif_numerical(data_name: str, data_value: str | list[str]) -> float | list[float]:
     """Parse a numerical CIF data value, stripping any uncertainty suffix.
 
@@ -203,10 +211,7 @@ def cif_numerical(data_name: str, data_value: str | list[str]) -> float | list[f
             pattern or cannot be converted to float.
     """
     if isinstance(data_value, list):
-        return [
-            cast(float, cif_numerical(data_name, data_value_element))
-            for data_value_element in data_value
-        ]
+        return [cif_numerical(data_name, el) for el in data_value]
     else:
         try:
             if match := NUMERICAL_DATA_VALUE.match(data_value):
