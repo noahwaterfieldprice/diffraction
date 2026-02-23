@@ -26,9 +26,8 @@ class TestCreatingReciprocalLatticeFromSequence:
     def test_error_if_lattice_parameter_missing_from_sequence(self) -> None:
         lattice_parameters_missing_one = CALCITE_RECIPROCAL_LATTICE_PARAMETERS[:5]
 
-        with pytest.raises(ValueError) as exception_info:
+        with pytest.raises(ValueError, match="Expected at least 6 lattice parameters"):
             ReciprocalLattice(lattice_parameters_missing_one)
-        assert str(exception_info.value) == "Missing lattice parameter from input"
 
     def test_error_if_invalid_lattice_parameter_given(self) -> None:
         invalid_lattice_parameters = (
@@ -67,17 +66,14 @@ class TestCreatingReciprocalLatticeFromMapping:
         }
         with pytest.raises(ValueError) as exception_info:
             ReciprocalLattice.from_dict(lattice_parameters)
-        assert (
-            str(exception_info.value)
-            == "Parameter: 'b_star' missing from input dictionary"
-        )
+        assert "'b_star'" in str(exception_info.value)
 
 
-class TestCreatingReciprocalLatticeFromCIF:
+class TestCreatingReciprocalLatticeViaDirectLatticeCIF:
     def test_can_create_reciprocal_lattice_from_single_datablock_cif(self) -> None:
-        lattice = ReciprocalLattice.from_cif(
+        lattice = DirectLattice.from_cif(
             "tests/functional/static/valid_cifs/calcite_icsd.cif"
-        )
+        ).reciprocal()
 
         assert_almost_equal(
             lattice.lattice_parameters, CALCITE_RECIPROCAL_LATTICE_PARAMETERS, decimal=4
@@ -85,7 +81,7 @@ class TestCreatingReciprocalLatticeFromCIF:
 
     def test_error_if_lattice_parameter_is_missing_from_cif(self) -> None:
         with pytest.raises(ValueError) as exception_info:
-            ReciprocalLattice.from_cif(
+            DirectLattice.from_cif(
                 "tests/functional/static/invalid_cifs/"
                 "calcite_icsd_missing_lattice_parameter.cif"
             )
@@ -97,7 +93,7 @@ class TestCreatingReciprocalLatticeFromCIF:
 
     def test_error_datablock_not_given_for_multi_data_block_cif(self) -> None:
         with pytest.raises(TypeError) as exception_info:
-            ReciprocalLattice.from_cif(
+            DirectLattice.from_cif(
                 "tests/functional/static/valid_cifs/multi_data_block.cif"
             )
         assert str(exception_info.value) == (
@@ -105,11 +101,11 @@ class TestCreatingReciprocalLatticeFromCIF:
             "Required when input CIF has multiple data blocks."
         )
 
-    def test_can_create_direct_lattice_from_multi_data_block_cif(self) -> None:
-        CHFeNOS = ReciprocalLattice.from_cif(
+    def test_can_create_reciprocal_lattice_from_multi_data_block_cif(self) -> None:
+        CHFeNOS = DirectLattice.from_cif(
             "tests/functional/static/valid_cifs/multi_data_block.cif",
             data_block="data_CSD_CIF_ACAKOF",
-        )
+        ).reciprocal()
 
         assert_almost_equal(
             CHFeNOS.lattice_parameters,

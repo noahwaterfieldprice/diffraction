@@ -34,7 +34,7 @@ class TestCreatingSites:
 
         assert atom1.ion == "Ca2+"
         assert_array_almost_equal(atom1.position, array([0, 0, 0]))
-        assert isinstance(atom1.position, ndarray)
+        assert isinstance(atom1.position, ndarray)  # type: ignore[unreachable]
 
     def test_atom_representation(self) -> None:
         atom1 = Site("Ca2+", [0, 0, 0])
@@ -206,7 +206,7 @@ class TestAddingAndModifyingAtomicSites:
 
         c.sites["Ca1"].position = [0, 0, 0.5]
         assert_array_equal(c.sites["Ca1"].position, array([0, 0, 0.5]))
-        assert isinstance(c.sites["Ca1"].position, ndarray)
+        assert isinstance(c.sites["Ca1"].position, ndarray)  # type: ignore[unreachable]
 
 
 # ---------------------------------------------------------------------------
@@ -225,6 +225,12 @@ class TestCrystalEdgeCases:
         assert isinstance(c.alpha, float)
         assert isinstance(c.beta, float)
         assert isinstance(c.gamma, float)
+
+    def test_crystal_getattr_raises_for_non_lattice_param(self) -> None:
+        c = Crystal(CALCITE_LATTICE_PARAMS, CALCITE_SPACE_GROUP)
+
+        with pytest.raises(AttributeError, match="no attribute"):
+            _ = c.metric  # no longer delegated via __getattr__
 
     def test_crystal_without_sites_has_empty_sites_dict(self) -> None:
         c = Crystal(CALCITE_LATTICE_PARAMS, CALCITE_SPACE_GROUP)

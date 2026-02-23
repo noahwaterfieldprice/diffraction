@@ -6,7 +6,10 @@ positions. Crystal structures can be constructed from explicit parameters,
 dictionaries, or CIF files.
 """
 
+from __future__ import annotations
+
 from collections.abc import Sequence
+from dataclasses import dataclass
 from typing import Any, TypeAlias, cast
 
 import numpy as np
@@ -20,12 +23,20 @@ Position: TypeAlias = Sequence[float]
 
 __all__ = ["Crystal", "Site"]
 
+# Lattice parameter attribute names delegated by Crystal.__getattr__.
+_LATTICE_PARAMETER_ATTRS: frozenset[str] = frozenset(
+    {"a", "b", "c", "alpha", "beta", "gamma"}
+)
 
+
+@dataclass(eq=False)
 class Site:
     """Atomic site at a fractional-coordinate position in a crystal.
 
     Store the ion label, fractional coordinates, and a positional precision
-    used when comparing two sites for equality.
+    used when comparing two sites for equality. The ``position`` attribute is
+    always stored as a numpy array regardless of the type passed at
+    construction or assignment.
 
     Args:
         ion: Ion label string, e.g. ``'Fe3+'``, ``'O2-'``.
@@ -49,19 +60,17 @@ class Site:
         array([0., 0., 0.])
     """
 
-    def __init__(self, ion: str, position: Position, precision: float = 1e-6) -> None:
-        self.ion = ion
-        self.position = position
-        self.precision = precision
+    ion: str
+    position: Position
+    precision: float = 1e-6
 
-    @property
-    def position(self) -> NDArray[np.float64]:
-        """Return the fractional coordinate position as a numpy array."""
-        return self._position
+    def __post_init__(self) -> None:
+        self.position = np.array(self.position, dtype=np.float64)  # type: ignore[assignment]
 
-    @position.setter
-    def position(self, new_position: Position) -> None:
-        self._position: NDArray[np.float64] = np.array(new_position)
+    def __setattr__(self, name: str, value: object) -> None:
+        if name == "position":
+            value = np.array(value, dtype=np.float64)
+        super().__setattr__(name, value)
 
     def __repr__(self) -> str:
         return f"{self.__class__.__name__}({self.ion!r}, {self.position!r})"
@@ -69,8 +78,12 @@ class Site:
     def __eq__(self, other: object) -> bool:
         if not isinstance(other, Site):
             return NotImplemented
-        return self.ion == other.ion and np.allclose(
-            self.position, other.position, atol=self.precision
+        return self.ion == other.ion and bool(
+            np.allclose(
+                cast(NDArray[np.float64], self.position),
+                cast(NDArray[np.float64], other.position),
+                atol=self.precision,
+            )
         )
 
 
@@ -78,10 +91,11 @@ class Crystal:
     """Crystal structure combining a direct lattice, space group, and atomic sites.
 
     Wrap a DirectLattice with a space group symbol and a dictionary of atomic
-    Site objects at fractional-coordinate positions. Lattice parameter
-    attributes (``a``, ``b``, ``c``, ``alpha``, ``beta``, ``gamma``,
-    ``lattice_parameters``, ``metric``, ``unit_cell_volume``) are delegated
-    to the underlying DirectLattice via ``__getattr__``.
+    Site objects at fractional-coordinate positions. The six standard lattice
+    parameters (``a``, ``b``, ``c``, ``alpha``, ``beta``, ``gamma``) are
+    delegated to the underlying DirectLattice via ``__getattr__``. For other
+    lattice properties (``metric``, ``unit_cell_volume``, etc.), access them
+    via ``crystal.lattice``.
 
     Args:
         lattice_parameters: Six lattice parameters in the order
@@ -114,7 +128,7 @@ class Crystal:
         self.sites: dict[str, Site] = {}
 
     @classmethod
-    def from_dict(cls, input_dict: dict[str, Any]) -> "Crystal":
+    def from_dict(cls, input_dict: dict[str, Any]) -> Crystal:
         """Create a Crystal from a parameter dictionary.
 
         Args:
@@ -161,7 +175,7 @@ class Crystal:
         filepath: str,
         data_block: str | None = None,
         load_sites: bool = True,
-    ) -> "Crystal":
+    ) -> Crystal:
         """Create a Crystal from a CIF file.
 
         Args:
@@ -210,22 +224,28 @@ class Crystal:
         )
         return repr_string.format(self.__class__.__name__, self)
 
-    def __getattr__(
-        self, name: str
-    ) -> Any:  # TODO: Only delegate access for certain variables
-        """Delegate attribute access to the underlying DirectLattice.
+    def __getattr__(self, name: str) -> float:
+        """Delegate lattice parameter access to the underlying DirectLattice.
 
-        Allow transparent access to lattice parameters and computed
-        properties (e.g. ``crystal.a``, ``crystal.metric``) by forwarding
-        unknown attribute lookups to ``self.lattice``.
+        Provides transparent access to the six standard lattice parameters
+        (a, b, c, alpha, beta, gamma) via the attached lattice. All other
+        attributes raise AttributeError.
 
         Args:
-            name: Attribute name to look up.
+            name: Attribute name to look up. Must be one of
+                ``a``, ``b``, ``c``, ``alpha``, ``beta``, ``gamma``.
 
         Returns:
-            The attribute value from the underlying DirectLattice.
+            The lattice parameter value as a float.
+
+        Raises:
+            AttributeError: If name is not a delegated lattice parameter.
         """
-        return getattr(self.lattice, name)
+        if name in _LATTICE_PARAMETER_ATTRS:
+            return getattr(self.lattice, name)  # type: ignore[no-any-return]
+        raise AttributeError(
+            f"{type(self).__name__!r} object has no attribute {name!r}"
+        )
 
     def add_sites_from_cif(self, filepath: str, data_block: str | None = None) -> None:
         """Load and add atomic sites from a CIF file.

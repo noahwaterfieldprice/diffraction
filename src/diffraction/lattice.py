@@ -98,7 +98,7 @@ def _to_degrees(lattice_parameters: tuple[float, ...]) -> tuple[float, ...]:
     return lengths + angles_in_degrees
 
 
-def metric_tensor(lattice_parameters: LatticeParameters) -> NDArray[np.float64]:
+def _metric_tensor(lattice_parameters: LatticeParameters) -> NDArray[np.float64]:
     """Calculate the metric tensor for a lattice.
 
     Args:
@@ -123,7 +123,7 @@ def metric_tensor(lattice_parameters: LatticeParameters) -> NDArray[np.float64]:
     return tensor
 
 
-def reciprocalise(lattice_parameters: LatticeParameters) -> tuple[float, ...]:
+def _reciprocalise(lattice_parameters: LatticeParameters) -> tuple[float, ...]:
     """Transform lattice parameters to those of the reciprocally related lattice.
 
     Convert direct lattice parameters to reciprocal lattice parameters, or
@@ -143,7 +143,7 @@ def reciprocalise(lattice_parameters: LatticeParameters) -> tuple[float, ...]:
         the physics convention used for wavevectors.
     """
     a, b, c, al, be, ga = _to_radians(lattice_parameters)
-    cell_volume = float(np.sqrt(np.linalg.det(metric_tensor(lattice_parameters))))
+    cell_volume = float(np.sqrt(np.linalg.det(_metric_tensor(lattice_parameters))))
     pi, sin, cos, arccos = math.pi, math.sin, math.cos, math.acos
 
     a_ = 2 * pi * b * c * sin(al) / cell_volume
@@ -161,8 +161,7 @@ class Lattice(abc.ABC):
 
     Store lattice parameters as instance attributes and compute derived
     properties (metric tensor, unit cell volume) on demand. Concrete
-    subclasses must define ``lattice_parameter_keys`` and implement
-    ``from_cif``.
+    subclasses must define ``lattice_parameter_keys``.
 
     Args:
         lattice_parameters: Six lattice parameters in the order
@@ -195,11 +194,15 @@ class Lattice(abc.ABC):
             List of float-coerced lattice parameter values.
 
         Raises:
-            ValueError: If fewer than six parameters are provided, or if any
-                parameter cannot be converted to float.
+            ValueError: If fewer than six parameters are provided, if any
+                parameter cannot be converted to float, if any length is
+                non-positive, or if any angle is outside (0, 180) degrees.
         """
         if len(lattice_parameters) < 6:
-            raise (ValueError("Missing lattice parameter from input"))
+            raise ValueError(
+                f"Expected at least 6 lattice parameters, "
+                f"got {len(lattice_parameters)}"
+            )
         lattice_parameters_: list[float] = []
         for key, value in zip(
             self.lattice_parameter_keys, lattice_parameters, strict=False
@@ -208,12 +211,21 @@ class Lattice(abc.ABC):
                 lattice_parameters_.append(float(value))
             except ValueError as exc:
                 raise ValueError(f"Invalid lattice parameter {key}: {value}") from exc
+        for key, value in zip(
+            self.lattice_parameter_keys[:3], lattice_parameters_[:3], strict=True
+        ):
+            if value <= 0:
+                raise ValueError(
+                    f"Lattice length {key} must be positive, got {value}"
+                )
+        for key, value in zip(
+            self.lattice_parameter_keys[3:], lattice_parameters_[3:], strict=True
+        ):
+            if not (0 < value < 180):
+                raise ValueError(
+                    f"Lattice angle {key} must be in (0, 180) degrees, got {value}"
+                )
         return lattice_parameters_
-
-    @classmethod
-    @abc.abstractmethod
-    def from_cif(cls, filepath: str, data_block: str | None = None) -> Lattice:
-        raise NotImplementedError
 
     @classmethod
     def from_dict(cls: type[_LT], input_dict: dict[str, float]) -> _LT:
@@ -228,16 +240,15 @@ class Lattice(abc.ABC):
 
         Raises:
             ValueError: If any required lattice parameter key is missing from
-                the dictionary.
+                the dictionary. All missing keys are reported at once.
         """
-        lattice_parameters = []
-        for parameter in cls.lattice_parameter_keys:
-            try:
-                lattice_parameters.append(input_dict[parameter])
-            except KeyError as exc:  # TODO: Is OK that reports just 1st missing para?
-                raise ValueError(
-                    f"Parameter: '{parameter}' missing from input dictionary"
-                ) from exc
+        missing = [k for k in cls.lattice_parameter_keys if k not in input_dict]
+        if missing:
+            raise ValueError(
+                f"Parameters missing from input dictionary: "
+                f"{', '.join(repr(k) for k in missing)}"
+            )
+        lattice_parameters = [float(input_dict[k]) for k in cls.lattice_parameter_keys]
         return cls(lattice_parameters)
 
     @property
@@ -248,7 +259,7 @@ class Lattice(abc.ABC):
     @property
     def metric(self) -> NDArray[np.float64]:
         """Return the 3x3 metric tensor for this lattice."""
-        return metric_tensor(self.lattice_parameters)
+        return _metric_tensor(self.lattice_parameters)
 
     @property
     def unit_cell_volume(self) -> float:
@@ -360,7 +371,7 @@ class DirectLattice(Lattice):
             A ReciprocalLattice with parameters derived from this direct
             lattice using the 2*pi convention.
         """
-        reciprocal_lattice_parameters = reciprocalise(self.lattice_parameters)
+        reciprocal_lattice_parameters = _reciprocalise(self.lattice_parameters)
         return ReciprocalLattice(reciprocal_lattice_parameters)
 
 
@@ -369,8 +380,8 @@ class ReciprocalLattice(Lattice):
 
     Store and expose reciprocal lattice parameters (a_star, b_star, c_star,
     alpha_star, beta_star, gamma_star) using the 2*pi convention. Can be
-    constructed from a parameter list, a dictionary, or from a CIF file
-    (which reads the direct lattice parameters and converts them).
+    constructed from a parameter list, a dictionary, or via
+    ``DirectLattice.from_cif(...).reciprocal()``.
 
     Attributes:
         a_star: Length of the a* axis.
@@ -412,39 +423,6 @@ class ReciprocalLattice(Lattice):
     beta_star: float
     gamma_star: float
 
-    @classmethod
-    def from_cif(
-        cls, filepath: str, data_block: str | None = None
-    ) -> ReciprocalLattice:
-        """Create a ReciprocalLattice from a CIF file.
-
-        Read direct lattice parameters from the CIF and convert them to
-        reciprocal lattice parameters using the 2*pi convention.
-
-        Args:
-            filepath: Path to the input CIF file.
-            data_block: Data block header to read from, required only when
-                the CIF contains multiple data blocks.
-
-        Returns:
-            A ReciprocalLattice with parameters derived from the CIF direct
-            lattice parameters.
-
-        Raises:
-            ValueError: If any required lattice parameter is missing or is
-                not valid numerical data.
-            TypeError: If the CIF has multiple data blocks but data_block
-                is not given.
-        """
-        data_items = cif_helpers.load_data_block(filepath, data_block)
-        data_names = [
-            cif_helpers.CIF_NAMES[key]
-            for key in ["a", "b", "c", "alpha", "beta", "gamma"]
-        ]
-        lattice_parameters = cif_helpers.get_numerical_cif_data(data_items, *data_names)
-        reciprocal_lps = reciprocalise(lattice_parameters)
-        return cls(reciprocal_lps)
-
     def vector(self, hkl: Sequence[float]) -> ReciprocalLatticeVector:
         """Return a reciprocal lattice vector defined on this lattice.
 
@@ -464,7 +442,7 @@ class ReciprocalLattice(Lattice):
             A DirectLattice with parameters derived from this reciprocal
             lattice by applying the inverse reciprocalise transform.
         """
-        direct_lattice_parameters = reciprocalise(self.lattice_parameters)
+        direct_lattice_parameters = _reciprocalise(self.lattice_parameters)
         return DirectLattice(direct_lattice_parameters)
 
 

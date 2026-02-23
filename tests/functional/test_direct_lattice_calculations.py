@@ -25,9 +25,8 @@ class TestCreatingDirectLatticeFromSequence:
     def test_error_if_lattice_parameter_missing_from_sequence(self) -> None:
         lattice_parameters_missing_one = CALCITE_LATTICE_PARAMETERS[:5]
 
-        with pytest.raises(ValueError) as exception_info:
+        with pytest.raises(ValueError, match="Expected at least 6 lattice parameters"):
             DirectLattice(lattice_parameters_missing_one)
-        assert str(exception_info.value) == "Missing lattice parameter from input"
 
     def test_error_if_invalid_lattice_parameter_given(self) -> None:
         invalid_lattice_parameters = (*CALCITE_LATTICE_PARAMETERS[:5], "abcdef")
@@ -61,9 +60,7 @@ class TestCreatingDirectLatticeFromMapping:
         }
         with pytest.raises(ValueError) as exception_info:
             DirectLattice.from_dict(lattice_parameters)
-        assert (
-            str(exception_info.value) == "Parameter: 'b' missing from input dictionary"
-        )
+        assert "'b'" in str(exception_info.value)
 
 
 class TestCreatingDirectLatticeFromCIF:

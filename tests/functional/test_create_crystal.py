@@ -59,9 +59,7 @@ class TestCreatingFromMapping:
         }
         with pytest.raises(ValueError) as exception_info:
             Crystal.from_dict(crystal_info)
-        assert (
-            str(exception_info.value) == "Parameter: 'b' missing from input dictionary"
-        )
+        assert "'b'" in str(exception_info.value)
 
     def test_error_if_space_group_missing_from_dict(self) -> None:
         crystal_info = {
