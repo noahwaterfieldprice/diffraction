@@ -30,10 +30,10 @@ from diffraction.lattice import (
     DirectLatticeVector,
     Lattice,
     ReciprocalLatticeVector,
+    _metric_tensor,
+    _reciprocalise,
     _to_degrees,
     _to_radians,
-    metric_tensor,
-    reciprocalise,
 )
 
 # Path to the functional test CIF directory, used for real CIF loading tests.
@@ -76,13 +76,6 @@ class FakeAbstractLattice(Lattice):
 
     lattice_parameter_keys = ("k1", "k2", "k3", "k4", "k5", "k6")
 
-    @classmethod
-    def from_cif(
-        cls, filepath: str, data_block: str | None = None
-    ) -> "FakeAbstractLattice":
-        super().from_cif(filepath, data_block)
-        return cls([0.0, 0.0, 0.0, 0.0, 0.0, 0.0])  # unreachable; super() raises
-
 
 # ---------------------------------------------------------------------------
 # Utility functions
@@ -106,13 +99,13 @@ class TestUtilityFunctions:
     def test_calculating_metric_tensor(self) -> None:
         lattice_parameters = list(CALCITE_LATTICE_DICT.values())
         assert_array_almost_equal(
-            metric_tensor(lattice_parameters), CALCITE_DIRECT_METRIC
+            _metric_tensor(lattice_parameters), CALCITE_DIRECT_METRIC
         )
 
     def test_transforming_to_reciprocal_basis(self) -> None:
         lattice_parameters = list(CALCITE_LATTICE_DICT.values())
 
-        reciprocal_lattice_parameters = reciprocalise(lattice_parameters)
+        reciprocal_lattice_parameters = _reciprocalise(lattice_parameters)
         assert_array_almost_equal(
             reciprocal_lattice_parameters,
             CALCITE_RECIPROCAL_PARAMS,
@@ -148,11 +141,10 @@ class TestDirectLatticeCreation:
 
         assert lattice.lattice_parameters == CALCITE_LATTICE_PARAMS
 
-    def test_reciprocal_lattice_from_cif_loads_calcite_parameters(self) -> None:
+    def test_reciprocal_lattice_via_direct_lattice_from_cif(self) -> None:
         cif_path = str(CIF_DIR / "calcite_icsd.cif")
-        lattice = ReciprocalLattice.from_cif(cif_path)
+        lattice = DirectLattice.from_cif(cif_path).reciprocal()
 
-        # Reciprocal lattice parameters should be physically reasonable
         assert isinstance(lattice, ReciprocalLattice)
         assert lattice.a_star == pytest.approx(1.4539, rel=1e-3)
         assert lattice.gamma_star == pytest.approx(60.0, rel=1e-4)
@@ -172,9 +164,11 @@ class TestDirectLatticeCreation:
         assert isinstance(direct, DirectLattice)
         assert_almost_equal(direct.lattice_parameters, CALCITE_LATTICE_PARAMS, decimal=2)
 
-    def test_abstract_lattice_from_cif_raises_not_implemented(self) -> None:
-        with pytest.raises(NotImplementedError):
-            FakeAbstractLattice.from_cif("some/file/path.cif")
+    def test_concrete_subclass_can_omit_from_cif(self) -> None:
+        # from_cif is no longer abstract; subclasses can be instantiated
+        # without implementing it.
+        lattice = FakeAbstractLattice([1.0, 2.0, 3.0, 90.0, 90.0, 90.0])
+        assert isinstance(lattice, FakeAbstractLattice)
 
 
 # ---------------------------------------------------------------------------
@@ -229,6 +223,26 @@ class TestLatticeValidationEdgeCases:
         with pytest.raises(ValueError) as exc_info:
             DirectLattice.from_dict(incomplete)
         assert "gamma" in str(exc_info.value)
+
+    def test_from_dict_reports_all_missing_parameters(self) -> None:
+        # Only b and gamma are missing; both should appear in the error message.
+        incomplete = {"a": 4.99, "c": 17.002, "alpha": 90, "beta": 90}
+
+        with pytest.raises(ValueError, match="'b'") as exc_info:
+            DirectLattice.from_dict(incomplete)
+        assert "'gamma'" in str(exc_info.value)
+
+    def test_error_if_lattice_length_is_non_positive(self) -> None:
+        with pytest.raises(ValueError, match="must be positive"):
+            DirectLattice([-1, 4.99, 17.002, 90, 90, 120])
+
+    def test_error_if_lattice_angle_is_zero(self) -> None:
+        with pytest.raises(ValueError, match="must be in"):
+            DirectLattice([4.99, 4.99, 17.002, 0, 90, 120])
+
+    def test_error_if_lattice_angle_is_180(self) -> None:
+        with pytest.raises(ValueError, match="must be in"):
+            DirectLattice([4.99, 4.99, 17.002, 90, 180, 120])
 
     @pytest.mark.parametrize("invalid_value", ["abc", "123@%£", "1232.433.21"])
     @pytest.mark.parametrize("position", range(6))

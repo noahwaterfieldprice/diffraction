@@ -10,48 +10,25 @@ from typing import overload
 
 from .cif import load_cif
 
-# CIF data names whose values should be parsed as floating-point numbers.
-# The parser stores all raw values as strings; functions in this module
-# strip uncertainty suffixes (e.g. "3.456(7)" -> 3.456) before converting.
-NUMERICAL_DATA_NAMES = (  # TODO: strip down to only data names used
+# Lattice parameters, fractional coordinates, displacement parameters, occupancy
+NUMERICAL_DATA_NAMES = (
+    "cell_length_a",
+    "cell_length_b",
+    "cell_length_c",
+    "cell_angle_alpha",
+    "cell_angle_beta",
+    "cell_angle_gamma",
     "atom_site_fract_x",
     "atom_site_fract_y",
     "atom_site_fract_z",
     "atom_site_B_iso_or_equiv",
-    "atom_site_Wyckoff_symbol",
     "atom_site_aniso_U_11",
     "atom_site_aniso_U_12",
     "atom_site_aniso_U_13",
     "atom_site_aniso_U_22",
     "atom_site_aniso_U_23",
     "atom_site_aniso_U_33",
-    "atom_site_attached_hydrogens",
     "atom_site_occupancy",
-    "atom_site_symmetry_multiplicity",
-    "atom_type_oxidation_number",
-    "atom_type_radius_bond",
-    "cell_angle_alpha",
-    "cell_angle_beta",
-    "cell_angle_gamma",
-    "cell_formula_units_Z",
-    "cell_length_a",
-    "cell_length_b",
-    "cell_length_c",
-    "cell_volume",
-    "citation_journal_volume",
-    "citation_page_first",
-    "citation_page_last",
-    "citation_year",
-    "cod_database_code",
-    "database_code_ICSD",
-    "diffrn_ambient_temperature",
-    "exptl_crystal_density_diffrn",
-    "exptl_crystal_density_meas",
-    "refine_ls_R_factor_all",
-    "refine_ls_R_factor_gt",
-    "refine_ls_wR_factor_gt",
-    "symmetry_Int_Tables_number",
-    "symmetry_equiv_pos_site_id",
 )
 
 # CIF data names whose values are returned as raw strings without conversion.
