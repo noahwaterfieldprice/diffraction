@@ -95,3 +95,4 @@ class TestPointGroupCreation:
 
         assert pg_by_symbol.number == number
         assert pg_by_number.symbol == symbol
+

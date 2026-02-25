@@ -1,0 +1,98 @@
+#------------------------------------------------------------------------------
+#$Date: 2025-08-21 13:10:50 +0300 (Thu, 21 Aug 2025) $
+#$Revision: 301844 $
+#$URL: file:///home/coder/svn-repositories/_RELOADED_COD/cod-reloaded/cif/5/00/00/5000039.cif $
+#------------------------------------------------------------------------------
+#
+# This file is available in the Crystallography Open Database (COD),
+# http://www.crystallography.net/
+#
+# All data on this site have been placed in the public domain by the
+# contributors.
+#
+data_5000039
+loop_
+_publ_author_name
+'Cole, W. F.'
+'Lancucki, C. J.'
+_publ_section_title
+;
+ A refinement of the crystal structure of gypsum CaSO~4~.2H~2~O
+;
+_journal_coden_ASTM              ACBCAR
+_journal_issue                   4
+_journal_name_full
+;
+ Acta Crystallographica, Section B: Structural Crystallography
+ and Crystal Chemistry
+;
+_journal_page_first              921
+_journal_page_last               929
+_journal_paper_doi               10.1107/S0567740874004055
+_journal_volume                  30
+_journal_year                    1974
+_chemical_formula_moiety         'S O4 2-, Ca 2+, H2 O'
+_chemical_formula_sum            'Ca H4 O6 S'
+_chemical_name_mineral           Gypsum
+_chemical_name_systematic        'Calcium sulfate dihydrate'
+_space_group_IT_number           15
+_symmetry_cell_setting           monoclinic
+_symmetry_Int_Tables_number      15
+_symmetry_space_group_name_Hall  '-I 2yc'
+_symmetry_space_group_name_H-M   'I 1 2/c 1'
+_cell_angle_alpha                90
+_cell_angle_beta                 118.60(7)
+_cell_angle_gamma                90
+_cell_formula_units_Z            4
+_cell_length_a                   5.670(2)
+_cell_length_b                   15.201(2)
+_cell_length_c                   6.533(2)
+_cell_volume                     494.4
+_exptl_crystal_density_meas      2.31
+_refine_ls_R_factor_all          0.011
+_cod_depositor_comments
+;
+ Adding the _chemical_formula_sum and _chemical_formula_moiety data items.
+ Removing the dummy hydrogen atom 'H1+'.
+
+ Antanas Vaitkus,
+ 2017-08-16
+;
+_cod_database_code               5000039
+loop_
+_symmetry_equiv_pos_as_xyz
+x,y,z
+x,-y,1/2+z
+-x,-y,-z
+-x,y,1/2-z
+1/2+x,1/2+y,1/2+z
+1/2+x,1/2-y,z
+1/2-x,1/2-y,1/2-z
+1/2-x,1/2+y,-z
+loop_
+_atom_site_label
+_atom_site_type_symbol
+_atom_site_symmetry_multiplicity
+_atom_site_Wyckoff_symbol
+_atom_site_fract_x
+_atom_site_fract_y
+_atom_site_fract_z
+_atom_site_occupancy
+_atom_site_attached_hydrogens
+_atom_site_calc_flag
+Ca1 Ca2+ 4 e 0.5 0.0787(6) 0.25 1. 0 d
+S1 S6+ 4 e 0. 0.0784(7) 0.75 1. 0 d
+O1 O2- 8 f 0.9623(10) 0.1314(5) 0.5515(9) 1. 0 d
+O2 O2- 8 f 0.7586(10) 0.0216(5) 0.6674(8) 1. 0 d
+O3 O2- 8 f 0.3784(12) 0.1824(6) 0.4597(11) 1. 2 d
+loop_
+_atom_type_symbol
+_atom_type_oxidation_number
+Ca2+ 2.000
+S6+ 6.000
+O2- -2.000
+loop_
+_cod_related_entry_id
+_cod_related_entry_database
+_cod_related_entry_code
+1 PubChem 168347040

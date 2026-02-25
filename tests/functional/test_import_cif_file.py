@@ -19,7 +19,7 @@ class TestFileLoading:
             load_cif(cif_filepath)
 
     def test_loading_cif_from_invalid_filepath_raises_exception(self) -> None:
-        cif_filepath = "/no/cif/file/here"
+        cif_filepath = "/no/cif/file/here.cif"
 
         # test for exception on validating cif
         with pytest.raises(FileNotFoundError):
@@ -56,7 +56,7 @@ class TestCIFValidating:
 
     @pytest.mark.parametrize(
         "filepath",
-        sorted(Path("tests/functional/static/valid_cifs").glob("*")),
+        sorted(Path("tests/functional/static/valid_cifs").glob("*.cif")),
     )
     def test_no_exception_and_return_true_with_valid_cif(self, filepath: Path) -> None:
         assert validate_cif(str(filepath)) is True

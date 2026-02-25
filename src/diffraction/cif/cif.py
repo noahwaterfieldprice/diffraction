@@ -140,7 +140,9 @@ DATA_BLOCK_HEADER = re.compile("(?:^|\n)(data_\\S*)\\s*", re.IGNORECASE)
 LOOP = re.compile("(?:^|\n)loop_\\s*", re.IGNORECASE)
 DATA_NAME = re.compile(r"\s*_(\S+)")
 DATA_NAME_START_LINE = re.compile("(?:^|\n)\\s*_(\\S+)")
-DATA_VALUE = re.compile("\\s*('[^']+'|\"[^\"]+\"|[^\\s_#][^\\s'\"]*)")
+DATA_VALUE = re.compile(
+    r"\s*((?:'.*?'(?=\s|\Z))|(?:\".*?\"(?=\s|\Z))|[^\s_#][^\s'\"]*)"
+)
 
 DATA_VALUE_QUOTES = re.compile("^[\"']?(.*?)[\"']?$", re.DOTALL)
 TEXT_FIELD = re.compile("[^_][^;]+")

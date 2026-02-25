@@ -40,6 +40,8 @@ dev = [
     "pytest-html",
     "ruff>=0.15.2",
     "mypy>=1.19.1",
+    "matplotlib>=3.10.8",
+    "jupyter>=1.1.1",
 ]
 
 [tool.pytest.ini_options]
@@ -81,3 +83,9 @@ known-first-party = ["diffraction"]
 "tests/**/*.py" = [
     "E501",    # line too long (test assertions and parameterize data)
 ]
+"examples/**/*.ipynb" = [
+    "RUF001",  # ambiguous unicode (Greek letters are standard crystallographic notation)
+]
+
+[tool.uv]
+package = true

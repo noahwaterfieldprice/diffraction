@@ -29,3 +29,9 @@ assets/
 # documentation
 docs/build/
 docs/source/
+
+# macOS
+.DS_Store
+
+# Jupyter
+.ipynb_checkpoints/
