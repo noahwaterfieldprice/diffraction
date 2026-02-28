@@ -1,0 +1,45 @@
+{
+  "number": 1,
+  "symbol": "P1",
+  "point_group": "1",
+  "crystal_system": "triclinic",
+  "default_setting": "standard",
+  "settings": {
+    "standard": {
+      "xhm_symbol": "P 1",
+      "centering_vectors": [
+        [
+          "0",
+          "0",
+          "0"
+        ]
+      ],
+      "operators": [
+        {
+          "W": [
+            [
+              1,
+              0,
+              0
+            ],
+            [
+              0,
+              1,
+              0
+            ],
+            [
+              0,
+              0,
+              1
+            ]
+          ],
+          "t": [
+            "0",
+            "0",
+            "0"
+          ]
+        }
+      ]
+    }
+  }
+}

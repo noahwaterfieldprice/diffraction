@@ -1,0 +1,74 @@
+{
+  "number": 8,
+  "symbol": "Im11",
+  "point_group": "m",
+  "crystal_system": "monoclinic",
+  "default_setting": "standard",
+  "settings": {
+    "standard": {
+      "xhm_symbol": "I m 1 1",
+      "centering_vectors": [
+        [
+          "0",
+          "0",
+          "0"
+        ],
+        [
+          "1/2",
+          "1/2",
+          "1/2"
+        ]
+      ],
+      "operators": [
+        {
+          "W": [
+            [
+              1,
+              0,
+              0
+            ],
+            [
+              0,
+              1,
+              0
+            ],
+            [
+              0,
+              0,
+              1
+            ]
+          ],
+          "t": [
+            "0",
+            "0",
+            "0"
+          ]
+        },
+        {
+          "W": [
+            [
+              -1,
+              0,
+              0
+            ],
+            [
+              0,
+              1,
+              0
+            ],
+            [
+              0,
+              0,
+              1
+            ]
+          ],
+          "t": [
+            "0",
+            "0",
+            "0"
+          ]
+        }
+      ]
+    }
+  }
+}
