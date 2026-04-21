@@ -6,12 +6,13 @@ No mocks are used anywhere in this file.
 
 from collections.abc import Sequence
 
+import numpy as np
 import pytest
 from conftest import CALCITE_LATTICE_PARAMS  # type: ignore[import-not-found]
 from numpy import array, ndarray
 from numpy.testing import assert_array_almost_equal, assert_array_equal
 
-from diffraction import Crystal, Site
+from diffraction import Crystal, Site, SpaceGroup
 
 CALCITE_SPACE_GROUP = "R -3 c H"
 
@@ -237,3 +238,141 @@ class TestCrystalEdgeCases:
         c = Crystal(CALCITE_LATTICE_PARAMS, CALCITE_SPACE_GROUP)
 
         assert c.sites == {}
+
+
+# ---------------------------------------------------------------------------
+# TestExpandSites
+# ---------------------------------------------------------------------------
+
+NACL_LATTICE_PARAMS = [5.64, 5.64, 5.64, 90, 90, 90]
+NACL_SPACE_GROUP = "Fm-3m"
+
+
+class TestExpandSites:
+    def _nacl_crystal(self) -> Crystal:
+        """NaCl asymmetric unit: Na at (0,0,0), Cl at (0.5,0.5,0.5)."""
+        crystal = Crystal(NACL_LATTICE_PARAMS, NACL_SPACE_GROUP)
+        crystal.add_sites(
+            {
+                "Na1": ("Na", [0, 0, 0]),
+                "Cl1": ("Cl", [0.5, 0.5, 0.5]),
+            }
+        )
+        return crystal
+
+    def test_expand_nacl_gives_8_sites(self) -> None:
+        crystal = self._nacl_crystal()
+        sg = SpaceGroup("Fm-3m")
+
+        expanded = crystal.expand_sites(sg)
+
+        assert len(expanded) == 8
+        na_sites = [s for s in expanded if s.ion == "Na"]
+        cl_sites = [s for s in expanded if s.ion == "Cl"]
+        assert len(na_sites) == 4
+        assert len(cl_sites) == 4
+
+    def test_expand_nacl_positions_wrapped(self) -> None:
+        crystal = self._nacl_crystal()
+        sg = SpaceGroup("Fm-3m")
+
+        expanded = crystal.expand_sites(sg)
+
+        for site in expanded:
+            for coord in site.position:
+                assert 0.0 <= coord < 1.0
+
+    def test_expand_nacl_na_positions(self) -> None:
+        crystal = self._nacl_crystal()
+        sg = SpaceGroup("Fm-3m")
+
+        expanded = crystal.expand_sites(sg)
+        na_positions = [s.position for s in expanded if s.ion == "Na"]
+
+        expected = [
+            np.array([0.0, 0.0, 0.0]),
+            np.array([0.0, 0.5, 0.5]),
+            np.array([0.5, 0.0, 0.5]),
+            np.array([0.5, 0.5, 0.0]),
+        ]
+        # Order-independent comparison
+        for exp_pos in expected:
+            assert any(
+                np.allclose(exp_pos, pos, atol=1e-6) for pos in na_positions
+            ), f"Expected Na position {exp_pos} not found in {na_positions}"
+
+    def test_expand_p1_identity(self) -> None:
+        crystal = Crystal([4.0, 5.0, 6.0, 90, 90, 90], "P1")
+        crystal.add_sites({"A1": ("Fe", [0.1, 0.2, 0.3])})
+        sg = SpaceGroup("P1")
+
+        expanded = crystal.expand_sites(sg)
+
+        assert len(expanded) == 1
+        assert expanded[0].ion == "Fe"
+        assert np.allclose(expanded[0].position, [0.1, 0.2, 0.3], atol=1e-6)
+
+    def test_expand_deduplicates_overlapping_sites(self) -> None:
+        # NaCl Fm-3m has 48 operators * 4 centering vectors = 192 raw
+        # positions per site, but deduplication yields 4 unique per atom.
+        crystal = self._nacl_crystal()
+        sg = SpaceGroup("Fm-3m")
+
+        expanded = crystal.expand_sites(sg)
+
+        # Verify no duplicate positions for the same ion
+        na_positions = [s.position for s in expanded if s.ion == "Na"]
+        for i, pos_i in enumerate(na_positions):
+            for j, pos_j in enumerate(na_positions):
+                if i != j:
+                    assert not np.allclose(pos_i, pos_j, atol=1e-6), (
+                        f"Duplicate Na positions found at indices {i} and {j}"
+                    )
+
+    def test_expand_returns_list_of_sites(self) -> None:
+        crystal = self._nacl_crystal()
+        sg = SpaceGroup("Fm-3m")
+
+        expanded = crystal.expand_sites(sg)
+
+        assert isinstance(expanded, list)
+        for site in expanded:
+            assert isinstance(site, Site)
+            assert isinstance(site.ion, str)
+            assert isinstance(site.position, np.ndarray)  # type: ignore[unreachable]
+
+    def test_expand_inversion_center(self) -> None:
+        # P-1 (SG 2) has identity + inversion
+        crystal = Crystal([4.0, 5.0, 6.0, 90, 90, 90], "P-1")
+        crystal.add_sites({"A1": ("O", [0.1, 0.2, 0.3])})
+        sg = SpaceGroup(number=2)
+
+        expanded = crystal.expand_sites(sg)
+
+        assert len(expanded) == 2
+        positions = [s.position for s in expanded]
+        expected_pos1 = np.array([0.1, 0.2, 0.3])
+        expected_pos2 = np.array([0.9, 0.8, 0.7])  # -0.1 % 1, etc.
+        assert any(np.allclose(expected_pos1, p, atol=1e-6) for p in positions)
+        assert any(np.allclose(expected_pos2, p, atol=1e-6) for p in positions)
+
+    def test_expand_sites_centering_vectors_include_identity(self) -> None:
+        # Both P and F centering must include ["0","0","0"] as the trivial vector
+        sg_p = SpaceGroup("P1")
+        sg_f = SpaceGroup("Fm-3m")
+
+        trivial = ["0", "0", "0"]
+        assert trivial in sg_p.centering_vectors
+        assert trivial in sg_f.centering_vectors
+
+    def test_expand_sites_raises_valueerror_for_missing_trivial_centering(
+        self,
+    ) -> None:
+        crystal = Crystal([4.0, 5.0, 6.0, 90, 90, 90], "P1")
+        crystal.add_sites({"A1": ("Fe", [0.1, 0.2, 0.3])})
+        sg = SpaceGroup("P1")
+        # SpaceGroup is a frozen dataclass; bypass freeze to simulate corrupt data.
+        object.__setattr__(sg, "centering_vectors", [])
+
+        with pytest.raises(ValueError, match="centering_vectors"):
+            crystal.expand_sites(sg)

@@ -8,3 +8,11 @@ class DiffractionError(Exception):
     diffraction package without also catching unrelated ValueError
     or TypeError from other code.
     """
+
+
+class SpaceGroupError(DiffractionError, ValueError):
+    """Raised for invalid space group lookups.
+
+    Inherits from both :class:`DiffractionError` and :class:`ValueError`
+    so callers may catch either.
+    """

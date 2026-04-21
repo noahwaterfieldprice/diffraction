@@ -37,6 +37,7 @@ Examples:
 from __future__ import annotations
 
 import abc
+import functools
 import math
 from collections.abc import Sequence
 from numbers import Real
@@ -122,6 +123,39 @@ def _metric_tensor(lattice_parameters: LatticeParameters) -> NDArray[np.float64]
         _ROUNDING_PRECISION,
     )
     return tensor
+
+
+def _orthogonalization_matrix(
+    lattice_parameters: LatticeParameters,
+) -> NDArray[np.float64]:
+    """Compute the orthogonalization matrix M (ITC Vol B section 1.1.5.2).
+
+    Convention: a parallel to x, b in the xy-plane.
+    x_cartesian = M @ x_fractional.
+
+    Args:
+        lattice_parameters: Six lattice parameters (a, b, c, alpha, beta,
+            gamma) with angles in degrees.
+
+    Returns:
+        3x3 orthogonalization matrix.
+    """
+    a, b, c, al, be, ga = _to_radians(lattice_parameters)
+    cos_al, cos_be, cos_ga = math.cos(al), math.cos(be), math.cos(ga)
+    sin_ga = math.sin(ga)
+    # V/(abc) = sqrt(1 - cos^2(al) - cos^2(be) - cos^2(ga) + 2*cos(al)*cos(be)*cos(ga))
+    vol_factor = math.sqrt(
+        1 - cos_al**2 - cos_be**2 - cos_ga**2 + 2 * cos_al * cos_be * cos_ga
+    )
+    # Upper-triangular orthogonalization matrix (ITC Vol B eq. 1.1.5.2)
+    matrix: NDArray[np.float64] = np.array(
+        [
+            [a, b * cos_ga, c * cos_be],
+            [0.0, b * sin_ga, c * (cos_al - cos_be * cos_ga) / sin_ga],
+            [0.0, 0.0, c * vol_factor / sin_ga],
+        ]
+    )
+    return matrix
 
 
 def _reciprocalise(lattice_parameters: LatticeParameters) -> tuple[float, ...]:
@@ -372,6 +406,79 @@ class DirectLattice(Lattice):
         reciprocal_lattice_parameters = _reciprocalise(self.lattice_parameters)
         return ReciprocalLattice(reciprocal_lattice_parameters)
 
+    @functools.cached_property
+    def _ortho_matrix(self) -> NDArray[np.float64]:
+        """Cached orthogonalization matrix (ITC Vol B section 1.1.5.2).
+
+        Computed once on first access. Safe to cache because lattice
+        parameters are set at construction and are plain floats with no
+        setters that would invalidate the cache.
+
+        Returns:
+            3x3 orthogonalization matrix.
+        """
+        return _orthogonalization_matrix(self.lattice_parameters)
+
+    @functools.cached_property
+    def _inv_ortho_matrix(self) -> NDArray[np.float64]:
+        """Cached inverse orthogonalization matrix.
+
+        Computed once on first access. Used by cartesian_to_fractional
+        to avoid recomputing np.linalg.inv() on every call.
+
+        Returns:
+            3x3 inverse orthogonalization matrix.
+        """
+        return np.asarray(np.linalg.inv(self._ortho_matrix), dtype=np.float64)
+
+    def fractional_to_cartesian(
+        self,
+        r: Sequence[float] | NDArray[np.float64],
+    ) -> NDArray[np.float64]:
+        """Convert fractional coordinates to Cartesian.
+
+        Uses the ITC Vol B section 1.1.5.2 orthogonalization matrix with
+        a parallel to x and b in the xy-plane.
+
+        Args:
+            r: Fractional coordinates (x, y, z).
+
+        Returns:
+            Cartesian coordinates as a 1-D numpy array.
+
+        Raises:
+            ValueError: If r does not have shape (3,).
+        """
+        coords = np.asarray(r, dtype=np.float64)
+        if coords.shape != (3,):
+            raise ValueError(
+                f"Coordinates must be a 1-D array of length 3, got shape {coords.shape}"
+            )
+        return self._ortho_matrix @ coords
+
+    def cartesian_to_fractional(
+        self,
+        r: Sequence[float] | NDArray[np.float64],
+    ) -> NDArray[np.float64]:
+        """Convert Cartesian coordinates to fractional.
+
+        Args:
+            r: Cartesian coordinates (x, y, z).
+
+        Returns:
+            Fractional coordinates as a 1-D numpy array.
+
+        Raises:
+            ValueError: If r does not have shape (3,).
+        """
+        coords = np.asarray(r, dtype=np.float64)
+        if coords.shape != (3,):
+            raise ValueError(
+                f"Coordinates must be a 1-D array of length 3, got shape {coords.shape}"
+            )
+        result = self._inv_ortho_matrix @ coords
+        return np.asarray(result, dtype=np.float64)
+
 
 class ReciprocalLattice(Lattice):
     """Reciprocal lattice defined by six reciprocal lattice parameters.
@@ -482,9 +589,7 @@ class LatticeVector:
     def components(self, value: Sequence[float]) -> None:
         arr = np.asarray(value, dtype=np.float64)
         if arr.shape != (3,):
-            raise ValueError(
-                f"components must be 3-dimensional, got shape {arr.shape}"
-            )
+            raise ValueError(f"components must be 3-dimensional, got shape {arr.shape}")
         self._components = arr
 
     @property

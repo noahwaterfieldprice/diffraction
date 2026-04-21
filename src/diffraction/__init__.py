@@ -3,14 +3,14 @@
 from .cif.cif import CIFParseError, load_cif, validate_cif
 from .cif.helpers import load_data_block
 from .crystal import Crystal, Site
-from .exceptions import DiffractionError
+from .exceptions import DiffractionError, SpaceGroupError
 from .lattice import (
     DirectLattice,
     DirectLatticeVector,
     ReciprocalLattice,
     ReciprocalLatticeVector,
 )
-from .symmetry import PointGroup
+from .symmetry import PointGroup, SpaceGroup
 
 __all__ = [
     "CIFParseError",
@@ -22,6 +22,8 @@ __all__ = [
     "ReciprocalLattice",
     "ReciprocalLatticeVector",
     "Site",
+    "SpaceGroup",
+    "SpaceGroupError",
     "load_cif",
     "load_data_block",
     "validate_cif",

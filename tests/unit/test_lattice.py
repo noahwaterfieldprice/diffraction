@@ -730,3 +730,146 @@ class TestDirectAndReciprocalLatticeVectorCalculations:
 
         result = u.inner(h)
         assert result == pytest.approx(2 * pi)
+
+
+# ---------------------------------------------------------------------------
+# Fractional <-> Cartesian coordinate conversion
+# ---------------------------------------------------------------------------
+
+
+class TestFractionalCartesianConversion:
+    """Tests for DirectLattice.fractional_to_cartesian and cartesian_to_fractional.
+
+    Convention: a parallel to x, b in the xy-plane (ITC Vol B 1.1.5.2).
+    """
+
+    # --- Cubic lattice (a=b=c=5.0, all angles 90) ---
+
+    def test_cubic_frac_to_cart_unit_vector_x(self) -> None:
+        lattice = DirectLattice([5.0, 5.0, 5.0, 90.0, 90.0, 90.0])
+        result = lattice.fractional_to_cartesian([1, 0, 0])
+        np.testing.assert_allclose(result, [5.0, 0.0, 0.0], atol=1e-12)
+
+    def test_cubic_frac_to_cart_unit_vector_y(self) -> None:
+        lattice = DirectLattice([5.0, 5.0, 5.0, 90.0, 90.0, 90.0])
+        result = lattice.fractional_to_cartesian([0, 1, 0])
+        np.testing.assert_allclose(result, [0.0, 5.0, 0.0], atol=1e-12)
+
+    def test_cubic_frac_to_cart_unit_vector_z(self) -> None:
+        lattice = DirectLattice([5.0, 5.0, 5.0, 90.0, 90.0, 90.0])
+        result = lattice.fractional_to_cartesian([0, 0, 1])
+        np.testing.assert_allclose(result, [0.0, 0.0, 5.0], atol=1e-12)
+
+    def test_cubic_round_trip(self) -> None:
+        lattice = DirectLattice([5.0, 5.0, 5.0, 90.0, 90.0, 90.0])
+        frac = np.array([0.25, 0.5, 0.75])
+        cart = lattice.fractional_to_cartesian(frac)
+        recovered = lattice.cartesian_to_fractional(cart)
+        np.testing.assert_allclose(recovered, frac, atol=1e-12)
+
+    # --- Hexagonal lattice (a=b=4.0, c=6.0, alpha=beta=90, gamma=120) ---
+
+    def test_hexagonal_frac_to_cart_a_axis(self) -> None:
+        lattice = DirectLattice([4.0, 4.0, 6.0, 90.0, 90.0, 120.0])
+        result = lattice.fractional_to_cartesian([1, 0, 0])
+        np.testing.assert_allclose(result, [4.0, 0.0, 0.0], atol=1e-10)
+
+    def test_hexagonal_frac_to_cart_b_axis(self) -> None:
+        # b along direction at gamma=120 from x: cart = [b*cos(120), b*sin(120), 0]
+        # = [-2.0, 2*sqrt(3), 0]
+        lattice = DirectLattice([4.0, 4.0, 6.0, 90.0, 90.0, 120.0])
+        result = lattice.fractional_to_cartesian([0, 1, 0])
+        expected = np.array([-2.0, 2.0 * np.sqrt(3.0), 0.0])
+        np.testing.assert_allclose(result, expected, atol=1e-10)
+
+    def test_hexagonal_round_trip(self) -> None:
+        lattice = DirectLattice([4.0, 4.0, 6.0, 90.0, 90.0, 120.0])
+        frac = np.array([0.1, 0.3, 0.6])
+        cart = lattice.fractional_to_cartesian(frac)
+        recovered = lattice.cartesian_to_fractional(cart)
+        np.testing.assert_allclose(recovered, frac, atol=1e-12)
+
+    # --- Monoclinic lattice (a=5.0, b=6.0, c=7.0, alpha=90, beta=110, gamma=90) ---
+
+    def test_monoclinic_frac_to_cart_c_axis(self) -> None:
+        # c-axis has nonzero x-component: c*cos(beta)
+        import math
+
+        lattice = DirectLattice([5.0, 6.0, 7.0, 90.0, 110.0, 90.0])
+        result = lattice.fractional_to_cartesian([0, 0, 1])
+        expected_x = 7.0 * math.cos(math.radians(110.0))
+        assert result[0] == pytest.approx(expected_x, abs=1e-10)
+
+    def test_monoclinic_round_trip(self) -> None:
+        lattice = DirectLattice([5.0, 6.0, 7.0, 90.0, 110.0, 90.0])
+        frac = np.array([0.2, 0.4, 0.6])
+        cart = lattice.fractional_to_cartesian(frac)
+        recovered = lattice.cartesian_to_fractional(cart)
+        np.testing.assert_allclose(recovered, frac, atol=1e-12)
+
+    # --- General triclinic: calcite-like params ---
+
+    def test_triclinic_round_trip(self) -> None:
+        lattice = DirectLattice([4.99, 4.99, 17.002, 90.0, 90.0, 120.0])
+        frac = np.array([0.25, 0.33, 0.17])
+        cart = lattice.fractional_to_cartesian(frac)
+        recovered = lattice.cartesian_to_fractional(cart)
+        np.testing.assert_allclose(recovered, frac, atol=1e-12)
+
+    # --- Edge cases ---
+
+    def test_origin_maps_to_origin(self) -> None:
+        lattice = DirectLattice([4.99, 4.99, 17.002, 90.0, 90.0, 120.0])
+        result = lattice.fractional_to_cartesian([0, 0, 0])
+        np.testing.assert_allclose(result, [0.0, 0.0, 0.0], atol=1e-15)
+
+    def test_accepts_list_input(self) -> None:
+        lattice = DirectLattice([5.0, 5.0, 5.0, 90.0, 90.0, 90.0])
+        result = lattice.fractional_to_cartesian([1, 0, 0])
+        np.testing.assert_allclose(result, [5.0, 0.0, 0.0], atol=1e-12)
+
+    def test_accepts_tuple_input(self) -> None:
+        lattice = DirectLattice([5.0, 5.0, 5.0, 90.0, 90.0, 90.0])
+        result = lattice.fractional_to_cartesian((1, 0, 0))
+        np.testing.assert_allclose(result, [5.0, 0.0, 0.0], atol=1e-12)
+
+
+# ---------------------------------------------------------------------------
+# Coordinate shape validation
+# ---------------------------------------------------------------------------
+
+
+class TestCoordinateShapeValidation:
+    """Tests that fractional_to_cartesian and cartesian_to_fractional reject
+    inputs that are not 1-D arrays of exactly length 3."""
+
+    def setup_method(self) -> None:
+        self.lattice = DirectLattice([5.0, 5.0, 5.0, 90.0, 90.0, 90.0])
+
+    def test_frac_to_cart_rejects_2d_input(self) -> None:
+        with pytest.raises(ValueError, match="shape"):
+            self.lattice.fractional_to_cartesian([1, 2])
+
+    def test_frac_to_cart_rejects_4d_input(self) -> None:
+        with pytest.raises(ValueError, match="shape"):
+            self.lattice.fractional_to_cartesian([1, 2, 3, 4])
+
+    def test_frac_to_cart_rejects_2d_array_wrong_trailing_dim(self) -> None:
+        with pytest.raises(ValueError, match="shape"):
+            self.lattice.fractional_to_cartesian(np.array([[1, 2], [3, 4]]))
+
+    def test_frac_to_cart_rejects_2d_array_correct_trailing_dim(self) -> None:
+        with pytest.raises(ValueError, match="shape"):
+            self.lattice.fractional_to_cartesian(np.array([[1, 2, 3]]))
+
+    def test_cart_to_frac_rejects_2d_input(self) -> None:
+        with pytest.raises(ValueError, match="shape"):
+            self.lattice.cartesian_to_fractional([1, 2])
+
+    def test_cart_to_frac_rejects_4d_input(self) -> None:
+        with pytest.raises(ValueError, match="shape"):
+            self.lattice.cartesian_to_fractional([1, 2, 3, 4])
+
+    def test_cart_to_frac_rejects_2d_array(self) -> None:
+        with pytest.raises(ValueError, match="shape"):
+            self.lattice.cartesian_to_fractional(np.array([[1, 2, 3]]))

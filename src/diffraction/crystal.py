@@ -10,13 +10,17 @@ from __future__ import annotations
 
 from collections.abc import Sequence
 from dataclasses import dataclass
-from typing import Any, TypeAlias, cast
+from fractions import Fraction
+from typing import TYPE_CHECKING, Any, TypeAlias, cast
 
 import numpy as np
 from numpy.typing import NDArray
 
 from . import lattice as lattice_module
 from .cif import helpers as cif_helpers
+
+if TYPE_CHECKING:
+    from .symmetry import SpaceGroup
 
 LatticeParameters: TypeAlias = Sequence[float]
 Position: TypeAlias = Sequence[float]
@@ -280,3 +284,53 @@ class Crystal:
         """
         for name, (element, position) in atoms.items():
             self.sites[name] = Site(element, position)
+
+    def expand_sites(self, space_group: SpaceGroup) -> list[Site]:
+        """Generate all symmetry-equivalent atomic positions.
+
+        Apply all space group operators and centering vectors to each site
+        in the asymmetric unit. Positions are wrapped to [0, 1) and
+        deduplicated.
+
+        Args:
+            space_group: The space group whose operators define the
+                symmetry expansion.
+
+        Returns:
+            List of Site objects representing the full set of
+            symmetry-equivalent positions.
+        """
+        # Validate centering vectors include the trivial (0,0,0) identity vector
+        trivial = ["0", "0", "0"]
+        if trivial not in space_group.centering_vectors:
+            raise ValueError(
+                f"Space group {space_group.symbol!r} centering_vectors is missing "
+                f"the trivial [0,0,0] vector — unexpected JSON structure."
+            )
+        # Precompute numeric operator matrices and translation vectors once.
+        # This moves Fraction string parsing out of the innermost loops.
+        numeric_ops = [
+            (
+                np.array(op["W"], dtype=np.float64),
+                np.array([float(Fraction(s)) for s in op["t"]], dtype=np.float64),
+            )
+            for op in space_group.operators
+        ]
+        # Precompute numeric centering vectors
+        numeric_cvs = [
+            np.array([float(Fraction(s)) for s in cv], dtype=np.float64)
+            for cv in space_group.centering_vectors
+        ]
+        expanded: list[Site] = []
+        seen: set[tuple[str, tuple[float, ...]]] = set()
+        for site in self.sites.values():
+            pos = np.array(site.position, dtype=np.float64)
+            for w_mat, t_vec in numeric_ops:
+                new_pos = w_mat @ pos + t_vec
+                for cen in numeric_cvs:
+                    full_pos = (new_pos + cen) % 1.0
+                    key = (site.ion, tuple(np.round(full_pos, decimals=6)))
+                    if key not in seen:
+                        seen.add(key)
+                        expanded.append(Site(site.ion, full_pos.tolist()))
+        return expanded
