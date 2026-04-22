@@ -16,3 +16,11 @@ class SpaceGroupError(DiffractionError, ValueError):
     Inherits from both :class:`DiffractionError` and :class:`ValueError`
     so callers may catch either.
     """
+
+
+class ScatteringDataError(DiffractionError, ValueError):
+    """Raised for invalid element lookups or missing scattering data.
+
+    Inherits from both :class:`DiffractionError` and :class:`ValueError`
+    so callers may catch either.
+    """
