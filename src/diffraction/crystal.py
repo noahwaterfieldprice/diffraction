@@ -20,6 +20,7 @@ from . import lattice as lattice_module
 from .cif import helpers as cif_helpers
 
 if TYPE_CHECKING:
+    from .reflections import ReflectionList
     from .symmetry import SpaceGroup
 
 LatticeParameters: TypeAlias = Sequence[float]
@@ -334,3 +335,24 @@ class Crystal:
                         seen.add(key)
                         expanded.append(Site(site.ion, full_pos.tolist()))
         return expanded
+
+    def generate_reflections(
+        self, space_group: SpaceGroup, *, d_min: float
+    ) -> ReflectionList:
+        """Generate symmetry-allowed reflections at d ≥ d_min.
+
+        Thin wrapper over
+        :func:`diffraction.reflections.generate_reflections`. See that
+        function for semantics.
+
+        Args:
+            space_group: Space group whose operators define systematic
+                absences.
+            d_min: Minimum d-spacing in Å. Keyword-only. Must be positive.
+
+        Returns:
+            ReflectionList of allowed hkl sorted by ascending |Q|.
+        """
+        from .reflections import generate_reflections
+
+        return generate_reflections(self, space_group, d_min=d_min)

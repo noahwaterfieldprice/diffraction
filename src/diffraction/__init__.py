@@ -10,6 +10,7 @@ from .lattice import (
     ReciprocalLattice,
     ReciprocalLatticeVector,
 )
+from .reflections import ReflectionList, generate_reflections
 from .scattering import (
     Element,
     get_element,
@@ -29,10 +30,12 @@ __all__ = [
     "PointGroup",
     "ReciprocalLattice",
     "ReciprocalLatticeVector",
+    "ReflectionList",
     "ScatteringDataError",
     "Site",
     "SpaceGroup",
     "SpaceGroupError",
+    "generate_reflections",
     "get_element",
     "get_neutral_symbol",
     "load_cif",

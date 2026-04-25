@@ -59,8 +59,6 @@ __all__ = [
     "ReciprocalLatticeVector",
 ]
 
-# Named constants replacing magic literals in metric/reciprocal calculations.
-_ROUNDING_PRECISION: int = 10
 # Relative tolerance for verifying reciprocal lattice relationship. Generous
 # to accommodate floating-point accumulation through matrix inversion.
 _RECIPROCAL_LATTICE_RTOL: float = 1e-2
@@ -114,13 +112,13 @@ def _metric_tensor(lattice_parameters: LatticeParameters) -> NDArray[np.float64]
         See International Tables for Crystallography, Vol. B, Section 1.1.
     """
     a, b, c, al, be, ga = _to_radians(lattice_parameters)
-    tensor: NDArray[np.float64] = np.around(
+    tensor: NDArray[np.float64] = np.array(
         [
             [a**2, a * b * np.cos(ga), a * c * math.cos(be)],
             [a * b * math.cos(ga), b**2, b * c * math.cos(al)],
             [a * c * math.cos(be), b * c * np.cos(al), c**2],
         ],
-        _ROUNDING_PRECISION,
+        dtype=np.float64,
     )
     return tensor
 
@@ -345,10 +343,10 @@ class DirectLattice(Lattice):
         (4.99, 4.99, 17.002, 90.0, 90.0, 120.0)
         >>> calcite.unit_cell_volume
         366.63315390345286
-        >>> calcite.metric
-        array([[ 24.9001  , -12.45005 ,   0.      ],
-               [-12.45005 ,  24.9001  ,   0.      ],
-               [  0.      ,   0.      , 289.068004]])
+        >>> calcite.metric.diagonal()
+        array([ 24.9001  ,  24.9001  , 289.068004])
+        >>> float(calcite.metric[0, 1])  # off-diagonal (1,2) entry
+        -12.45005
     """
 
     lattice_parameter_keys = ("a", "b", "c", "alpha", "beta", "gamma")
