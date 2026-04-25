@@ -25,6 +25,7 @@ from diffraction import Crystal, DirectLattice
 
 CALCITE_LATTICE_PARAMS = (4.99, 4.99, 17.002, 90.0, 90.0, 120.0)
 NACL_LATTICE_PARAMS = (5.6402, 5.6402, 5.6402, 90.0, 90.0, 90.0)
+SILICON_LATTICE_PARAMS = (5.43070, 5.43070, 5.43070, 90.0, 90.0, 90.0)
 CORUNDUM_LATTICE_PARAMS = (4.758, 4.758, 12.991, 90.0, 90.0, 120.0)
 FORSTERITE_LATTICE_PARAMS = (4.758, 10.225, 5.994, 90.0, 90.0, 90.0)
 
@@ -54,6 +55,10 @@ CALCITE_DIRECT_METRIC = np.array(
 VALID_CIFS_DIR = Path(__file__).parent / "functional" / "static" / "valid_cifs"
 CALCITE_CIF_PATH = VALID_CIFS_DIR / "calcite_icsd.cif"
 
+EXAMPLES_DIR = Path(__file__).parent.parent / "examples"
+SILICON_CIF_PATH = EXAMPLES_DIR / "silicon.cif"
+CORUNDUM_CIF_PATH = EXAMPLES_DIR / "corundum.cif"
+
 # ---------------------------------------------------------------------------
 # Fixtures
 # ---------------------------------------------------------------------------
@@ -81,3 +86,21 @@ def nacl_lattice() -> DirectLattice:
 def calcite_crystal() -> Crystal:
     """Return a real Crystal for calcite with space group R -3 c H."""
     return Crystal(list(CALCITE_LATTICE_PARAMS), "R -3 c H")
+
+
+@pytest.fixture
+def silicon_lattice() -> DirectLattice:
+    """Return a real DirectLattice for silicon (cubic, Fd-3m, a=5.43070 Å, COD 9008565)."""
+    return DirectLattice(SILICON_LATTICE_PARAMS)
+
+
+@pytest.fixture
+def silicon_crystal() -> Crystal:
+    """Return the full Si Crystal loaded from examples/silicon.cif (COD 9008565)."""
+    return Crystal.from_cif(str(SILICON_CIF_PATH))
+
+
+@pytest.fixture
+def corundum_crystal() -> Crystal:
+    """Return the full corundum Crystal loaded from examples/corundum.cif (COD 9000779)."""
+    return Crystal.from_cif(str(CORUNDUM_CIF_PATH))
